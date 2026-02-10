@@ -5,6 +5,7 @@ import fr.kainovaii.core.security.csrf.CsrfProtection;
 import fr.kainovaii.core.security.role.HasRole;
 import fr.kainovaii.core.security.role.RoleChecker;
 import fr.kainovaii.core.web.di.Container;
+import fr.kainovaii.core.web.error.ErrorHandler;
 import fr.kainovaii.core.web.middleware.After;
 import fr.kainovaii.core.web.middleware.Before;
 import fr.kainovaii.core.web.middleware.MiddlewareManager;
@@ -151,27 +152,10 @@ public class ControllerLoader
 
             } catch (InvocationTargetException e) {
                 Throwable cause = e.getCause();
-                logger.error("Error in route {}.{}: {}", controller.getClass().getSimpleName(), method.getName(), cause.getMessage(), cause);
-
-                if (req.session(false) != null) {
-                    req.session().attribute("flash_error", "An error occurred. Please try again.");
-                }
-
-                if (res.type() == null || res.type().contains("html")) {
-                    res.redirect("/error");
-                    return null;
-                } else {
-                    res.status(500);
-                    res.type("application/json");
-                    return "{\"error\":\"Internal server error\"}";
-                }
+                return ErrorHandler.handle(cause, req, res);
 
             } catch (Exception e) {
-                logger.error("Framework error in route {}.{}: {}", controller.getClass().getSimpleName(), method.getName(), e.getMessage(), e);
-
-                res.status(500);
-                res.type("application/json");
-                return "{\"error\":\"Internal server error\"}";
+                return ErrorHandler.handle(e, req, res);
             }
         };
     }
