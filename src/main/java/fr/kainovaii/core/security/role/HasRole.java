@@ -1,4 +1,4 @@
-package fr.kainovaii.core.security;
+package fr.kainovaii.core.security.role;
 
 import java.lang.annotation.*;
 

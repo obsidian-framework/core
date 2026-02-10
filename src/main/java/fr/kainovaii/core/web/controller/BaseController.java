@@ -1,7 +1,9 @@
 package fr.kainovaii.core.web.controller;
 
-import fr.kainovaii.core.security.UserDetails;
-import fr.kainovaii.core.security.UserDetailsService;
+import fr.kainovaii.core.security.csrf.CsrfProtection;
+import fr.kainovaii.core.security.user.UserDetails;
+import fr.kainovaii.core.security.user.UserDetailsService;
+import fr.kainovaii.core.security.user.UserDetailsServiceImpl;
 import fr.kainovaii.core.web.ApiResponse;
 import fr.kainovaii.core.web.di.Container;
 import fr.kainovaii.core.web.template.TemplateManager;
@@ -30,7 +32,7 @@ public class BaseController extends ApiResponse
         try {
             org.reflections.Reflections reflections = new org.reflections.Reflections("fr.kainovaii.spark.app");
 
-            java.util.Set<Class<?>> annotatedClasses = reflections.getTypesAnnotatedWith(fr.kainovaii.core.security.UserDetailsServiceImpl.class);
+            java.util.Set<Class<?>> annotatedClasses = reflections.getTypesAnnotatedWith(UserDetailsServiceImpl.class);
 
             if (annotatedClasses.isEmpty()) {
                 throw new RuntimeException("No class annotated with @UserDetailsServiceImpl found in fr.kainovaii.spark.app");
@@ -144,6 +146,18 @@ public class BaseController extends ApiResponse
         res.redirect(location);
         halt();
         return null;
+    }
+
+    protected String csrfToken(Request req) {
+        return CsrfProtection.getToken(req);
+    }
+
+    protected boolean validateCsrf(Request req) {
+        return CsrfProtection.validate(req);
+    }
+
+    protected void regenerateCsrfToken(Request req) {
+        CsrfProtection.regenerateToken(req);
     }
 
     protected String render(String template, Map<String, Object> model)

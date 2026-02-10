@@ -1,4 +1,4 @@
-package fr.kainovaii.core.security;
+package fr.kainovaii.core.security.role;
 
 import fr.kainovaii.core.Spark;
 import fr.kainovaii.core.web.controller.BaseController;

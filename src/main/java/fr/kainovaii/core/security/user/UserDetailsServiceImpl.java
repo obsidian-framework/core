@@ -1,4 +1,4 @@
-package fr.kainovaii.core.security;
+package fr.kainovaii.core.security.user;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

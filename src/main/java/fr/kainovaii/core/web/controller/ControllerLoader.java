@@ -1,7 +1,9 @@
 package fr.kainovaii.core.web.controller;
 
-import fr.kainovaii.core.security.HasRole;
-import fr.kainovaii.core.security.RoleChecker;
+import fr.kainovaii.core.security.csrf.CsrfProtect;
+import fr.kainovaii.core.security.csrf.CsrfProtection;
+import fr.kainovaii.core.security.role.HasRole;
+import fr.kainovaii.core.security.role.RoleChecker;
 import fr.kainovaii.core.web.di.Container;
 import fr.kainovaii.core.web.route.Route;
 import fr.kainovaii.core.web.route.methods.DELETE;
@@ -100,13 +102,33 @@ public class ControllerLoader
         return (req, res) -> {
             try {
                 RoleChecker.checkAccess(req, res);
+
+                if (method.isAnnotationPresent(CsrfProtect.class)) {
+                    if (!CsrfProtection.validate(req)) {
+                        logger.warn("CSRF validation failed for {}.{}", controller.getClass().getSimpleName(), method.getName());
+
+                        if (req.session(false) != null) {
+                            req.session().attribute("flash_error", "Token de sécurité invalide. Veuillez réessayer.");
+                        }
+
+                        res.status(403);
+
+                        String acceptHeader = req.headers("Accept");
+                        if (acceptHeader != null && acceptHeader.contains("application/json")) {
+                            res.type("application/json");
+                            return "{\"error\":\"CSRF token validation failed\"}";
+                        } else {
+                            res.redirect("/error");
+                            return null;
+                        }
+                    }
+                }
+
                 method.setAccessible(true);
 
-                // Prepare method parameters
                 Parameter[] parameters = method.getParameters();
                 Object[] args = new Object[parameters.length];
 
-                // Dependency injection
                 for (int i = 0; i < parameters.length; i++) {
                     Class<?> paramType = parameters[i].getType();
 
@@ -119,24 +141,16 @@ public class ControllerLoader
                     }
                 }
 
-                // Invoke controller method
                 return method.invoke(controller, args);
 
             } catch (InvocationTargetException e) {
-                // Unwrap the real exception thrown by the controller method
                 Throwable cause = e.getCause();
-                logger.error("Error in route {}.{}: {}",
-                        controller.getClass().getSimpleName(),
-                        method.getName(),
-                        cause.getMessage(),
-                        cause);
+                logger.error("Error in route {}.{}: {}", controller.getClass().getSimpleName(), method.getName(), cause.getMessage(), cause);
 
-                // Handle user-facing error with flash message
-                if (req.session() != null) {
+                if (req.session(false) != null) {
                     req.session().attribute("flash_error", "An error occurred. Please try again.");
                 }
 
-                // Redirect to error page or return error response
                 if (res.type() == null || res.type().contains("html")) {
                     res.redirect("/error");
                     return null;
@@ -147,12 +161,7 @@ public class ControllerLoader
                 }
 
             } catch (Exception e) {
-                // Handle framework-level errors (reflection, DI, etc.)
-                logger.error("Framework error in route {}.{}: {}",
-                        controller.getClass().getSimpleName(),
-                        method.getName(),
-                        e.getMessage(),
-                        e);
+                logger.error("Framework error in route {}.{}: {}", controller.getClass().getSimpleName(), method.getName(), e.getMessage(), e);
 
                 res.status(500);
                 res.type("application/json");

@@ -1,7 +1,4 @@
-package fr.kainovaii.core.security;
-
-import java.lang.annotation.*;
-import java.util.Collection;
+package fr.kainovaii.core.security.user;
 
 public interface UserDetailsService
 {

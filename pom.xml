@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.kainovaii</groupId>
   <artifactId>spark-core</artifactId>
-  <version>1.0.5</version>
+  <version>1.0.6</version>
   <packaging>jar</packaging>
   <name>Spark-Core</name>
   <description>Starting spark web project</description>

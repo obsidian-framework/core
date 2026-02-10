@@ -1,6 +1,6 @@
 package fr.kainovaii.core.web;
 
-import fr.kainovaii.core.security.RoleChecker;
+import fr.kainovaii.core.security.role.RoleChecker;
 import fr.kainovaii.core.web.controller.ControllerLoader;
 import fr.kainovaii.core.Spark;
 import org.slf4j.Logger;
