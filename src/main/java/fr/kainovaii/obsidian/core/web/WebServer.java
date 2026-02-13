@@ -3,12 +3,15 @@ package fr.kainovaii.obsidian.core.web;
 import fr.kainovaii.obsidian.core.security.role.RoleChecker;
 import fr.kainovaii.obsidian.core.web.controller.ControllerLoader;
 import fr.kainovaii.obsidian.core.Obsidian;
+import fr.kainovaii.obsidian.core.web.controller.GlobalAdvice;
 import fr.kainovaii.obsidian.core.web.websocket.WebSocketLoader;
+import org.reflections.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
 import java.util.Map;
+import java.util.Set;
 
 import static fr.kainovaii.obsidian.core.web.controller.BaseController.*;
 import static fr.kainovaii.obsidian.core.web.template.TemplateManager.setGlobal;
@@ -46,13 +49,7 @@ public class WebServer
             Map<String, String> flashes = collectFlashes(req);
             setGlobal("flashes", flashes);
 
-            try {
-                Class<?> globalAdvice = Class.forName("fr.kainovaii.obsidian.app.controllers.GlobalAdviceController");
-                Method applyGlobals = globalAdvice.getMethod("applyGlobals", spark.Request.class, spark.Response.class);
-                applyGlobals.invoke(null, req, res);
-            } catch (ClassNotFoundException e) {} catch (Exception e) {
-                logger.warn("Error calling GlobalAdviceController.applyGlobals", e);
-            }
+            ControllerLoader.loadAdvicesControllers(req, res);
             RoleChecker.checkAccess(req, res);
         });
 

@@ -1,5 +1,6 @@
 package fr.kainovaii.obsidian.core.web.di;
 
+import fr.kainovaii.obsidian.core.Obsidian;
 import fr.kainovaii.obsidian.core.web.di.annotations.Repository;
 import fr.kainovaii.obsidian.core.web.di.annotations.Service;
 import org.reflections.Reflections;
@@ -10,9 +11,9 @@ import java.util.Set;
 
 public class ComponentScanner
 {
-    public static void scanPackage(String basePackage)
+    public static void scanPackage()
     {
-        Reflections reflections = new Reflections(basePackage, Scanners.TypesAnnotated);
+        Reflections reflections = new Reflections(Obsidian.getBasePackage(), Scanners.TypesAnnotated);
         scanAndRegister(reflections, Repository.class);
         scanAndRegister(reflections, Service.class);
     }

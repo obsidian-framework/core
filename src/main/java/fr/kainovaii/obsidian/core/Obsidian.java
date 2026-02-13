@@ -3,14 +3,35 @@ package fr.kainovaii.obsidian.core;
 import fr.kainovaii.obsidian.core.database.DB;
 import fr.kainovaii.obsidian.core.database.MigrationManager;
 import fr.kainovaii.obsidian.core.web.di.ComponentScanner;
-import fr.kainovaii.obsidian.core.web.di.Container;
 import fr.kainovaii.obsidian.core.web.WebServer;
 
 import java.util.logging.Logger;
 
 public class Obsidian
 {
-    public final static Logger logger =  Logger.getLogger("Spark");;
+    public final static Logger logger = Logger.getLogger("Spark");
+    private static String basePackage;
+
+    public Obsidian()
+    {
+        basePackage = "fr.kainovaii.obsidian.app";
+    }
+
+    public Obsidian(Class<?> mainClass)
+    {
+        basePackage = mainClass.getPackage().getName();
+    }
+
+    public Obsidian setBasePackage(String basePackage)
+    {
+        Obsidian.basePackage = basePackage;
+        return this;
+    }
+
+    public static String getBasePackage()
+    {
+        return Obsidian.basePackage;
+    }
 
     public void connectDatabase()
     {
@@ -61,13 +82,13 @@ public class Obsidian
     public void loadMigrations()
     {
         MigrationManager migrations = new MigrationManager(DB.getInstance(), logger);
-        migrations.discover("fr.kainovaii.obsidian.app.migrations");
+        migrations.discover();
         migrations.migrate();
     }
 
     public void loadContainer()
     {
-        ComponentScanner.scanPackage("fr.kainovaii.obsidian.app");
+        ComponentScanner.scanPackage();
     }
 
     public static EnvLoader loadConfigAndEnv()
@@ -112,5 +133,12 @@ public class Obsidian
         loadMigrations();
         loadContainer();
         startWebServer();
+    }
+
+    public static Obsidian run(Class<?> mainClass)
+    {
+        Obsidian app = new Obsidian(mainClass);
+        app.init();
+        return app;
     }
 }

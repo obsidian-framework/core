@@ -1,5 +1,6 @@
 package fr.kainovaii.obsidian.core.web.websocket;
 
+import fr.kainovaii.obsidian.core.Obsidian;
 import fr.kainovaii.obsidian.core.web.route.methods.WebSocket;
 import org.reflections.Reflections;
 import org.slf4j.Logger;
@@ -15,9 +16,9 @@ public class WebSocketLoader
 
     public static void registerWebSockets()
     {
-        logger.info("Scanning for WebSocket handlers in package: fr.kainovaii.obsidian.app.websockets");
+        logger.info("Scanning for WebSocket handlers in package:" + Obsidian.getBasePackage());
 
-        Reflections reflections = new Reflections("fr.kainovaii.obsidian.app.websockets");
+        Reflections reflections = new Reflections(Obsidian.getBasePackage());
         Set<Class<?>> webSocketClasses = reflections.getTypesAnnotatedWith(WebSocket.class);
 
         logger.info("Found {} WebSocket handler(s)", webSocketClasses.size());

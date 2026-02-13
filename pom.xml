@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.kainovaii</groupId>
   <artifactId>obsidian-core</artifactId>
-  <version>1.0.2</version>
+  <version>1.0.3</version>
   <packaging>jar</packaging>
   <name>Obsidian-Core</name>
   <description>Obsidian brings modern development conventions to the Spark Java framework</description>
@@ -16,7 +16,7 @@
     <repository>
       <id>github</id>
       <name>GitHub Packages</name>
-      <url>https://maven.pkg.github.com/obsidian-framework/obsidian-core</url>
+      <url>https://maven.pkg.github.com/obsidian-framework/core</url>
     </repository>
   </distributionManagement>
   <repositories>

@@ -1,5 +1,6 @@
 package fr.kainovaii.obsidian.core.database;
 
+import fr.kainovaii.obsidian.core.Obsidian;
 import org.javalite.activejdbc.Base;
 import org.reflections.Reflections;
 import org.reflections.scanners.Scanners;
@@ -31,10 +32,11 @@ public class MigrationManager
         return this;
     }
 
-    public MigrationManager discover(String packageName)
+    public MigrationManager discover()
     {
         try {
-            Reflections reflections = new Reflections(packageName, Scanners.SubTypes);
+            String basePackage = Obsidian.getBasePackage();
+            Reflections reflections = new Reflections(basePackage, Scanners.SubTypes);
             Set<Class<? extends Migration>> migrationClasses = reflections.getSubTypesOf(Migration.class);
 
             List<Migration> discoveredMigrations = new ArrayList<>();
@@ -53,7 +55,7 @@ public class MigrationManager
             discoveredMigrations.sort(Comparator.comparing(m -> m.getClass().getSimpleName()));
             migrations.addAll(discoveredMigrations);
 
-            logger.info(discoveredMigrations.size() + "migration(s) discovered in " + packageName);
+            logger.info(discoveredMigrations.size() + " migration(s) discovered in " + basePackage);
 
         } catch (Exception e) {
             logger.severe("Error discovering migrations: " + e.getMessage());

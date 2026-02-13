@@ -7,7 +7,7 @@ import java.util.logging.Logger;
 
 public abstract class Migration
 {
-    protected String type; // sqlite, mysql, postgresql
+    protected String type;
     protected Logger logger;
 
     public abstract void up();

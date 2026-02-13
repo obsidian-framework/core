@@ -1,5 +1,6 @@
 package fr.kainovaii.obsidian.core.web.controller;
 
+import fr.kainovaii.obsidian.core.Obsidian;
 import fr.kainovaii.obsidian.core.security.csrf.CsrfProtection;
 import fr.kainovaii.obsidian.core.security.user.UserDetails;
 import fr.kainovaii.obsidian.core.security.user.UserDetailsService;
@@ -31,12 +32,12 @@ public class BaseController extends ApiResponse
 
     private static UserDetailsService autoDetectUserDetailsService() {
         try {
-            org.reflections.Reflections reflections = new org.reflections.Reflections("fr.kainovaii.obsidian.app");
+            org.reflections.Reflections reflections = new org.reflections.Reflections(Obsidian.getBasePackage());
 
             java.util.Set<Class<?>> annotatedClasses = reflections.getTypesAnnotatedWith(UserDetailsServiceImpl.class);
 
             if (annotatedClasses.isEmpty()) {
-                throw new RuntimeException("No class annotated with @UserDetailsServiceImpl found in fr.kainovaii.obsidian.app");
+                throw new RuntimeException("No class annotated with @UserDetailsServiceImpl found in " + Obsidian.getBasePackage());
             }
 
             Class<?> implClass = annotatedClasses.iterator().next();
