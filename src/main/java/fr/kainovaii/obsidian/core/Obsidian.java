@@ -104,8 +104,7 @@ public class Obsidian
      */
     public void loadLiveComponents()
     {
-        System.out.println("Loading LiveComponents...");
-
+        logger.info("Loading LiveComponents...");
         try {
             ClasspathLoader loader = new ClasspathLoader();
             PebbleEngine componentPebble = new PebbleEngine.Builder()
@@ -129,7 +128,7 @@ public class Obsidian
 
             Container.singleton(ComponentManager.class, componentManager);
 
-            System.out.println("LiveComponents loaded successfully!");
+            logger.info("LiveComponents loaded successfully!");
         } catch (Exception e) {
             logger.error("Failed to load LiveComponents: " + e.getMessage());
             e.printStackTrace();
@@ -201,11 +200,11 @@ public class Obsidian
     {
         registerMotd();
         loadConfigAndEnv();
-        loadMigrations();
+        loadConfig();
         connectDatabase();
+        loadMigrations();
         loadContainer();
         loadLiveComponents();
-        loadConfig();
         startWebServer();
     }
 

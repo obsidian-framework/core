@@ -29,7 +29,7 @@ public class DatabaseLoader
      */
     public static void loadDatabase()
     {
-        System.out.println("Loading database");
+        logger.info("Loading database...");
         EnvLoader env = Obsidian.loadConfigAndEnv();
 
         String dbType = env.get("DB_TYPE");

@@ -1,11 +1,13 @@
 package fr.kainovaii.obsidian.core;
 
+import fr.kainovaii.obsidian.livecomponents.http.LiveComponentsScriptRoute;
 import fr.kainovaii.obsidian.security.role.RoleChecker;
 import fr.kainovaii.obsidian.http.controller.ControllerLoader;
 import fr.kainovaii.obsidian.realtime.websocket.WebSocketLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
 import java.util.Map;
 
 import static fr.kainovaii.obsidian.http.controller.BaseController.*;
@@ -29,14 +31,17 @@ public class WebServer
     {
         ipAddress("0.0.0.0");
         port(Obsidian.getWebPort());
-        staticFiles.location("/");
+        staticFiles.location("/META-INF/resources");
+
+        InputStream test = getClass().getClassLoader().getResourceAsStream("META-INF/resources/obsidian/livecomponents.js");
+        System.out.println("LiveComponents script found: " + (test != null));
+        if (test != null) { try { test.close(); } catch (Exception e) {} }
 
         logger.info("Loading WebSocket handlers...");
         WebSocketLoader.registerWebSockets();
 
         logger.info("Initializing Spark...");
-        init();
-
+        get("/obsidian/livecomponents.js", new LiveComponentsScriptRoute());
         // Global exception handler
         exception(Exception.class, (e, req, res) -> {
             logger.error("Unhandled exception on {} {}", req.requestMethod(), req.pathInfo(), e);
@@ -60,6 +65,10 @@ public class WebServer
         });
 
         ControllerLoader.loadControllers();
+
+        // ⭐ INIT EN DERNIER
+        init();
+
         logger.info("Web server started on port {}", Obsidian.getWebPort());
     }
 }

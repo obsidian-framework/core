@@ -1,10 +1,12 @@
 package fr.kainovaii.obsidian.template;
 
+import fr.kainovaii.obsidian.livecomponents.pebble.LiveComponentsScriptExtension;
 import fr.kainovaii.obsidian.routing.pebble.RouteExtension;
 import fr.kainovaii.obsidian.security.csrf.pebble.CsrfExtension;
 import fr.kainovaii.obsidian.livecomponents.pebble.ComponentHelperExtension;
 import fr.kainovaii.obsidian.flash.pebble.FlashExtension;
 import fr.kainovaii.obsidian.template.extension.StripTagsFilter;
+import fr.kainovaii.obsidian.validation.pebble.ValidationExtension;
 import spark.ModelAndView;
 import spark.TemplateEngine;
 import io.pebbletemplates.pebble.PebbleEngine;
@@ -36,6 +38,8 @@ public class PebbleTemplateEngine extends TemplateEngine
                 .extension(new CsrfExtension())
                 .extension(new FlashExtension())
                 .extension(new ComponentHelperExtension())
+                .extension(new ValidationExtension())
+                .extension(new LiveComponentsScriptExtension())
                 .cacheActive(true)
                 .build();
     }
