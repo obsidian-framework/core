@@ -1,5 +1,6 @@
 package fr.kainovaii.obsidian.core;
 
+import fr.kainovaii.obsidian.config.ConfigLoader;
 import fr.kainovaii.obsidian.database.DB;
 import fr.kainovaii.obsidian.database.DatabaseLoader;
 import fr.kainovaii.obsidian.database.MigrationManager;
@@ -89,10 +90,13 @@ public class Obsidian
      * Initializes dependency injection container.
      * Scans base package to discover components.
      */
-    public void loadContainer()
-    {
-        ComponentScanner.scanPackage();
-    }
+    public void loadContainer() { ComponentScanner.scanPackage(); }
+
+    /**
+     * Loads and executes application configurations.
+     * Discovers @Config annotated classes and calls their configure() methods in priority order.
+     */
+    public void loadConfig() { ConfigLoader.loadConfigurations(); }
 
     /**
      * Initializes LiveComponents system.
@@ -184,14 +188,24 @@ public class Obsidian
      * Initializes all framework components in order.
      * Sequence: MOTD → Config → Database → Migrations → Container → LiveComponents → WebServer
      */
+    /**
+     * Gets the LiveComponents manager.
+     *
+     * @return ComponentManager instance
+     */
+    public static ComponentManager getComponentManager() {
+        return componentManager;
+    }
+
     public void init()
     {
         registerMotd();
         loadConfigAndEnv();
-        connectDatabase();
         loadMigrations();
+        connectDatabase();
         loadContainer();
         loadLiveComponents();
+        loadConfig();
         startWebServer();
     }
 
@@ -206,14 +220,5 @@ public class Obsidian
         Obsidian app = new Obsidian(mainClass);
         app.init();
         return app;
-    }
-
-    /**
-     * Gets the LiveComponents manager.
-     *
-     * @return ComponentManager instance
-     */
-    public static ComponentManager getComponentManager() {
-        return componentManager;
     }
 }

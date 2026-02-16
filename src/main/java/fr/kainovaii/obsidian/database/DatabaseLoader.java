@@ -5,10 +5,28 @@ import fr.kainovaii.obsidian.core.Obsidian;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Database connection loader.
+ * Initializes database connection based on environment configuration.
+ * Supports SQLite, MySQL, and PostgreSQL.
+ */
 public class DatabaseLoader
 {
+    /** Logger instance */
     public final static Logger logger = LoggerFactory.getLogger(DatabaseLoader.class);
 
+    /**
+     * Loads and initializes database connection from environment configuration.
+     * Reads DB_TYPE, DB_PATH/DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD from environment.
+     *
+     * Default values:
+     * - DB_TYPE: sqlite
+     * - DB_PATH: data.db (for SQLite)
+     * - DB_HOST: localhost
+     * - DB_PORT: 3306 (MySQL) or 5432 (PostgreSQL)
+     *
+     * @throws IllegalArgumentException if database type is not supported
+     */
     public static void loadDatabase()
     {
         System.out.println("Loading database");
