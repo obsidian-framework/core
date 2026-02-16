@@ -1,6 +1,6 @@
 package fr.kainovaii.obsidian.livecomponents.scanner;
 
-import fr.kainovaii.obsidian.livecomponents.annotations.LiveComponentIImpl;
+import fr.kainovaii.obsidian.livecomponents.annotations.LiveComponentImpl;
 import fr.kainovaii.obsidian.livecomponents.core.ComponentManager;
 import fr.kainovaii.obsidian.livecomponents.core.LiveComponent;
 import org.reflections.Reflections;
@@ -37,7 +37,7 @@ public class LiveComponentScanner {
             );
 
             Set<Class<?>> annotatedClasses = reflections.getTypesAnnotatedWith(
-                    LiveComponentIImpl.class
+                    LiveComponentImpl.class
             );
 
             for (Class<?> clazz : annotatedClasses) {
@@ -65,8 +65,8 @@ public class LiveComponentScanner {
     @SuppressWarnings("unchecked")
     private static void registerComponent(Class<?> clazz, ComponentManager componentManager)
     {
-        LiveComponentIImpl annotation =
-                clazz.getAnnotation(LiveComponentIImpl.class);
+        LiveComponentImpl annotation =
+                clazz.getAnnotation(LiveComponentImpl.class);
 
         String componentName = (annotation.value() != null && !annotation.value().isEmpty())
                 ? annotation.value()
