@@ -2,8 +2,11 @@ package fr.kainovaii.obsidian.livecomponents.core;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import fr.kainovaii.obsidian.error.ErrorHandler;
 import fr.kainovaii.obsidian.livecomponents.ComponentException;
 import io.pebbletemplates.pebble.PebbleEngine;
+import spark.Request;
+import spark.Response;
 import spark.Session;
 
 import java.lang.reflect.Method;
@@ -84,12 +87,15 @@ public class ComponentManager
     /**
      * Handles component action from client.
      * Hydrates component state, executes action, captures new state, re-renders.
+     * On error, delegates to {@link ErrorHandler} and injects the error page into the component slot.
      *
      * @param request Component action request
      * @param session HTTP session
-     * @return Response with rendered HTML or error
+     * @param req Spark HTTP request (for ErrorHandler)
+     * @param res Spark HTTP response (for ErrorHandler)
+     * @return Response with rendered HTML or error page
      */
-    public ComponentResponse handleAction(ComponentRequest request, Session session) {
+    public ComponentResponse handleAction(ComponentRequest request, Session session, Request req, Response res) {
         try {
             String sessionId = session != null ? session.id() : "anonymous";
             String key = sessionId + ":" + request.getComponentId();
@@ -110,7 +116,8 @@ public class ComponentManager
             }
 
         } catch (Exception e) {
-            return ComponentResponse.error("Action failed: " + e.getMessage());
+            String errorHtml = ErrorHandler.handle(e, req, res);
+            return ComponentResponse.error(e.getMessage(), errorHtml);
         }
     }
 

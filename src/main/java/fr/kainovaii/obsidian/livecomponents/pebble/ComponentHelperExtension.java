@@ -36,19 +36,20 @@ public class ComponentHelperExtension extends AbstractExtension
     }
 
     /**
-     * Pebble function for mounting LiveComponents with detailed error handling.
+     * Pebble function for mounting LiveComponents.
      * Usage: {{ component('counter') }}
      */
-    private static class ComponentFunction implements Function {
-
+    private static class ComponentFunction implements Function
+    {
         /**
-         * Executes component mounting with comprehensive logging.
+         * Executes component mounting.
+         * Exceptions are rethrown as RuntimeException to bubble up to Spark's global exception handler.
          *
          * @param args Function arguments (component name)
          * @param self Template instance
          * @param context Evaluation context
          * @param lineNumber Line number in template
-         * @return Rendered component HTML or error comment
+         * @return Rendered component HTML
          */
         @Override
         public Object execute(Map<String, Object> args, PebbleTemplate self, EvaluationContext context, int lineNumber) {
@@ -61,37 +62,16 @@ public class ComponentHelperExtension extends AbstractExtension
             }
 
             if (componentName == null || componentName.isEmpty()) {
-                return "<!-- Error: component name required. Available args: " + args.keySet() + " -->";
+                throw new RuntimeException("LiveComponent error: component name is required. Available args: " + args.keySet());
             }
 
-            try {
-                logger.info("Mounting component: " + componentName);
+            logger.info("Mounting component: " + componentName);
 
-                spark.Session session = SessionContext.get();
+            spark.Session session = SessionContext.get();
+            String result = Obsidian.getComponentManager().mount(componentName, session);
 
-                String result = Obsidian.getComponentManager().mount(componentName, session);
-                logger.info("Component mounted successfully: " + componentName);
-                return result;
-
-            } catch (ComponentException.ComponentNotFoundException e) {
-                logger.severe("Component not found: " + componentName);
-                return "<!-- " + e.getMessage() + " -->";
-
-            } catch (ComponentException.TemplateNotFoundException e) {
-                logger.severe("Template not found for component: " + componentName);
-                e.printStackTrace();
-                return "<!-- " + e.getMessage() + " -->";
-
-            } catch (ComponentException e) {
-                logger.severe("Component error for '" + componentName + "': " + e.getMessage());
-                e.printStackTrace();
-                return "<!-- Component error: " + e.getMessage() + " -->";
-
-            } catch (Exception e) {
-                logger.severe("Unexpected error mounting component '" + componentName + "': " + e.getMessage());
-                e.printStackTrace();
-                return "<!-- Unexpected error loading component '" + componentName + "': " + e.getMessage() + " -->";
-            }
+            logger.info("Component mounted successfully: " + componentName);
+            return result;
         }
 
         /**
