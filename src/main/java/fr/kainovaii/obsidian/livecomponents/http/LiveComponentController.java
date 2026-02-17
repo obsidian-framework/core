@@ -36,10 +36,9 @@ public class LiveComponentController
     @POST(value = "/obsidian/components", name = "obsidian.components.handle")
     public Object handleAction(Request req, Response res, ComponentManager componentManager)
     {
-        res.type("application/json");
         try {
             ComponentRequest componentRequest = objectMapper.readValue(req.body(), ComponentRequest.class);
-            ComponentResponse componentResponse = componentManager.handleAction( componentRequest, req.session(true) );
+            ComponentResponse componentResponse = componentManager.handleAction(componentRequest, req.session(true), req, res);
             return objectMapper.writeValueAsString(componentResponse);
         } catch (Exception e) {
             ComponentResponse errorResponse = ComponentResponse.error("Server error: " + e.getMessage());

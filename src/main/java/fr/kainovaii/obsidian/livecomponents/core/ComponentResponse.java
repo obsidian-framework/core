@@ -7,7 +7,8 @@ import java.util.Map;
  * Response from LiveComponent action execution.
  * Contains rendered HTML, updated state, or error information.
  */
-public class ComponentResponse {
+public class ComponentResponse
+{
     /** Rendered HTML after action execution */
     private String html;
 
@@ -27,7 +28,8 @@ public class ComponentResponse {
      * @param state Updated state
      * @return Success response
      */
-    public static ComponentResponse success(String html, Map<String, Object> state) {
+    public static ComponentResponse success(String html, Map<String, Object> state)
+    {
         ComponentResponse response = new ComponentResponse();
         response.html = html;
         response.state = state;
@@ -35,12 +37,30 @@ public class ComponentResponse {
     }
 
     /**
-     * Creates error response.
+     * Creates error response with rendered HTML from ErrorHandler.
+     * The HTML is injected directly into the component slot on the client.
+     *
+     * @param message Error message
+     * @param errorHtml Rendered HTML from ErrorHandler
+     * @return Error response with visual feedback
+     */
+    public static ComponentResponse error(String message, String errorHtml)
+    {
+        ComponentResponse response = new ComponentResponse();
+        response.success = false;
+        response.error = message;
+        response.html = errorHtml;
+        return response;
+    }
+
+    /**
+     * Creates error response without HTML (fallback, no visual rendering).
      *
      * @param message Error message
      * @return Error response
      */
-    public static ComponentResponse error(String message) {
+    public static ComponentResponse error(String message)
+    {
         ComponentResponse response = new ComponentResponse();
         response.success = false;
         response.error = message;

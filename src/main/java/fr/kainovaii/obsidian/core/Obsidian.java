@@ -146,6 +146,7 @@ public class Obsidian
         System.out.println(GREEN + "| Developer         : KainoVaii        |" + RESET);
         System.out.println(GREEN + "| Version           : 1.0              |" + RESET);
         System.out.println(GREEN + "| Environment       : " + env.get("ENVIRONMENT") + "              |" + RESET);
+        System.out.println(GREEN + "| Web Port          : " + getWebPort() + "              |" + RESET);
         System.out.println(CYAN + "+--------------------------------------+" + RESET);
         System.out.println(CYAN + "|      Loading modules...              |" + RESET);
         System.out.println(CYAN + "+--------------------------------------+" + RESET);

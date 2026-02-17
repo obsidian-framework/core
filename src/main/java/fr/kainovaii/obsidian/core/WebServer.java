@@ -1,5 +1,6 @@
 package fr.kainovaii.obsidian.core;
 
+import fr.kainovaii.obsidian.error.ErrorHandler;
 import fr.kainovaii.obsidian.livecomponents.http.LiveComponentsScriptRoute;
 import fr.kainovaii.obsidian.security.role.RoleChecker;
 import fr.kainovaii.obsidian.http.controller.ControllerLoader;
@@ -42,12 +43,10 @@ public class WebServer
 
         logger.info("Initializing Spark...");
         get("/obsidian/livecomponents.js", new LiveComponentsScriptRoute());
+
         // Global exception handler
         exception(Exception.class, (e, req, res) -> {
-            logger.error("Unhandled exception on {} {}", req.requestMethod(), req.pathInfo(), e);
-            res.status(500);
-            res.type("application/json");
-            res.body("{\"error\":\"Internal server error: " + e.getMessage() + "\"}");
+            res.body(ErrorHandler.handle(e, req, res));
         });
 
         // Request preprocessing middleware
