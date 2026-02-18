@@ -4,6 +4,7 @@ import fr.kainovaii.obsidian.config.ConfigLoader;
 import fr.kainovaii.obsidian.database.DB;
 import fr.kainovaii.obsidian.database.DatabaseLoader;
 import fr.kainovaii.obsidian.database.MigrationManager;
+import fr.kainovaii.obsidian.database.seeder.SeederLoader;
 import fr.kainovaii.obsidian.di.ComponentScanner;
 import fr.kainovaii.obsidian.di.Container;
 import fr.kainovaii.obsidian.livecomponents.core.ComponentManager;
@@ -99,6 +100,13 @@ public class Obsidian
     public void loadConfig() { ConfigLoader.loadConfigurations(); }
 
     /**
+     * Loads and executes database seeders.
+     * Discovers @Seeder annotated classes and calls their seed() methods in priority order.
+     * Must be called after database initialization and migrations.
+     */
+    public void loadSeeders() { SeederLoader.loadSeeders(); }
+
+    /**
      * Initializes LiveComponents system.
      * Configures Pebble and registers components in container.
      */
@@ -171,6 +179,7 @@ public class Obsidian
         loadConfig();
         connectDatabase();
         loadMigrations();
+        loadSeeders();
         loadContainer();
         loadLiveComponents();
         startWebServer();

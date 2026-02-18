@@ -32,11 +32,7 @@ public class WebServer
     {
         ipAddress("0.0.0.0");
         port(Obsidian.getWebPort());
-        staticFiles.location("/META-INF/resources");
-
-        InputStream test = getClass().getClassLoader().getResourceAsStream("META-INF/resources/obsidian/livecomponents.js");
-        System.out.println("LiveComponents script found: " + (test != null));
-        if (test != null) { try { test.close(); } catch (Exception e) {} }
+        staticFiles.location("/");
 
         logger.info("Loading WebSocket handlers...");
         WebSocketLoader.registerWebSockets();
