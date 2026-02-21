@@ -1,5 +1,6 @@
 package fr.kainovaii.obsidian.core;
 
+import fr.kainovaii.obsidian.cli.Cli;
 import fr.kainovaii.obsidian.config.ConfigLoader;
 import fr.kainovaii.obsidian.database.DB;
 import fr.kainovaii.obsidian.database.DatabaseLoader;
@@ -29,6 +30,8 @@ public class Obsidian
     /** Base package for component scanning */
     private static String basePackage;
 
+    private String[] args = new String[0];
+
     /**
      * Default constructor.
      * Initializes base package to "fr.kainovaii.obsidian.app".
@@ -44,10 +47,12 @@ public class Obsidian
      *
      * @param mainClass The application's main class
      */
-    public Obsidian(Class<?> mainClass)
+    public Obsidian(Class<?> mainClass, String[] args)
     {
         basePackage = mainClass.getPackage().getName();
+        this.args = args;
     }
+
 
     /**
      * Sets the base package for component scanning.
@@ -124,6 +129,10 @@ public class Obsidian
         return env;
     }
 
+    public void startCli() {
+        Cli.handle(args);
+    }
+
     /**
      * Starts the web server.
      */
@@ -191,9 +200,9 @@ public class Obsidian
      * @param mainClass The application's main class
      * @return Initialized Obsidian instance
      */
-    public static Obsidian run(Class<?> mainClass)
+    public static Obsidian run(Class<?> mainClass, String[] args)
     {
-        Obsidian app = new Obsidian(mainClass);
+        Obsidian app = new Obsidian(mainClass, args);
         app.init();
         return app;
     }
