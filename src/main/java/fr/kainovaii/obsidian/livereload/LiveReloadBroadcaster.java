@@ -6,27 +6,41 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Iterator;
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Broadcasts reload events to connected browser clients via SSE.
+ * Maintains at most one active SSE connection per client IP address,
+ * replacing any previous connection when a new one is registered.
  */
 public class LiveReloadBroadcaster
 {
     private static final Logger logger = LoggerFactory.getLogger(LiveReloadBroadcaster.class);
-    private final Set<HttpServletResponse> clients = ConcurrentHashMap.newKeySet();
+    private final Map<String, HttpServletResponse> clients = new ConcurrentHashMap<>();
 
     /**
-     * Registers a new SSE client.
+     * Registers a new SSE client, replacing any existing connection from the same IP.
+     * This ensures only one active SSE connection per client at any time.
      *
+     * @param ip       The client's IP address, used as a unique key
      * @param response The HTTP response to write SSE events to
      */
-    public void addClient(HttpServletResponse response)
+    public void addClient(String ip, HttpServletResponse response) {
+        clients.put(ip, response);
+        logger.debug("[LiveReload] Client registered for IP {}. Total: {}", ip, clients.size());
+    }
+
+    /**
+     * Removes a disconnected client from the active SSE connections pool.
+     * Called when a client disconnects or the SSE connection is interrupted.
+     *
+     * @param ip The client's IP address
+     */
+    public void removeClient(String ip)
     {
-        clients.add(response);
-        logger.debug("[LiveReload] New client connected. Total: {}", clients.size());
+        clients.remove(ip);
+        logger.debug("[LiveReload] Client removed for IP {}. Total: {}", ip, clients.size());
     }
 
     /**
@@ -39,32 +53,16 @@ public class LiveReloadBroadcaster
 
         logger.info("[LiveReload] Broadcasting reload to {} client(s)...", clients.size());
 
-        Iterator<HttpServletResponse> it = clients.iterator();
-        while (it.hasNext()) {
-            HttpServletResponse client = it.next();
+        clients.entrySet().removeIf(entry -> {
             try {
-                PrintWriter writer = client.getWriter();
+                PrintWriter writer = entry.getValue().getWriter();
                 writer.write("data: reload\n\n");
                 writer.flush();
-                if (writer.checkError()) {
-                    it.remove();
-                }
+                return writer.checkError();
             } catch (IOException e) {
-                it.remove();
+                return true;
             }
-        }
-    }
-
-    /**
-     * Removes a disconnected client from the active SSE connections pool.
-     * Called when a client disconnects or the SSE connection is interrupted.
-     *
-     * @param response The HTTP response associated with the disconnected client
-     */
-    public void removeClient(HttpServletResponse response)
-    {
-        clients.remove(response);
-        logger.debug("[LiveReload] Client removed. Total: {}", clients.size());
+        });
     }
 
     /**
