@@ -1,6 +1,9 @@
 package fr.kainovaii.obsidian.template;
 
+import fr.kainovaii.obsidian.core.Obsidian;
 import fr.kainovaii.obsidian.livecomponents.pebble.LiveComponentsScriptExtension;
+import fr.kainovaii.obsidian.livereload.LiveReloadLoader;
+import fr.kainovaii.obsidian.livereload.LiveReloadScriptExtension;
 import fr.kainovaii.obsidian.routing.pebble.RouteExtension;
 import fr.kainovaii.obsidian.security.csrf.pebble.CsrfExtension;
 import fr.kainovaii.obsidian.livecomponents.pebble.ComponentHelperExtension;
@@ -32,18 +35,25 @@ public class PebbleTemplateEngine extends TemplateEngine
     public PebbleTemplateEngine()
     {
         ClasspathLoader loader = new ClasspathLoader();
-        engine = new PebbleEngine.Builder()
-            .loader(loader)
-            .extension(new RouteExtension())
-            .extension(new StripTagsFilter())
-            .extension(new CsrfExtension())
-            .extension(new FlashExtension())
-            .extension(new ComponentHelperExtension())
-            .extension(new ValidationExtension())
-            .extension(new LiveComponentsScriptExtension())
-            .extension(new MarkdownFilter())
-            .cacheActive(true)
-            .build();
+
+        PebbleEngine.Builder builder = new PebbleEngine.Builder()
+                .loader(loader)
+                .extension(new RouteExtension())
+                .extension(new StripTagsFilter())
+                .extension(new CsrfExtension())
+                .extension(new FlashExtension())
+                .extension(new ComponentHelperExtension())
+                .extension(new ValidationExtension())
+                .extension(new LiveComponentsScriptExtension())
+                .extension(new MarkdownFilter())
+                .cacheActive(true);
+
+        // Inject live reload extension in dev mode
+        if (Obsidian.loadConfigAndEnv().get("ENVIRONMENT").equalsIgnoreCase("DEV")) {
+            builder.extension(new LiveReloadScriptExtension());
+        }
+
+        engine = builder.build();
     }
 
     /**

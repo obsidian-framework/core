@@ -13,6 +13,7 @@ import fr.kainovaii.obsidian.livecomponents.core.LiveComponent;
 import fr.kainovaii.obsidian.livecomponents.core.LiveComponentsLoader;
 import fr.kainovaii.obsidian.livecomponents.pebble.ComponentExtension;
 import fr.kainovaii.obsidian.livecomponents.scanner.LiveComponentScanner;
+import fr.kainovaii.obsidian.livereload.LiveReloadLoader;
 import fr.kainovaii.obsidian.validation.pebble.ValidationExtension;
 import io.pebbletemplates.pebble.PebbleEngine;
 import io.pebbletemplates.pebble.loader.ClasspathLoader;
@@ -169,6 +170,20 @@ public class Obsidian
     }
 
     /**
+     * Initializes development tools when running in DEV environment.
+     * Currently activates the live reload system, which watches template
+     * and static files for changes and automatically refreshes the browser.
+     *
+     * Controlled via ENVIRONMENT=DEV in .env file.
+     */
+    public void isDevelopmentMode()
+    {
+        if (loadConfigAndEnv().get("ENVIRONMENT").equalsIgnoreCase("DEV")) {
+            LiveReloadLoader.load();
+        }
+    }
+
+    /**
      * Initializes all framework components in order.
      * Sequence: MOTD → Config → Database → Migrations → Container → LiveComponents → WebServer
      */
@@ -185,6 +200,7 @@ public class Obsidian
     {
         registerMotd();
         loadConfigAndEnv();
+        isDevelopmentMode();
         loadConfig();
         connectDatabase();
         loadMigrations();
