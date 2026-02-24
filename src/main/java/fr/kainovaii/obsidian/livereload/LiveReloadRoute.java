@@ -43,7 +43,8 @@ public class LiveReloadRoute implements Route
      * @throws Exception If an unexpected error occurs during handling
      */
     @Override
-    public Object handle(Request request, Response response) throws Exception {
+    public Object handle(Request request, Response response) throws Exception
+    {
         response.raw().setContentType("text/event-stream");
         response.raw().setCharacterEncoding("UTF-8");
         response.raw().setHeader("Cache-Control", "no-cache");
@@ -52,16 +53,10 @@ public class LiveReloadRoute implements Route
 
         PrintWriter writer = response.raw().getWriter();
 
-        // Send an initial comment to confirm the connection
         writer.write(": connected\n\n");
         writer.flush();
 
-        broadcaster.addClient(request.ip(), response.raw());
-        logger.debug("[LiveReload] SSE client connected.");
-
-        // Keep the connection alive with periodic pings until the client disconnects
         String ip = request.ip();
-
         broadcaster.addClient(ip, response.raw());
         logger.debug("[LiveReload] SSE client connected for IP {}.", ip);
 
