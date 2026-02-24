@@ -13,7 +13,7 @@ if /i "%TYPE%"=="FIX" (
     set /p TEXT="Enter text: "
     git add --all
     git commit -m "Fix (!TEXT!)"
-    git push -u origin main
+    git push -u origin dev
     echo Task complete
     goto END
 )
@@ -22,13 +22,14 @@ if /i "%TYPE%"=="UPDATE" (
     set /p TEXT="Enter text: "
     git add --all
     git commit -m "Update (!TEXT!)"
-    git push -u origin main
+    git push -u origin dev
     echo Task complete
     goto END
 )
 
 if /i "%TYPE%"=="PROD" (
     set /p TEXT="Enter text: "
+    git checkout main
     git add --all
     git commit -m "Production"
     git push -u origin main

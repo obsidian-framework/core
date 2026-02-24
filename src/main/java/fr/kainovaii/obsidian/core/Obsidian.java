@@ -13,6 +13,7 @@ import fr.kainovaii.obsidian.livecomponents.core.LiveComponent;
 import fr.kainovaii.obsidian.livecomponents.core.LiveComponentsLoader;
 import fr.kainovaii.obsidian.livecomponents.pebble.ComponentExtension;
 import fr.kainovaii.obsidian.livecomponents.scanner.LiveComponentScanner;
+import fr.kainovaii.obsidian.livereload.LiveReloadLoader;
 import fr.kainovaii.obsidian.validation.pebble.ValidationExtension;
 import io.pebbletemplates.pebble.PebbleEngine;
 import io.pebbletemplates.pebble.loader.ClasspathLoader;

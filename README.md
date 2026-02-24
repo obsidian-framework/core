@@ -9,11 +9,26 @@
 
 ## Installation
 
+### Maven
+
+Add Jitpack Packages repository
+
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+```
+
+Add dependency
+
 ```xml
 <dependency>
-    <groupId>io.github.kainovaii</groupId>
-    <artifactId>obsidian-core</artifactId>
-    <version>1.1.0</version>
+    <groupId>com.github.obsidian-framework</groupId>
+    <artifactId>core</artifactId>
+    <version>v1.1.0</version>
 </dependency>
 ```
 
