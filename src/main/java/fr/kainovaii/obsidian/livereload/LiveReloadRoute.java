@@ -9,23 +9,39 @@ import spark.Route;
 import java.io.PrintWriter;
 
 /**
- * Spark route that handles SSE connections for live reload.
- * Keeps the connection alive and sends a ping every 25 seconds.
- *
- * Registered at: GET /__obsidian/livereload
+ * Spark route that handles Server-Sent Events (SSE) connections for live reload.
+ * Keeps the connection open and sends periodic pings to prevent timeout.
+ * Broadcasts a "reload" event to the browser whenever a file change is detected.
  */
 public class LiveReloadRoute implements Route
 {
     private static final Logger logger = LoggerFactory.getLogger(LiveReloadRoute.class);
+
+    /** Interval between keep-alive pings in milliseconds. */
     private static final long PING_INTERVAL_MS = 25_000;
 
     private final LiveReloadBroadcaster broadcaster;
 
+    /**
+     * Creates a new LiveReloadRoute with the given broadcaster.
+     *
+     * @param broadcaster The broadcaster used to register SSE clients
+     */
     public LiveReloadRoute(LiveReloadBroadcaster broadcaster)
     {
         this.broadcaster = broadcaster;
     }
 
+    /**
+     * Handles an incoming SSE connection request.
+     * Configures the response headers for SSE, registers the client in the broadcaster,
+     * then blocks the thread with periodic pings until the client disconnects.
+     *
+     * @param request  The incoming HTTP request
+     * @param response The HTTP response
+     * @return An empty string to prevent Spark from overwriting the raw response
+     * @throws Exception If an unexpected error occurs during handling
+     */
     @Override
     public Object handle(Request request, Response response) throws Exception
     {
@@ -35,24 +51,28 @@ public class LiveReloadRoute implements Route
         response.raw().setHeader("X-Accel-Buffering", "no");
         response.raw().setHeader("Connection", "keep-alive");
 
-        broadcaster.addClient(response.raw());
-
-        // Keep connection alive with periodic pings
         PrintWriter writer = response.raw().getWriter();
+
+        // Send an initial comment to confirm the connection
+        writer.write(": connected\n\n");
+        writer.flush();
+
+        broadcaster.addClient(response.raw());
+        logger.debug("[LiveReload] SSE client connected.");
+
+        // Keep the connection alive with periodic pings until the client disconnects
         try {
-            while (!request.raw().getAsyncContext().getResponse().isCommitted()) {
+            while (!writer.checkError()) {
                 Thread.sleep(PING_INTERVAL_MS);
                 writer.write(": ping\n\n");
                 writer.flush();
-                if (writer.checkError()) break;
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-            // Client disconnected — normal
-            logger.debug("[LiveReload] Client disconnected.");
+            logger.debug("[LiveReload] SSE connection interrupted.");
         }
 
-        return null;
+        logger.debug("[LiveReload] SSE client disconnected.");
+        return "";
     }
 }
