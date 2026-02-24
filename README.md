@@ -28,7 +28,7 @@ Add dependency
 <dependency>
     <groupId>com.github.obsidian-framework</groupId>
     <artifactId>core</artifactId>
-    <version>v1.1.0</version>
+    <version>v1.1.1</version>
 </dependency>
 ```
 
