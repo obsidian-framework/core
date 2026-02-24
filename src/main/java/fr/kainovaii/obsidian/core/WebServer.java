@@ -2,6 +2,7 @@ package fr.kainovaii.obsidian.core;
 
 import fr.kainovaii.obsidian.error.ErrorHandler;
 import fr.kainovaii.obsidian.livecomponents.http.LiveComponentsScriptRoute;
+import fr.kainovaii.obsidian.livereload.LiveReloadLoader;
 import fr.kainovaii.obsidian.security.role.RoleChecker;
 import fr.kainovaii.obsidian.http.controller.ControllerLoader;
 import fr.kainovaii.obsidian.realtime.websocket.WebSocketLoader;
@@ -33,6 +34,10 @@ public class WebServer
         ipAddress("0.0.0.0");
         port(Obsidian.getWebPort());
         staticFiles.location("/");
+
+        if (Obsidian.loadConfigAndEnv().get("ENVIRONMENT").equalsIgnoreCase("DEV")) {
+            LiveReloadLoader.load();
+        }
 
         logger.info("Loading WebSocket handlers...");
         WebSocketLoader.registerWebSockets();
