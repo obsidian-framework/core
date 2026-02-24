@@ -21,9 +21,8 @@ public class LiveReloadLoader
     private static final Logger logger = LoggerFactory.getLogger(LiveReloadLoader.class);
 
     private static final List<Path> WATCHED_PATHS = List.of(
-        Path.of(System.getProperty("user.dir"), "src", "main", "resources", "templates"),
-        Path.of(System.getProperty("user.dir"), "src", "main", "resources", "static"),
-        Path.of(System.getProperty("user.dir"), "src", "main", "resources", "public")
+            Path.of(System.getProperty("user.dir"), "src", "main", "resources", "view"),
+            Path.of(System.getProperty("user.dir"), "src", "main", "resources", "assets")
     );
 
     private static final LiveReloadBroadcaster broadcaster = new LiveReloadBroadcaster();
