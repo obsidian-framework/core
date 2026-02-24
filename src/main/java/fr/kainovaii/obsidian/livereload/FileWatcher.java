@@ -22,7 +22,7 @@ public class FileWatcher implements Runnable
     private final Runnable onChangeCallback;
 
     /** Debounce delay in ms to avoid multiple rapid reloads */
-    private static final long DEBOUNCE_MS = 500;
+    private static final long DEBOUNCE_MS = 1000;
 
     /**
      * Creates a FileWatcher for the given paths.
