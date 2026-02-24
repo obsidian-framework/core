@@ -21,24 +21,24 @@ public class LiveReloadScriptExtension extends AbstractExtension
         <script>
         (function() {
             if (typeof EventSource === 'undefined') return;
+            if (window.__obsidianSSE) {
+                window.__obsidianSSE.close();
+            }
             var es = new EventSource('/__obsidian/livereload');
+            window.__obsidianSSE = es;
             es.onmessage = function(e) {
                 if (e.data === 'reload') {
-                    console.log('[Obsidian] File changed, reloading...');
+                    es.close();
                     window.location.reload();
                 }
             };
             es.onerror = function() {
                 es.close();
-                // Retry after 3s
-                setTimeout(function() {
-                    window.location.reload();
-                }, 3000);
             };
             console.log('[Obsidian] Live reload connected.');
         })();
         </script>
-        """;
+    """;
 
     @Override
     public Map<String, Function> getFunctions()
