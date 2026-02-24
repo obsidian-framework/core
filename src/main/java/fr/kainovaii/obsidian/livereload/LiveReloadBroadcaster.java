@@ -56,6 +56,18 @@ public class LiveReloadBroadcaster
     }
 
     /**
+     * Removes a disconnected client from the active SSE connections pool.
+     * Called when a client disconnects or the SSE connection is interrupted.
+     *
+     * @param response The HTTP response associated with the disconnected client
+     */
+    public void removeClient(HttpServletResponse response)
+    {
+        clients.remove(response);
+        logger.debug("[LiveReload] Client removed. Total: {}", clients.size());
+    }
+
+    /**
      * Returns the number of connected clients.
      */
     public int getClientCount()

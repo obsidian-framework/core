@@ -70,6 +70,9 @@ public class LiveReloadRoute implements Route
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             logger.debug("[LiveReload] SSE connection interrupted.");
+        } finally {
+            broadcaster.removeClient(response.raw());
+            logger.debug("[LiveReload] SSE client disconnected.");
         }
 
         logger.debug("[LiveReload] SSE client disconnected.");
