@@ -1,6 +1,7 @@
 package fr.kainovaii.obsidian.http.controller;
 
 import fr.kainovaii.obsidian.core.Obsidian;
+import fr.kainovaii.obsidian.di.Container;
 import fr.kainovaii.obsidian.http.controller.annotations.Controller;
 import fr.kainovaii.obsidian.http.controller.annotations.GlobalAdvice;
 import fr.kainovaii.obsidian.security.role.RoleChecker;
@@ -75,6 +76,7 @@ public class ControllerLoader
             for (Class<?> adviceClass : adviceClasses) {
                 try {
                     Object adviceInstance = adviceClass.getDeclaredConstructor().newInstance();
+                    Container.injectFields(adviceInstance);
                     Method applyGlobals = adviceClass.getMethod("applyGlobals", Request.class, Response.class);
                     applyGlobals.invoke(adviceInstance, req, res);
                 } catch (NoSuchMethodException e) {
