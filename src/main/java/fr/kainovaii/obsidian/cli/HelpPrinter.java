@@ -7,49 +7,69 @@ import fr.kainovaii.obsidian.cli.annotations.Param;
 import java.lang.reflect.Field;
 import java.util.*;
 
+import static fr.kainovaii.obsidian.cli.AnsiColors.*;
+import static fr.kainovaii.obsidian.cli.Printer.*;
+
 /**
  * Generates --help output for commands from their annotations.
- * Uses built-in ANSI escape codes — no external dependencies.
+ * <p>
+ * Uses {@link AnsiColors} for styling and {@link Printer} for output.
+ * ANSI codes are automatically disabled when no terminal is detected.
+ * </p>
  */
 public class HelpPrinter
 {
+    /**
+     * Prints the global help listing all available commands.
+     *
+     * @param version  the CLI version string displayed in the header
+     * @param commands list of command classes (duplicates are deduplicated)
+     */
     public static void printGlobal(String version, List<Class<?>> commands)
     {
-        System.out.println(bold("Obsidian") + " " + cyan(version));
-        System.out.println();
-        System.out.println(bold("Usage:"));
-        System.out.println("  obsidian <command> [options]");
-        System.out.println();
-        System.out.println(bold("Commands:"));
+        print(bold("Obsidian") + " " + cyan(version));
+        print();
+        print(bold("Usage:"));
+        print("  obsidian <command> [options]");
+        print();
+        print(bold("Commands:"));
 
-        // Deduplicate (aliases point to the same class)
         List<Class<?>> unique = commands.stream().distinct().toList();
 
         int maxLen = unique.stream()
-            .filter(c -> c.isAnnotationPresent(Command.class))
-            .mapToInt(c -> c.getAnnotation(Command.class).name().length())
-            .max().orElse(10);
+                .filter(c -> c.isAnnotationPresent(Command.class))
+                .mapToInt(c -> c.getAnnotation(Command.class).name().length())
+                .max().orElse(10);
 
         for (Class<?> cls : unique) {
             if (!cls.isAnnotationPresent(Command.class)) continue;
             Command meta = cls.getAnnotation(Command.class);
-            String aliases  = meta.aliases().length > 0
-                ? dim(" (" + String.join(", ", meta.aliases()) + ")")
-                : "";
-            System.out.printf("  %s%s  %s%n", green(pad(meta.name(), maxLen)), aliases, meta.description());
+            String aliases = meta.aliases().length > 0
+                    ? dim(" (" + String.join(", ", meta.aliases()) + ")")
+                    : "";
+            print("  " + green(pad(meta.name(), maxLen)) + aliases + "  " + meta.description());
         }
 
-        System.out.println();
-        System.out.println("Run " + bold("obsidian <command> --help") + " for command-specific help.");
+        print();
+        print("Run " + bold("obsidian <command> --help") + " for command-specific help.");
     }
 
+    /**
+     * Prints the detailed help for a single command.
+     * <p>
+     * Displays the command description, usage line, arguments (from {@link Param})
+     * and options (from {@link Option}) sorted by their declared index.
+     * </p>
+     *
+     * @param cls the command class annotated with {@link Command}
+     */
     public static void printCommand(Class<?> cls)
     {
         Command meta = cls.getAnnotation(Command.class);
         if (meta == null) return;
 
-        System.out.println(bold(meta.name()) + "  " + meta.description());
-        System.out.println();
+        print(bold(meta.name()) + "  " + meta.description());
+        print();
 
         List<Field> params  = new ArrayList<>();
         List<Field> options = new ArrayList<>();
@@ -68,40 +88,38 @@ public class HelpPrinter
         }
         if (!options.isEmpty()) usage.append(" [options]");
 
-        System.out.println(bold("Usage:"));
-        System.out.println(usage);
-        System.out.println();
+        print(bold("Usage:"));
+        print(usage.toString());
+        print();
 
         if (!params.isEmpty()) {
-            System.out.println(bold("Arguments:"));
+            print(bold("Arguments:"));
             for (Field f : params) {
                 Param p = f.getAnnotation(Param.class);
-                System.out.printf("  %s  %s%n", cyan(pad("<" + p.name() + ">", 20)), p.description());
+                print("  " + cyan(pad("<" + p.name() + ">", 20)) + "  " + p.description());
             }
-            System.out.println();
+            print();
         }
 
         if (!options.isEmpty()) {
-            System.out.println(bold("Options:"));
+            print(bold("Options:"));
             for (Field f : options) {
                 Option o = f.getAnnotation(Option.class);
                 String def = o.defaultValue().isEmpty() ? "" : dim(" [default: " + o.defaultValue() + "]");
                 String req = o.required() ? red(" (required)") : "";
-                System.out.printf("  %s  %s%s%s%n", cyan(pad(o.name(), 20)), o.description(), def, req);
+                print("  " + cyan(pad(o.name(), 20)) + "  " + o.description() + def + req);
             }
-            System.out.println();
+            print();
         }
     }
 
-    private static final boolean ANSI = System.console() != null
-        || System.getenv("FORCE_COLOR") != null;
-
-    private static String bold(String s)  { return ANSI ? "\u001B[1m"  + s + "\u001B[0m" : s; }
-    private static String dim(String s)   { return ANSI ? "\u001B[2m"  + s + "\u001B[0m" : s; }
-    private static String cyan(String s)  { return ANSI ? "\u001B[36m" + s + "\u001B[0m" : s; }
-    private static String green(String s) { return ANSI ? "\u001B[32m" + s + "\u001B[0m" : s; }
-    private static String red(String s)   { return ANSI ? "\u001B[31m" + s + "\u001B[0m" : s; }
-
+    /**
+     * Pads a string with trailing spaces up to the given length.
+     *
+     * @param s   the string to pad
+     * @param len the target length
+     * @return the padded string
+     */
     private static String pad(String s, int len) {
         return s + " ".repeat(Math.max(0, len - s.length()));
     }
