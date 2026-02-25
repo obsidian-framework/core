@@ -1,10 +1,11 @@
 package fr.kainovaii.obsidian.cli;
 
+import java.util.Scanner;
 import static fr.kainovaii.obsidian.cli.AnsiColors.*;
 
 /**
  * Terminal UI components for the Obsidian CLI.
- * Provides a bordered table, an inline progress bar and an animated spinner.
+ * Provides a bordered table, an inline progress bar, an animated spinner and interactive prompts.
  * All components degrade gracefully when ANSI is not supported.
  */
 public class CliComponents
@@ -153,7 +154,7 @@ public class CliComponents
 
     /**
      * An animated spinner that runs on a background thread.
-     * Uses Braille characters to animate. Call stop() to terminate it.
+     * Call stop() to terminate it.
      */
     public static class Spinner
     {
@@ -202,6 +203,144 @@ public class CliComponents
             try { thread.join(); } catch (InterruptedException ignored) {}
             System.out.print("\r" + " ".repeat(label.length() + 4) + "\r");
             System.out.println(finalMessage);
+        }
+    }
+
+    // =========================================================
+    // PROMPTS
+    // =========================================================
+
+    /**
+     * Interactive prompts
+     * Supports free text, yes/no confirmation and single-choice selection.
+     *
+     * Output style:
+     *   ◆  What is your name?
+     *   │  Paul
+     *   └
+     */
+    public static class Prompt
+    {
+        private static final Scanner SCANNER = new Scanner(System.in);
+
+        // ─── Symbols ─────────────────────────────────────────
+        private static final String Q_OPEN  = colorize("◆", CYAN,  BOLD); // active question
+        private static final String Q_DONE  = colorize("◇", DIM,   BOLD); // answered
+        private static final String BAR     = colorize("│", DIM,   BOLD);
+        private static final String BAR_END = colorize("└", DIM,   BOLD);
+        private static final String DOT_ON  = colorize("●", CYAN,  BOLD); // selected
+        private static final String DOT_OFF = colorize("○", DIM,   BOLD); // unselected
+
+        /**
+         * Prompts the user for free text input.
+         * Returns the default value if the user presses Enter without typing.
+         *
+         * @param question     the question to display
+         * @param defaultValue the value returned when input is empty
+         * @return the user input, or defaultValue if empty
+         */
+        public static String text(String question, String defaultValue)
+        {
+            String def = defaultValue != null && !defaultValue.isEmpty()
+                    ? " " + colorize("(" + defaultValue + ")", DIM)
+                    : "";
+
+            System.out.println(Q_OPEN + "  " + bold(question) + def);
+            System.out.print(BAR + "  ");
+            String input = SCANNER.nextLine().trim();
+            String value = input.isEmpty() ? defaultValue : input;
+
+            // Redraw answered state
+            System.out.print("\u001B[2A\r"); // move up 2 lines
+            System.out.println(Q_DONE + "  " + bold(question) + "  " + colorize(value, DIM));
+            System.out.println(BAR_END);
+
+            return value;
+        }
+
+        /**
+         * Prompts the user for free text input with no default.
+         *
+         * @param question the question to display
+         * @return the user input
+         */
+        public static String text(String question) {
+            return text(question, null);
+        }
+
+        /**
+         * Prompts the user for a yes/no confirmation.
+         *
+         * @param question      the question to display
+         * @param defaultAnswer the default answer when the user presses Enter
+         * @return true if the user answered yes
+         */
+        public static boolean confirm(String question, boolean defaultAnswer)
+        {
+            String yes = defaultAnswer ? DOT_ON + " Yes" : DOT_OFF + " Yes";
+            String no  = defaultAnswer ? DOT_OFF + " No"  : DOT_ON  + " No";
+
+            System.out.println(Q_OPEN + "  " + bold(question));
+            System.out.println(BAR + "  " + yes + "  " + no);
+            System.out.print(BAR_END + "  ");
+
+            String input = SCANNER.nextLine().trim().toLowerCase();
+            boolean value;
+            if (input.isEmpty()) value = defaultAnswer;
+            else value = input.equals("y") || input.equals("yes");
+
+            // Redraw answered state
+            System.out.print("\u001B[3A\r");
+            System.out.println(Q_DONE + "  " + bold(question) + "  " + colorize(value ? "Yes" : "No", DIM));
+            System.out.println(BAR_END);
+            System.out.println();
+
+            return value;
+        }
+
+        /**
+         * Prompts the user to select one option from a list.
+         * The user can type the number or the option name.
+         *
+         * @param question the question to display
+         * @param options  the list of choices
+         * @return the selected option
+         */
+        public static String select(String question, String... options)
+        {
+            System.out.println(Q_OPEN + "  " + bold(question));
+            for (int i = 0; i < options.length; i++) {
+                String marker = i == 0 ? DOT_ON : DOT_OFF;
+                System.out.println(BAR + "  " + marker + "  " + options[i]);
+            }
+            System.out.print(BAR_END + "  ");
+
+            String selected = null;
+            while (selected == null) {
+                String input = SCANNER.nextLine().trim();
+                try {
+                    int idx = Integer.parseInt(input) - 1;
+                    if (idx >= 0 && idx < options.length) selected = options[idx];
+                } catch (NumberFormatException ignored) {}
+                if (selected == null) {
+                    for (String opt : options) {
+                        if (opt.equalsIgnoreCase(input)) { selected = opt; break; }
+                    }
+                }
+                if (selected == null) {
+                    System.out.print("\r" + colorize("  Invalid choice, try again: ", RED));
+                }
+            }
+
+            // Redraw answered state
+            int lines = options.length + 2;
+            System.out.print("\u001B[" + lines + "A\r");
+            System.out.println(Q_DONE + "  " + bold(question) + "  " + colorize(selected, DIM));
+            System.out.println(BAR_END);
+            // Clear remaining lines
+            for (int i = 0; i < options.length; i++) System.out.println("\u001B[2K");
+
+            return selected;
         }
     }
 }
