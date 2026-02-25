@@ -74,7 +74,7 @@ public class ControllerLoader
 
             for (Class<?> adviceClass : adviceClasses) {
                 try {
-                    Object adviceInstance = adviceClass.getDeclaredConstructor().newInstance(); // instanciation
+                    Object adviceInstance = adviceClass.getDeclaredConstructor().newInstance();
                     Method applyGlobals = adviceClass.getMethod("applyGlobals", Request.class, Response.class);
                     applyGlobals.invoke(adviceInstance, req, res);
                 } catch (NoSuchMethodException e) {
