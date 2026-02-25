@@ -211,25 +211,19 @@ public class CliComponents
     // =========================================================
 
     /**
-     * Interactive prompts
+     * Interactive prompts for user input.
      * Supports free text, yes/no confirmation and single-choice selection.
-     *
-     * Output style:
-     *   ◆  What is your name?
-     *   │  Paul
-     *   └
      */
     public static class Prompt
     {
         private static final Scanner SCANNER = new Scanner(System.in);
 
-        // ─── Symbols ─────────────────────────────────────────
-        private static final String Q_OPEN  = colorize("◆", CYAN,  BOLD); // active question
-        private static final String Q_DONE  = colorize("◇", DIM,   BOLD); // answered
-        private static final String BAR     = colorize("│", DIM,   BOLD);
-        private static final String BAR_END = colorize("└", DIM,   BOLD);
-        private static final String DOT_ON  = colorize("●", CYAN,  BOLD); // selected
-        private static final String DOT_OFF = colorize("○", DIM,   BOLD); // unselected
+        private static final String MARK    = colorize("?", YELLOW, BOLD);
+        private static final String BAR     = colorize("|", DIM);
+        private static final String BAR_END = colorize("└", DIM);
+        private static final String ARROW   = colorize(">", CYAN, BOLD);
+        private static final String DOT_ON  = colorize("*", CYAN, BOLD);
+        private static final String DOT_OFF = colorize("-", DIM);
 
         /**
          * Prompts the user for free text input.
@@ -245,16 +239,12 @@ public class CliComponents
                     ? " " + colorize("(" + defaultValue + ")", DIM)
                     : "";
 
-            System.out.println(Q_OPEN + "  " + bold(question) + def);
+            System.out.println(MARK + "  " + bold(question) + def);
             System.out.print(BAR + "  ");
             String input = SCANNER.nextLine().trim();
-            String value = input.isEmpty() ? defaultValue : input;
-
-            // Redraw answered state
-            System.out.print("\u001B[2A\r"); // move up 2 lines
-            System.out.println(Q_DONE + "  " + bold(question) + "  " + colorize(value, DIM));
-            System.out.println(BAR_END);
-
+            String value = (input.isEmpty() && defaultValue != null) ? defaultValue : input;
+            System.out.println(BAR_END + "  " + colorize(value, DIM));
+            System.out.println();
             return value;
         }
 
@@ -277,24 +267,18 @@ public class CliComponents
          */
         public static boolean confirm(String question, boolean defaultAnswer)
         {
-            String yes = defaultAnswer ? DOT_ON + " Yes" : DOT_OFF + " Yes";
-            String no  = defaultAnswer ? DOT_OFF + " No"  : DOT_ON  + " No";
+            String yes = colorize("Yes", defaultAnswer ? CYAN : DIM);
+            String no  = colorize("No",  defaultAnswer ? DIM  : CYAN);
+            String hint = yes + colorize(" / ", DIM) + no;
 
-            System.out.println(Q_OPEN + "  " + bold(question));
-            System.out.println(BAR + "  " + yes + "  " + no);
-            System.out.print(BAR_END + "  ");
+            System.out.println(MARK + "  " + bold(question));
+            System.out.print(BAR + "  " + hint + "  " + ARROW + " ");
 
             String input = SCANNER.nextLine().trim().toLowerCase();
-            boolean value;
-            if (input.isEmpty()) value = defaultAnswer;
-            else value = input.equals("y") || input.equals("yes");
+            boolean value = input.isEmpty() ? defaultAnswer : input.equals("y") || input.equals("yes");
 
-            // Redraw answered state
-            System.out.print("\u001B[3A\r");
-            System.out.println(Q_DONE + "  " + bold(question) + "  " + colorize(value ? "Yes" : "No", DIM));
-            System.out.println(BAR_END);
+            System.out.println(BAR_END + "  " + colorize(value ? "Yes" : "No", DIM));
             System.out.println();
-
             return value;
         }
 
@@ -308,12 +292,11 @@ public class CliComponents
          */
         public static String select(String question, String... options)
         {
-            System.out.println(Q_OPEN + "  " + bold(question));
+            System.out.println(MARK + "  " + bold(question));
             for (int i = 0; i < options.length; i++) {
-                String marker = i == 0 ? DOT_ON : DOT_OFF;
-                System.out.println(BAR + "  " + marker + "  " + options[i]);
+                System.out.println(BAR + "  " + colorize((i + 1) + ")", DIM) + " " + options[i]);
             }
-            System.out.print(BAR_END + "  ");
+            System.out.print(BAR_END + "  " + ARROW + " ");
 
             String selected = null;
             while (selected == null) {
@@ -328,18 +311,12 @@ public class CliComponents
                     }
                 }
                 if (selected == null) {
-                    System.out.print("\r" + colorize("  Invalid choice, try again: ", RED));
+                    System.out.print("  " + colorize("Invalid, try again: ", RED) + ARROW + " ");
                 }
             }
 
-            // Redraw answered state
-            int lines = options.length + 2;
-            System.out.print("\u001B[" + lines + "A\r");
-            System.out.println(Q_DONE + "  " + bold(question) + "  " + colorize(selected, DIM));
-            System.out.println(BAR_END);
-            // Clear remaining lines
-            for (int i = 0; i < options.length; i++) System.out.println("\u001B[2K");
-
+            System.out.println(colorize("  " + selected, DIM));
+            System.out.println();
             return selected;
         }
     }
