@@ -243,7 +243,11 @@ public class CliComponents
             System.out.print(BAR + "  ");
             String input = SCANNER.nextLine().trim();
             String value = (input.isEmpty() && defaultValue != null) ? defaultValue : input;
-            System.out.println(BAR_END + "  " + colorize(value, DIM));
+            if (input.isEmpty()) {
+                System.out.println(BAR_END);
+            } else {
+                System.out.println(BAR_END + "  " + colorize(value, DIM));
+            }
             System.out.println();
             return value;
         }
