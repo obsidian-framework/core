@@ -15,59 +15,80 @@ public class ArgParser
     /**
      * Injects parsed args into {@code instance}.
      *
-     * @param instance The command instance to populate
-     * @param args     Raw args after the command name
-     * @throws CliException If a required arg is missing or a value is invalid
+     * @param instance the command instance to populate
+     * @param args     raw args after the command name
+     * @throws CliException if a required arg is missing or a value is invalid
      */
     public static void inject(Object instance, String[] args) throws CliException
     {
         Class<?> cls = instance.getClass();
 
-        Map<String, Field> options = new HashMap<>();
-        Map<Integer, Field> params = new TreeMap<>();
+        // Index fields by option name
+        Map<String, Field> optionFields = new HashMap<>();
+        Map<Integer, Field> paramFields = new TreeMap<>();
         Field variadicField = null;
 
-        // Index annotated fields
         for (Field f : cls.getDeclaredFields()) {
             f.setAccessible(true);
             if (f.isAnnotationPresent(Option.class)) {
-                options.put(f.getAnnotation(Option.class).name(), f);
+                optionFields.put(f.getAnnotation(Option.class).name(), f);
             }
             if (f.isAnnotationPresent(Param.class)) {
                 Param p = f.getAnnotation(Param.class);
                 if (p.variadic()) variadicField = f;
-                else              params.put(p.index(), f);
+                else              paramFields.put(p.index(), f);
             }
         }
 
         applyDefaults(instance, cls);
 
-        // Parse options and collect positional args
+        // Parse tokens
         List<String> positional = new ArrayList<>();
         int i = 0;
         while (i < args.length) {
             String arg = args[i];
+
             if (arg.startsWith("-")) {
-                Field f = options.get(arg);
-                if (f == null) throw new CliException("Unknown option: " + arg);
+                // --option=value syntax
+                String name  = arg;
+                String value = null;
+                int eq = arg.indexOf('=');
+                if (eq != -1) {
+                    name  = arg.substring(0, eq);
+                    value = arg.substring(eq + 1);
+                }
+
+                Field f = optionFields.get(name);
+                if (f == null) throw new CliException("Unknown option: " + name);
+
                 Option opt = f.getAnnotation(Option.class);
+
                 if (opt.flag()) {
+                    // Boolean flag — no value consumed
                     set(instance, f, true);
+                } else if (value != null) {
+                    // --option=value
+                    set(instance, f, value);
                 } else {
-                    if (i + 1 >= args.length) throw new CliException("Option " + arg + " requires a value.");
+                    // --option value
+                    if (i + 1 >= args.length || args[i + 1].startsWith("-")) {
+                        throw new CliException("Option " + name + " requires a value.");
+                    }
                     set(instance, f, args[++i]);
                 }
+
             } else {
                 positional.add(arg);
             }
+
             i++;
         }
 
-        // Inject positional args
-        for (Map.Entry<Integer, Field> e : params.entrySet()) {
-            int idx = e.getKey();
-            Field f = e.getValue();
-            Param p = f.getAnnotation(Param.class);
+        // Inject positional params
+        for (Map.Entry<Integer, Field> e : paramFields.entrySet()) {
+            int   idx = e.getKey();
+            Field f   = e.getValue();
+            Param p   = f.getAnnotation(Param.class);
             if (idx < positional.size()) {
                 set(instance, f, positional.get(idx));
             } else if (p.required()) {
@@ -75,9 +96,11 @@ public class ArgParser
             }
         }
 
-        // Inject variadic field
+        // Inject variadic param
         if (variadicField != null) {
-            List<String> rest = positional.subList(Math.min(params.size(), positional.size()), positional.size());
+            List<String> rest = positional.subList(
+                    Math.min(paramFields.size(), positional.size()), positional.size()
+            );
             set(instance, variadicField, rest.toArray(new String[0]));
         }
 
@@ -123,18 +146,21 @@ public class ArgParser
         for (Field f : cls.getDeclaredFields()) {
             f.setAccessible(true);
             if (!f.isAnnotationPresent(Option.class)) continue;
-            String def = f.getAnnotation(Option.class).defaultValue();
-            if (def.isEmpty()) continue;
+            Option opt = f.getAnnotation(Option.class);
+
+            // Flags default to false implicitly, skip empty defaultValue
+            if (opt.flag() || opt.defaultValue().isEmpty()) continue;
+
             try {
                 Object current = f.get(instance);
-                if (current == null || isPrimitivZero(current)) {
-                    f.set(instance, coerce(def, f.getType()));
+                if (current == null || isPrimitiveDefault(current)) {
+                    f.set(instance, coerce(opt.defaultValue(), f.getType()));
                 }
             } catch (Exception ignored) {}
         }
     }
 
-    private static boolean isPrimitivZero(Object v)
+    private static boolean isPrimitiveDefault(Object v)
     {
         if (v instanceof Integer n)  return n == 0;
         if (v instanceof Long n)     return n == 0L;

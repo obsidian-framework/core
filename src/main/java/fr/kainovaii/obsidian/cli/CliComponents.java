@@ -157,7 +157,7 @@ public class CliComponents
      */
     public static class Spinner
     {
-        private static final String[] FRAMES = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
+        private static final String[] FRAMES = { "|", "/", "-", "\\" };
 
         private final String         label;
         private       Thread         thread;
