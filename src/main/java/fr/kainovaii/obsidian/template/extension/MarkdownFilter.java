@@ -9,6 +9,7 @@ import com.vladsch.flexmark.parser.Parser;
 import com.vladsch.flexmark.util.data.MutableDataSet;
 import io.pebbletemplates.pebble.extension.AbstractExtension;
 import io.pebbletemplates.pebble.extension.Filter;
+import io.pebbletemplates.pebble.extension.escaper.SafeString;
 import io.pebbletemplates.pebble.template.EvaluationContext;
 import io.pebbletemplates.pebble.template.PebbleTemplate;
 
@@ -38,6 +39,22 @@ public class MarkdownFilter extends AbstractExtension
         RENDERER = HtmlRenderer.builder(options).build();
     }
 
+    /**
+     * Converts a Markdown string to HTML.
+     *
+     * @param markdown the Markdown content to render
+     * @return the rendered HTML string
+     */
+    public static String render(String markdown)
+    {
+        return RENDERER.render(PARSER.parse(markdown));
+    }
+
+    /**
+     * Returns the {@code markdown} filter implementation.
+     *
+     * @return a map with the filter name as key and its {@link Filter} implementation as value
+     */
     @Override
     public Map<String, Filter> getFilters()
     {
@@ -46,18 +63,18 @@ public class MarkdownFilter extends AbstractExtension
             /**
              * Converts a Markdown string to HTML.
              *
-             * @param input   the Markdown content, or {@code null}
-             * @param args    unused filter arguments
-             * @param self    the current Pebble template
-             * @param context the evaluation context
+             * @param input      the Markdown content, or {@code null}
+             * @param args       unused filter arguments
+             * @param self       the current Pebble template
+             * @param context    the evaluation context
              * @param lineNumber the line number in the template
-             * @return the rendered HTML string, or an empty string if input is {@code null}
+             * @return the rendered HTML as a {@link SafeString}, or an empty string if input is {@code null}
              */
             @Override
             public Object apply(Object input, Map<String, Object> args, PebbleTemplate self, EvaluationContext context, int lineNumber)
             {
                 if (input == null) return "";
-                return RENDERER.render(PARSER.parse(input.toString()));
+                return new SafeString(render(input.toString()));
             }
 
             @Override
