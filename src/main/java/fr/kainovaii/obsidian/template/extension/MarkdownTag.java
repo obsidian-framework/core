@@ -102,12 +102,15 @@ public class MarkdownTag extends AbstractExtension
          * @throws IOException if the file cannot be read
          */
         @Override
-        public void render(PebbleTemplateImpl self, Writer writer, EvaluationContextImpl context)
-                throws IOException
+        public void render(PebbleTemplateImpl self, Writer writer, EvaluationContextImpl context) throws IOException
         {
-            String base = System.getProperty("user.dir") + "/src/main/resources/";
-            Path templatePath = Path.of(base + self.getName()).getParent();
-            Path resolved = templatePath.resolve(path).normalize();
+            System.out.println("Template name: " + self.getName());
+
+            Path base = Path.of(System.getProperty("user.dir"), "src", "main", "resources");
+            Path templateDir = base.resolve(self.getName()).getParent();
+            Path resolved = templateDir.resolve(path).normalize();
+
+            System.out.println("Resolved path: " + resolved);
 
             String markdown = Files.readString(resolved);
             String html = MarkdownFilter.render(markdown);
