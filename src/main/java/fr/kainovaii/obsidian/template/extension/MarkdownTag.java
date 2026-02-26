@@ -104,19 +104,17 @@ public class MarkdownTag extends AbstractExtension
         @Override
         public void render(PebbleTemplateImpl self, Writer writer, EvaluationContextImpl context) throws IOException
         {
-            System.out.println("Template name: " + self.getName());
+            Path base = Path.of(System.getProperty("user.dir"))
+                .resolve("src/main/resources")
+                .resolve(self.getName())
+                .getParent();
 
-            Path base = Path.of(System.getProperty("user.dir"), "src", "main", "resources");
-            Path templateDir = base.resolve(self.getName()).getParent();
-            Path resolved = templateDir.resolve(path).normalize();
-
-            System.out.println("Resolved path: " + resolved);
+            Path resolved = base.resolve(path).normalize();
 
             String markdown = Files.readString(resolved);
             String html = MarkdownFilter.render(markdown);
             writer.write(html);
         }
-
         /**
          * Accepts a {@link NodeVisitor} for AST traversal.
          *
