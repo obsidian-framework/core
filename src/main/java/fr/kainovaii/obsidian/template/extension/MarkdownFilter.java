@@ -9,6 +9,7 @@ import com.vladsch.flexmark.parser.Parser;
 import com.vladsch.flexmark.util.data.MutableDataSet;
 import io.pebbletemplates.pebble.extension.AbstractExtension;
 import io.pebbletemplates.pebble.extension.Filter;
+import io.pebbletemplates.pebble.extension.escaper.SafeString;
 import io.pebbletemplates.pebble.template.EvaluationContext;
 import io.pebbletemplates.pebble.template.PebbleTemplate;
 
@@ -57,7 +58,8 @@ public class MarkdownFilter extends AbstractExtension
             public Object apply(Object input, Map<String, Object> args, PebbleTemplate self, EvaluationContext context, int lineNumber)
             {
                 if (input == null) return "";
-                return RENDERER.render(PARSER.parse(input.toString()));
+                String html = RENDERER.render(PARSER.parse(input.toString()));
+                return new SafeString(html); // ← Pebble ne l'échappera pas, et pas besoin de | raw
             }
 
             @Override
