@@ -12,7 +12,9 @@ import io.pebbletemplates.pebble.template.PebbleTemplateImpl;
 import io.pebbletemplates.pebble.tokenParser.TokenParser;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -104,17 +106,15 @@ public class MarkdownTag extends AbstractExtension
         @Override
         public void render(PebbleTemplateImpl self, Writer writer, EvaluationContextImpl context) throws IOException
         {
-            Path base = Path.of(System.getProperty("user.dir"))
-                .resolve("src/main/resources")
-                .resolve(self.getName())
-                .getParent();
+            String templateDir = self.getName().substring(0, self.getName().lastIndexOf('/'));
+            String filePath = templateDir + "/" + path.replace("./", "");
 
-            Path resolved = base.resolve(path).normalize();
+            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(filePath);
+            if (is == null) throw new IOException("File not found: " + filePath);
 
-            String markdown = Files.readString(resolved);
-            String html = MarkdownFilter.render(markdown);
-            writer.write(html);
+            writer.write(MarkdownFilter.render(new String(is.readAllBytes(), StandardCharsets.UTF_8)));
         }
+
         /**
          * Accepts a {@link NodeVisitor} for AST traversal.
          *
