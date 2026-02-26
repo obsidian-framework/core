@@ -19,8 +19,14 @@ import java.util.List;
 
 /**
  * Pebble extension that registers a custom {@code markdown} tag.
+ *
  * This tag reads a Markdown file from the given path, converts it to HTML
  * using {@link MarkdownFilter}, and writes the result directly to the template output.
+ *
+ * Usage in a Pebble template:
+ * <pre>
+ * {% markdown "./fichiers/installation.md" %}
+ * </pre>
  */
 public class MarkdownTag extends AbstractExtension
 {
@@ -44,9 +50,6 @@ public class MarkdownTag extends AbstractExtension
 
             /**
              * Parses the {@code markdown} tag from the token stream.
-             *
-             * Consumes the tag name token, reads the file path literal,
-             * strips surrounding quotes, and returns a {@link MarkdownNode}.
              *
              * @param token  the opening token of the tag
              * @param parser the Pebble parser
@@ -76,14 +79,14 @@ public class MarkdownTag extends AbstractExtension
      */
     public static class MarkdownNode extends AbstractRenderableNode
     {
-        /** Path to the Markdown file, relative to the working directory. */
+        /** Relative path to the Markdown file as written in the template. */
         private final String path;
 
         /**
          * Constructs a new MarkdownNode.
          *
          * @param lineNumber the line number in the template where the tag appears
-         * @param path       the file path to the Markdown source
+         * @param path       the relative path to the Markdown source file
          */
         public MarkdownNode(int lineNumber, String path) {
             super(lineNumber);
@@ -102,7 +105,11 @@ public class MarkdownTag extends AbstractExtension
         public void render(PebbleTemplateImpl self, Writer writer, EvaluationContextImpl context)
                 throws IOException
         {
-            String markdown = Files.readString(Path.of(path));
+            String base = System.getProperty("user.dir") + "/src/main/resources/";
+            Path templatePath = Path.of(base + self.getName()).getParent();
+            Path resolved = templatePath.resolve(path).normalize();
+
+            String markdown = Files.readString(resolved);
             String html = MarkdownFilter.render(markdown);
             writer.write(html);
         }
