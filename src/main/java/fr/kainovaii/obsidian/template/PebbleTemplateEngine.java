@@ -8,6 +8,7 @@ import fr.kainovaii.obsidian.security.csrf.pebble.CsrfExtension;
 import fr.kainovaii.obsidian.livecomponents.pebble.ComponentHelperExtension;
 import fr.kainovaii.obsidian.flash.pebble.FlashExtension;
 import fr.kainovaii.obsidian.template.extension.MarkdownFilter;
+import fr.kainovaii.obsidian.template.extension.MarkdownTag;
 import fr.kainovaii.obsidian.template.extension.StripTagsFilter;
 import fr.kainovaii.obsidian.validation.pebble.ValidationExtension;
 import io.pebbletemplates.pebble.PebbleEngine;
@@ -45,6 +46,7 @@ public class PebbleTemplateEngine extends TemplateEngine
                 .extension(new ValidationExtension())
                 .extension(new LiveComponentsScriptExtension())
                 .extension(new MarkdownFilter())
+                .extension(new MarkdownTag())
                 .cacheActive(!isDev);
 
         if (isDev) {
