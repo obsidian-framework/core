@@ -1,6 +1,7 @@
 package fr.kainovaii.obsidian.livecomponents.pebble;
 
 import fr.kainovaii.obsidian.livecomponents.core.ComponentManager;
+import fr.kainovaii.obsidian.livecomponents.http.RequestContext;
 import fr.kainovaii.obsidian.livecomponents.session.SessionContext;
 import io.pebbletemplates.pebble.extension.AbstractExtension;
 import io.pebbletemplates.pebble.extension.Function;
@@ -14,7 +15,7 @@ import java.util.Map;
 
 /**
  * Pebble extension for LiveComponents.
- * Registers the component() function for mounting components in templates.
+ * Registers the {@code component()} function for mounting server-side reactive components in templates.
  */
 public class ComponentExtension extends AbstractExtension
 {
@@ -22,7 +23,7 @@ public class ComponentExtension extends AbstractExtension
     private final ComponentManager componentManager;
 
     /**
-     * Constructor.
+     * Constructs a new ComponentExtension.
      *
      * @param componentManager Component manager
      */
@@ -31,7 +32,7 @@ public class ComponentExtension extends AbstractExtension
     }
 
     /**
-     * Registers component function.
+     * Registers the {@code component()} function.
      *
      * @return Map of function name to implementation
      */
@@ -44,8 +45,8 @@ public class ComponentExtension extends AbstractExtension
     }
 
     /**
-     * Pebble function for mounting LiveComponents.
-     * Usage: {{ component('counter') }}
+     * Pebble function for mounting LiveComponents in templates.
+     * Usage: {@code {{ component('MyComponent') | raw }}}
      */
     private static class ComponentFunction implements Function
     {
@@ -53,7 +54,7 @@ public class ComponentExtension extends AbstractExtension
         private final ComponentManager componentManager;
 
         /**
-         * Constructor.
+         * Constructs a new ComponentFunction.
          *
          * @param componentManager Component manager
          */
@@ -63,12 +64,14 @@ public class ComponentExtension extends AbstractExtension
 
         /**
          * Executes component mounting.
+         * Retrieves the current session and request from thread-local contexts,
+         * then delegates to {@link ComponentManager#mount(String, spark.Session, spark.Request)}.
          *
-         * @param args Function arguments (component name)
-         * @param self Template instance
-         * @param context Evaluation context
-         * @param lineNumber Line number in template
-         * @return Rendered component HTML or error comment
+         * @param args       Function arguments — expects component name as first positional arg
+         * @param self       Current Pebble template instance
+         * @param context    Evaluation context containing all template variables
+         * @param lineNumber Line number in the template where the function is called
+         * @return Rendered component HTML string, or an HTML comment on error
          */
         @Override
         public Object execute(Map<String, Object> args, PebbleTemplate self, EvaluationContext context, int lineNumber)
@@ -80,16 +83,17 @@ public class ComponentExtension extends AbstractExtension
 
             try {
                 spark.Session session = SessionContext.get();
-                return componentManager.mount(componentName, session);
+                spark.Request request = RequestContext.get();
+                return componentManager.mount(componentName, session, request);
             } catch (Exception e) {
                 return "<!-- Error loading component '" + componentName + "': " + e.getMessage() + " -->";
             }
         }
 
         /**
-         * Returns argument names for function.
+         * Returns the argument names accepted by this function.
          *
-         * @return List containing "componentName"
+         * @return List containing {@code "componentName"}
          */
         @Override
         public List<String> getArgumentNames() {
