@@ -16,25 +16,25 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Manages LiveComponent lifecycle, state and actions.
- * Handles component registration, mounting, hydration and action execution.
+ * Manages the full lifecycle of LiveComponents — registration, mounting, hydration, and action execution.
+ * Component instances are cached per session and expire after one hour of inactivity.
  */
 public class ComponentManager
 {
-    /** Pebble template engine */
+    /** Pebble template engine used for rendering components */
     private final PebbleEngine pebbleEngine;
 
-    /** Registry of component classes by name */
+    /** Registry of component classes indexed by component name */
     private final Map<String, Class<? extends LiveComponent>> registeredComponents = new ConcurrentHashMap<>();
 
-    /** Cache of active component instances */
+    /** Cache of active component instances keyed by sessionId:componentId */
     private final Cache<String, LiveComponent> activeComponents = Caffeine.newBuilder()
             .expireAfterAccess(1, TimeUnit.HOURS)
             .maximumSize(10_000)
             .build();
 
     /**
-     * Constructor.
+     * Constructs a new ComponentManager.
      *
      * @param pebbleEngine Pebble template engine instance
      */
@@ -43,25 +43,28 @@ public class ComponentManager
     }
 
     /**
-     * Registers a component class.
+     * Registers a component class under the given name.
+     * The name is used in templates via {@code component('Name')}.
      *
-     * @param name Component name for template usage
-     * @param componentClass Component class
+     * @param name           Component name
+     * @param componentClass Component class to register
      */
     public void register(String name, Class<? extends LiveComponent> componentClass) {
         registeredComponents.put(name, componentClass);
     }
 
     /**
-     * Mounts a new component instance.
-     * Creates instance, caches it, and returns initial render.
+     * Mounts a new component instance for the given session and request.
+     * Creates the instance, injects the request, caches it, and returns the initial render.
      *
-     * @param componentName Component name
-     * @param session HTTP session
-     * @return Rendered HTML
-     * @throws ComponentException if component not found or mounting fails
+     * @param componentName Component name as registered
+     * @param session        Current HTTP session
+     * @param req            Current HTTP request
+     * @return Rendered HTML string
+     * @throws ComponentException if the component is not found or mounting fails
      */
-    public String mount(String componentName, Session session) {
+    public String mount(String componentName, Session session, Request req)
+    {
         try {
             Class<? extends LiveComponent> componentClass = registeredComponents.get(componentName);
             if (componentClass == null) {
@@ -69,6 +72,7 @@ public class ComponentManager
             }
 
             LiveComponent instance = componentClass.getDeclaredConstructor().newInstance();
+            instance.setRequest(req);
 
             String sessionId = session != null ? session.id() : "anonymous";
             String key = sessionId + ":" + instance.getId();
@@ -85,17 +89,19 @@ public class ComponentManager
     }
 
     /**
-     * Handles component action from client.
-     * Hydrates component state, executes action, captures new state, re-renders.
-     * On error, delegates to {@link ErrorHandler} and injects the error page into the component slot.
+     * Handles an incoming component action from the client.
+     * Hydrates the component state, injects the current request, executes the action,
+     * captures the new state, and re-renders the component.
+     * On error, delegates to {@link ErrorHandler} and wraps the error page in the response.
      *
-     * @param request Component action request
-     * @param session HTTP session
-     * @param req Spark HTTP request (for ErrorHandler)
-     * @param res Spark HTTP response (for ErrorHandler)
-     * @return Response with rendered HTML or error page
+     * @param request Component action request containing state, action name and params
+     * @param session Current HTTP session
+     * @param req     Current Spark HTTP request
+     * @param res     Current Spark HTTP response
+     * @return {@link ComponentResponse} with rendered HTML or error details
      */
-    public ComponentResponse handleAction(ComponentRequest request, Session session, Request req, Response res) {
+    public ComponentResponse handleAction(ComponentRequest request, Session session, Request req, Response res)
+    {
         try {
             String sessionId = session != null ? session.id() : "anonymous";
             String key = sessionId + ":" + request.getComponentId();
@@ -105,9 +111,9 @@ public class ComponentManager
                 return ComponentResponse.error("Component expired or not found. Please refresh the page.");
             }
 
-            // Synchronized to avoid race conditions
             synchronized (component) {
                 component.hydrate(request.getState());
+                component.setRequest(req);
                 executeAction(component, request.getAction(), request.getParams());
                 component.captureState();
 
@@ -122,22 +128,21 @@ public class ComponentManager
     }
 
     /**
-     * Executes action method on component.
-     * Handles special actions like __refresh and updateField_*.
+     * Executes an action method on the given component instance.
+     * Handles special built-in actions such as {@code __refresh} and {@code updateField_*}.
      *
-     * @param component Component instance
-     * @param actionName Action method name
-     * @param params Action parameters
-     * @throws ComponentException if action execution fails
+     * @param component  Component instance to invoke the action on
+     * @param actionName Action method name or special action identifier
+     * @param params     List of parameters to pass to the action method
+     * @throws ComponentException if the action is not found or execution fails
      */
-    private void executeAction(LiveComponent component, String actionName, List<Object> params) {
+    private void executeAction(LiveComponent component, String actionName, List<Object> params)
+    {
         try {
-            // Special handling for live:poll refresh
             if ("__refresh".equals(actionName)) {
                 return;
             }
 
-            // Special handling for live:model updates
             if (actionName.startsWith("updateField_")) {
                 String fieldName = actionName.substring("updateField_".length());
                 Object value = (params != null && !params.isEmpty()) ? params.get(0) : null;
@@ -158,20 +163,18 @@ public class ComponentManager
             if (method.getParameterCount() == 0) {
                 method.invoke(component);
             } else {
-                // Convert parameters to correct types
                 Object[] convertedParams = new Object[method.getParameterCount()];
                 Class<?>[] paramTypes = method.getParameterTypes();
 
                 for (int i = 0; i < method.getParameterCount(); i++) {
-                    if (params != null && i < params.size()) {
-                        convertedParams[i] = convertValue(params.get(i), paramTypes[i]);
-                    } else {
-                        convertedParams[i] = null;
-                    }
+                    convertedParams[i] = (params != null && i < params.size())
+                            ? convertValue(params.get(i), paramTypes[i])
+                            : null;
                 }
 
                 method.invoke(component, convertedParams);
             }
+
         } catch (ComponentException e) {
             throw e;
         } catch (Exception e) {
@@ -180,14 +183,15 @@ public class ComponentManager
     }
 
     /**
-     * Finds method by name and parameter count in class hierarchy.
+     * Searches for a method by name and parameter count in the class hierarchy.
      *
-     * @param clazz Class to search
-     * @param methodName Method name
-     * @param paramCount Parameter count
-     * @return Method or null if not found
+     * @param clazz       Class to search
+     * @param methodName  Method name
+     * @param paramCount  Expected parameter count
+     * @return Matching {@link Method}, or null if not found
      */
-    private Method findMethod(Class<?> clazz, String methodName, int paramCount) {
+    private Method findMethod(Class<?> clazz, String methodName, int paramCount)
+    {
         while (clazz != null && clazz != Object.class) {
             for (Method method : clazz.getDeclaredMethods()) {
                 if (method.getName().equals(methodName) && method.getParameterCount() == paramCount) {
@@ -200,44 +204,42 @@ public class ComponentManager
     }
 
     /**
-     * Converts value to target type.
+     * Converts a value to the specified target type.
+     * Handles primitive wrappers and String conversion.
      *
-     * @param value Value to convert
+     * @param value      Value to convert
      * @param targetType Target class
-     * @return Converted value
+     * @return Converted value, or the original if no conversion is needed
      */
-    private Object convertValue(Object value, Class<?> targetType) {
+    private Object convertValue(Object value, Class<?> targetType)
+    {
         if (value == null || targetType.isInstance(value)) return value;
 
-        if (targetType == Integer.class || targetType == int.class) {
+        if (targetType == Integer.class || targetType == int.class)
             return value instanceof Number ? ((Number) value).intValue() : Integer.parseInt(value.toString());
-        }
-        if (targetType == Long.class || targetType == long.class) {
+        if (targetType == Long.class || targetType == long.class)
             return value instanceof Number ? ((Number) value).longValue() : Long.parseLong(value.toString());
-        }
-        if (targetType == Double.class || targetType == double.class) {
+        if (targetType == Double.class || targetType == double.class)
             return value instanceof Number ? ((Number) value).doubleValue() : Double.parseDouble(value.toString());
-        }
-        if (targetType == Boolean.class || targetType == boolean.class) {
+        if (targetType == Boolean.class || targetType == boolean.class)
             return value instanceof Boolean ? value : Boolean.parseBoolean(value.toString());
-        }
-        if (targetType == String.class) {
+        if (targetType == String.class)
             return value.toString();
-        }
+
         return value;
     }
 
     /**
-     * Gets count of active components in cache.
+     * Returns the number of active components currently held in cache.
      *
-     * @return Active component count
+     * @return Estimated active component count
      */
     public int getActiveComponentCount() {
         return (int) activeComponents.estimatedSize();
     }
 
     /**
-     * Gets Pebble engine instance.
+     * Returns the Pebble engine instance used for rendering.
      *
      * @return Pebble engine
      */
@@ -246,12 +248,13 @@ public class ComponentManager
     }
 
     /**
-     * Clears all components for a session.
-     * Called on logout or session invalidation.
+     * Removes all cached components associated with the given session.
+     * Should be called on logout or session invalidation.
      *
-     * @param session HTTP session
+     * @param session HTTP session to clear
      */
-    public void clearSession(Session session) {
+    public void clearSession(Session session)
+    {
         if (session == null) return;
         String prefix = session.id() + ":";
         activeComponents.asMap().keySet().removeIf(key -> key.startsWith(prefix));
