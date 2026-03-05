@@ -1,7 +1,7 @@
 package fr.kainovaii.obsidian.livecomponents.pebble;
 
 import fr.kainovaii.obsidian.core.Obsidian;
-import fr.kainovaii.obsidian.livecomponents.ComponentException;
+import fr.kainovaii.obsidian.livecomponents.http.RequestContext;
 import fr.kainovaii.obsidian.livecomponents.session.SessionContext;
 import io.pebbletemplates.pebble.extension.AbstractExtension;
 import io.pebbletemplates.pebble.extension.Function;
@@ -15,8 +15,8 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 /**
- * Alternative Pebble extension for LiveComponents with detailed logging.
- * Provides component() function with comprehensive error handling and logging.
+ * Pebble extension for LiveComponents.
+ * Provides the {@code component()} template function for mounting server-side reactive components.
  */
 public class ComponentHelperExtension extends AbstractExtension
 {
@@ -24,7 +24,7 @@ public class ComponentHelperExtension extends AbstractExtension
     private static final Logger logger = Logger.getLogger(ComponentHelperExtension.class.getName());
 
     /**
-     * Registers component function.
+     * Registers the {@code component()} function.
      *
      * @return Map of function name to implementation
      */
@@ -36,23 +36,26 @@ public class ComponentHelperExtension extends AbstractExtension
     }
 
     /**
-     * Pebble function for mounting LiveComponents.
-     * Usage: {{ component('counter') }}
+     * Pebble function for mounting LiveComponents in templates.
+     * Usage: {@code {{ component('MyComponent') | raw }}}
      */
     private static class ComponentFunction implements Function
     {
         /**
          * Executes component mounting.
-         * Exceptions are rethrown as RuntimeException to bubble up to Spark's global exception handler.
+         * Retrieves the current session and request from thread-local contexts,
+         * then delegates mounting to {@link fr.kainovaii.obsidian.livecomponents.core.ComponentManager}.
          *
-         * @param args Function arguments (component name)
-         * @param self Template instance
-         * @param context Evaluation context
-         * @param lineNumber Line number in template
-         * @return Rendered component HTML
+         * @param args       Function arguments — expects component name as first positional arg
+         * @param self       Current Pebble template instance
+         * @param context    Evaluation context containing all template variables
+         * @param lineNumber Line number in the template where the function is called
+         * @return Rendered component HTML string
+         * @throws RuntimeException if the component name is missing or mounting fails
          */
         @Override
-        public Object execute(Map<String, Object> args, PebbleTemplate self, EvaluationContext context, int lineNumber) {
+        public Object execute(Map<String, Object> args, PebbleTemplate self, EvaluationContext context, int lineNumber)
+        {
             String componentName = null;
 
             if (args.containsKey("0")) {
@@ -68,16 +71,18 @@ public class ComponentHelperExtension extends AbstractExtension
             logger.info("Mounting component: " + componentName);
 
             spark.Session session = SessionContext.get();
-            String result = Obsidian.getComponentManager().mount(componentName, session);
+            spark.Request request = RequestContext.get();
+
+            String result = Obsidian.getComponentManager().mount(componentName, session, request);
 
             logger.info("Component mounted successfully: " + componentName);
             return result;
         }
 
         /**
-         * Returns argument names for function.
+         * Returns the argument names accepted by this function.
          *
-         * @return List containing "componentName"
+         * @return List containing {@code "componentName"}
          */
         @Override
         public List<String> getArgumentNames() {
