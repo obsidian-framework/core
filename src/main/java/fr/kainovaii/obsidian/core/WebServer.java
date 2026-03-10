@@ -9,7 +9,6 @@ import fr.kainovaii.obsidian.realtime.websocket.WebSocketLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.InputStream;
 import java.util.Map;
 
 import static fr.kainovaii.obsidian.http.controller.BaseController.*;
@@ -28,6 +27,7 @@ public class WebServer
     /**
      * Starts and configures the web server.
      * Sets up IP, port, static files, WebSockets, middleware, exception handling and routes.
+     * Note: WebSocket handlers must be registered before any HTTP route mapping.
      */
     public void start()
     {
@@ -35,12 +35,12 @@ public class WebServer
         port(Obsidian.getWebPort());
         staticFiles.location("/");
 
+        logger.info("Loading WebSocket handlers...");
+        WebSocketLoader.registerWebSockets();
+
         if (Obsidian.loadConfigAndEnv().get("ENVIRONMENT").equalsIgnoreCase("DEV")) {
             LiveReloadLoader.load();
         }
-
-        logger.info("Loading WebSocket handlers...");
-        WebSocketLoader.registerWebSockets();
 
         logger.info("Initializing Spark...");
         get("/obsidian/livecomponents.js", new LiveComponentsScriptRoute());
