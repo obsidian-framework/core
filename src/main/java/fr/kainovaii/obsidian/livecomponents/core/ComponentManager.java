@@ -116,6 +116,7 @@ public class ComponentManager
             synchronized (component) {
                 component.hydrate(request.getState());
                 component.setRequest(req);
+                Container.injectFields(component);
                 executeAction(component, request.getAction(), request.getParams());
                 component.captureState();
 
