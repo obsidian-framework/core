@@ -119,15 +119,15 @@ public class Obsidian
     public void loadLiveComponents() { LiveComponentsLoader.loadLiveComponents(); }
 
     /**
-     * Loads configuration and environment variables.
+     * Loads environment variables once and returns the singleton instance.
      *
-     * @return EnvLoader instance containing configuration
+     * @return EnvLoader singleton
      */
     public static EnvLoader loadConfigAndEnv()
     {
         EnvLoader env = new EnvLoader();
         env.load();
-        return env;
+        return EnvLoader.getInstance();
     }
 
     public void startCli() {
@@ -144,16 +144,14 @@ public class Obsidian
      *
      * @return Configured port for web server
      */
-    public static int getWebPort() { return Integer.parseInt(Obsidian.loadConfigAndEnv().get("PORT_WEB")); }
+    public static int getWebPort() { return Integer.parseInt(EnvLoader.getInstance().get("PORT_WEB")); }
 
     /**
      * Displays startup message (MOTD) in console.
      */
     public void registerMotd()
     {
-        EnvLoader env = new EnvLoader();
-
-        env.load();
+        EnvLoader env = EnvLoader.getInstance();
         final String RESET = "\u001B[0m";
         final String CYAN = "\u001B[36m";
         final String GREEN = "\u001B[32m";
@@ -184,8 +182,8 @@ public class Obsidian
 
     public void init()
     {
-        registerMotd();
         loadConfigAndEnv();
+        registerMotd();
         loadConfig();
         connectDatabase();
         loadMigrations();

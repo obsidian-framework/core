@@ -7,19 +7,38 @@ import fr.kainovaii.obsidian.security.user.RequireLogin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
 
 import static spark.Spark.*;
 
 /**
  * Route registration system.
  * Discovers HTTP method annotations and registers routes with Spark.
+ * Single-pass per method: iterates the annotation map once instead of calling
+ * one check per HTTP verb.
  */
 public class RouteLoader
 {
     /** Logger instance */
     private static final Logger logger = LoggerFactory.getLogger(RouteLoader.class);
+
+    /**
+     * Maps each HTTP annotation type to its Spark registration function.
+     * Insertion order is preserved but irrelevant — each method carries at most one HTTP annotation.
+     */
+    private static final Map<Class<? extends Annotation>, BiConsumer<String, spark.Route>> SPARK_REGISTRARS = Map.of(
+            GET.class,     (path, handler) -> get(path, handler),
+            POST.class,    (path, handler) -> post(path, handler),
+            PUT.class,     (path, handler) -> put(path, handler),
+            PATCH.class,   (path, handler) -> patch(path, handler),
+            DELETE.class,  (path, handler) -> delete(path, handler),
+            OPTIONS.class, (path, handler) -> options(path, handler),
+            HEAD.class,    (path, handler) -> head(path, handler)
+    );
 
     /**
      * Registers routes from all controllers.
@@ -35,168 +54,60 @@ public class RouteLoader
 
     /**
      * Registers routes from a single controller.
-     * Scans for HTTP method annotations on all methods.
+     * Single pass per method: checks each annotation type from the map and stops at the first match.
      *
      * @param controller Controller instance
      */
     private static void registerControllerRoutes(Object controller)
     {
-        for (Method method : controller.getClass().getDeclaredMethods()) {
-            registerGetRoute(controller, method);
-            registerPostRoute(controller, method);
-            registerPutRoute(controller, method);
-            registerPatchRoute(controller, method);
-            registerDeleteRoute(controller, method);
-            registerOptionsRoute(controller, method);
-            registerHeadRoute(controller, method);
+        Class<?> controllerClass = controller.getClass();
+
+        for (Method method : controllerClass.getDeclaredMethods()) {
+            for (Map.Entry<Class<? extends Annotation>, BiConsumer<String, spark.Route>> entry : SPARK_REGISTRARS.entrySet()) {
+                Annotation annotation = method.getAnnotation(entry.getKey());
+                if (annotation == null) continue;
+
+                String path = getAnnotationValue(annotation);
+                String name = getAnnotationName(annotation);
+
+                Route.registerNamedRoute(name, path);
+                registerAccessIfPresent(controllerClass, method, path);
+                entry.getValue().accept(path, RouteHandler.create(controller, method));
+
+                logger.debug("Registered {} route: {} -> {}", entry.getKey().getSimpleName(), name, path);
+                break;
+            }
         }
     }
 
     /**
-     * Registers GET route if method has @GET annotation.
+     * Extracts the {@code value()} attribute from an HTTP annotation via reflection.
      *
-     * @param controller Controller instance
-     * @param method Controller method
+     * @param annotation HTTP annotation instance
+     * @return Route path
      */
-    private static void registerGetRoute(Object controller, Method method)
+    private static String getAnnotationValue(Annotation annotation)
     {
-        if (!method.isAnnotationPresent(GET.class)) return;
-
-        GET annotation = method.getAnnotation(GET.class);
-        String path = annotation.value();
-        String name = annotation.name();
-
-        Route.registerNamedRoute(name, path);
-        registerAccessIfPresent(controller.getClass(), method, path);
-        get(path, RouteHandler.create(controller, method));
-
-        logger.debug("Registered GET route: {} -> {}", name, path);
+        try {
+            return (String) annotation.annotationType().getMethod("value").invoke(annotation);
+        } catch (Exception e) {
+            throw new RuntimeException("Cannot read 'value' from annotation " + annotation.annotationType().getSimpleName(), e);
+        }
     }
 
     /**
-     * Registers POST route if method has @POST annotation.
+     * Extracts the {@code name()} attribute from an HTTP annotation via reflection.
      *
-     * @param controller Controller instance
-     * @param method Controller method
+     * @param annotation HTTP annotation instance
+     * @return Route name, or empty string if absent
      */
-    private static void registerPostRoute(Object controller, Method method)
+    private static String getAnnotationName(Annotation annotation)
     {
-        if (!method.isAnnotationPresent(POST.class)) return;
-
-        POST annotation = method.getAnnotation(POST.class);
-        String path = annotation.value();
-        String name = annotation.name();
-
-        Route.registerNamedRoute(name, path);
-        registerAccessIfPresent(controller.getClass(), method, path);
-        post(path, RouteHandler.create(controller, method));
-
-        logger.debug("Registered POST route: {} -> {}", name, path);
-    }
-
-    /**
-     * Registers PUT route if method has @PUT annotation.
-     *
-     * @param controller Controller instance
-     * @param method Controller method
-     */
-    private static void registerPutRoute(Object controller, Method method)
-    {
-        if (!method.isAnnotationPresent(PUT.class)) return;
-
-        PUT annotation = method.getAnnotation(PUT.class);
-        String path = annotation.value();
-        String name = annotation.name();
-
-        Route.registerNamedRoute(name, path);
-        registerAccessIfPresent(controller.getClass(), method, path);
-        put(path, RouteHandler.create(controller, method));
-
-        logger.debug("Registered PUT route: {} -> {}", name, path);
-    }
-
-    /**
-     * Registers PATCH route if method has @PATCH annotation.
-     *
-     * @param controller Controller instance
-     * @param method Controller method
-     */
-    private static void registerPatchRoute(Object controller, Method method)
-    {
-        if (!method.isAnnotationPresent(PATCH.class)) return;
-
-        PATCH annotation = method.getAnnotation(PATCH.class);
-        String path = annotation.value();
-        String name = annotation.name();
-
-        Route.registerNamedRoute(name, path);
-        registerAccessIfPresent(controller.getClass(), method, path);
-        patch(path, RouteHandler.create(controller, method));
-
-        logger.debug("Registered PATCH route: {} -> {}", name, path);
-    }
-
-    /**
-     * Registers DELETE route if method has @DELETE annotation.
-     *
-     * @param controller Controller instance
-     * @param method Controller method
-     */
-    private static void registerDeleteRoute(Object controller, Method method)
-    {
-        if (!method.isAnnotationPresent(DELETE.class)) return;
-
-        DELETE annotation = method.getAnnotation(DELETE.class);
-        String path = annotation.value();
-        String name = annotation.name();
-
-        Route.registerNamedRoute(name, path);
-        registerAccessIfPresent(controller.getClass(), method, path);
-        delete(path, RouteHandler.create(controller, method));
-
-        logger.debug("Registered DELETE route: {} -> {}", name, path);
-    }
-
-    /**
-     * Registers OPTIONS route if method has @OPTIONS annotation.
-     *
-     * @param controller Controller instance
-     * @param method Controller method
-     */
-    private static void registerOptionsRoute(Object controller, Method method)
-    {
-        if (!method.isAnnotationPresent(OPTIONS.class)) return;
-
-        OPTIONS annotation = method.getAnnotation(OPTIONS.class);
-        String path = annotation.value();
-        String name = annotation.name();
-
-        Route.registerNamedRoute(name, path);
-        registerAccessIfPresent(controller.getClass(), method, path);
-        options(path, RouteHandler.create(controller, method));
-
-        logger.debug("Registered OPTIONS route: {} -> {}", name, path);
-    }
-
-    /**
-     * Registers HEAD route if method has @HEAD annotation.
-     *
-     * @param controller Controller instance
-     * @param method Controller method
-     */
-    private static void registerHeadRoute(Object controller, Method method)
-    {
-        if (!method.isAnnotationPresent(HEAD.class)) return;
-
-        HEAD annotation = method.getAnnotation(HEAD.class);
-        String path = annotation.value();
-        String name = annotation.name();
-
-        Route.registerNamedRoute(name, path);
-        registerAccessIfPresent(controller.getClass(), method, path);
-        head(path, RouteHandler.create(controller, method));
-
-        logger.debug("Registered HEAD route: {} -> {}", name, path);
+        try {
+            return (String) annotation.annotationType().getMethod("name").invoke(annotation);
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     /**

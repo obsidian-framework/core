@@ -11,9 +11,12 @@ import java.util.jar.*;
  * Scans the classpath for classes annotated with {@link Command}.
  * Supports compiled classes (target/classes) and JARs.
  */
-public class CommandDiscovery {
+public class CommandDiscovery
+{
 
-
+    /**
+     * @return unmodifiable list of {@link Command}-annotated classes found on the classpath
+     */
     public static List<Class<?>> discover()
     {
         List<Class<?>> found = new ArrayList<>();
@@ -30,6 +33,10 @@ public class CommandDiscovery {
         return Collections.unmodifiableList(found);
     }
 
+    /**
+     * @param cl the classloader to introspect
+     * @return list of URLs representing every classpath entry
+     */
     private static List<URL> classpathUrls(ClassLoader cl)
     {
         List<URL> urls = new ArrayList<>();
@@ -44,6 +51,12 @@ public class CommandDiscovery {
         return urls;
     }
 
+    /**
+     * @param root  classpath root directory
+     * @param dir   current directory being scanned
+     * @param cl    classloader used to load candidate classes
+     * @param found accumulator for {@link Command}-annotated classes
+     */
     private static void scanDir(File root, File dir, ClassLoader cl, List<Class<?>> found)
     {
         File[] files = dir.listFiles();
@@ -53,12 +66,18 @@ public class CommandDiscovery {
                 scanDir(root, f, cl, found);
             } else if (f.getName().endsWith(".class")) {
                 String name = root.toURI().relativize(f.toURI()).getPath()
-                                  .replace('/', '.').replace(".class", "");
+                        .replace('/', '.').replace(".class", "");
                 tryLoad(name, cl, found);
             }
         }
     }
 
+    /**
+     * @param jar   JAR file to scan
+     * @param cl    classloader used to load candidate classes
+     * @param found accumulator for {@link Command}-annotated classes
+     * @throws IOException if the JAR cannot be opened or read
+     */
     private static void scanJar(File jar, ClassLoader cl, List<Class<?>> found) throws IOException
     {
         try (JarFile jf = new JarFile(jar)) {
@@ -72,6 +91,11 @@ public class CommandDiscovery {
         }
     }
 
+    /**
+     * @param className fully-qualified binary class name
+     * @param cl        classloader to use
+     * @param found     accumulator for matching classes
+     */
     private static void tryLoad(String className, ClassLoader cl, List<Class<?>> found)
     {
         try {

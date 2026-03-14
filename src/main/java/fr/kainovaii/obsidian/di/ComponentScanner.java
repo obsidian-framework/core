@@ -5,6 +5,8 @@ import fr.kainovaii.obsidian.di.annotations.Repository;
 import fr.kainovaii.obsidian.di.annotations.Service;
 import org.reflections.Reflections;
 import org.reflections.scanners.Scanners;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.annotation.Annotation;
 import java.util.Set;
@@ -15,6 +17,8 @@ import java.util.Set;
  */
 public class ComponentScanner
 {
+    private static final Logger logger = LoggerFactory.getLogger(ComponentScanner.class);
+
     /**
      * Scans base package for annotated components and registers them in container.
      */
@@ -35,7 +39,7 @@ public class ComponentScanner
     {
         Set<Class<?>> annotatedClasses = reflections.getTypesAnnotatedWith(annotation);
         for (Class<?> clazz : annotatedClasses) {
-            System.out.println("Registering " + annotation.getSimpleName() + ": " + clazz.getSimpleName());
+            logger.debug("Registering {}: {}", annotation.getSimpleName(), clazz.getSimpleName());
             Container.resolve(clazz);
         }
     }

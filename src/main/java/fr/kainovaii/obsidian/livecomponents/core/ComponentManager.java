@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 public class ComponentManager
 {
     /** Pebble template engine used for rendering components */
-    private final PebbleEngine pebbleEngine;
+    private PebbleEngine pebbleEngine;
 
     /** Registry of component classes indexed by component name */
     private final Map<String, Class<? extends LiveComponent>> registeredComponents = new ConcurrentHashMap<>();
@@ -40,6 +40,17 @@ public class ComponentManager
      * @param pebbleEngine Pebble template engine instance
      */
     public ComponentManager(PebbleEngine pebbleEngine) {
+        this.pebbleEngine = pebbleEngine;
+    }
+
+    /**
+     * Replaces the Pebble engine after initial construction.
+     * Used by {@link fr.kainovaii.obsidian.livecomponents.core.LiveComponentsLoader}
+     * to inject the final engine with all extensions once components are scanned.
+     *
+     * @param pebbleEngine Final Pebble engine instance
+     */
+    public void setPebbleEngine(PebbleEngine pebbleEngine) {
         this.pebbleEngine = pebbleEngine;
     }
 
@@ -216,20 +227,7 @@ public class ComponentManager
      */
     private Object convertValue(Object value, Class<?> targetType)
     {
-        if (value == null || targetType.isInstance(value)) return value;
-
-        if (targetType == Integer.class || targetType == int.class)
-            return value instanceof Number ? ((Number) value).intValue() : Integer.parseInt(value.toString());
-        if (targetType == Long.class || targetType == long.class)
-            return value instanceof Number ? ((Number) value).longValue() : Long.parseLong(value.toString());
-        if (targetType == Double.class || targetType == double.class)
-            return value instanceof Number ? ((Number) value).doubleValue() : Double.parseDouble(value.toString());
-        if (targetType == Boolean.class || targetType == boolean.class)
-            return value instanceof Boolean ? value : Boolean.parseBoolean(value.toString());
-        if (targetType == String.class)
-            return value.toString();
-
-        return value;
+        return ValueConverter.convert(value, targetType);
     }
 
     /**

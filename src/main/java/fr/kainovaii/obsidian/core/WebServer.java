@@ -48,7 +48,6 @@ public class WebServer
         get("/obsidian/livecomponents.js", new LiveComponentsScriptRoute());
         get("/obsidian/flow.js", new ObsidianFlowScriptRoute());
 
-        // Global exception handler
         exception(Exception.class, (e, req, res) -> {
             res.body(ErrorHandler.handle(e, req, res));
         });

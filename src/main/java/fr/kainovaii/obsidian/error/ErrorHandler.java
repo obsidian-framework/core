@@ -14,8 +14,10 @@ public class ErrorHandler
     /** Logger instance */
     private static final Logger logger = LoggerFactory.getLogger(ErrorHandler.class);
 
-    /** Debug mode flag - enables detailed error pages */
-    private static boolean debugMode = true;
+    /** Debug mode flag — true if ENVIRONMENT != production */
+    private static boolean debugMode = !"production".equalsIgnoreCase(
+            fr.kainovaii.obsidian.core.EnvLoader.getInstance().get("ENVIRONMENT", "dev")
+    );
 
     /**
      * Sets debug mode.
@@ -89,108 +91,113 @@ public class ErrorHandler
      */
     private static String generateDebugHTML(String exceptionClass, String message, StackTraceElement[] stackTrace, String method, String path)
     {
-        StringBuilder html = new StringBuilder();
-
-        html.append("<!DOCTYPE html>\n");
-        html.append("<html lang=\"en\">\n");
-        html.append("<head>\n");
-        html.append("    <meta charset=\"UTF-8\">\n");
-        html.append("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n");
-        html.append("    <title>").append(exceptionClass).append("</title>\n");
-        html.append("    <link href=\"https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap\" rel=\"stylesheet\">\n");
-        html.append("    <style>\n");
-        html.append(getCSS());
-        html.append("    </style>\n");
-        html.append("</head>\n");
-        html.append("<body class=\"noise\">\n");
-
-        // Header
-        html.append("    <div class=\"header\">\n");
-        html.append("        <div class=\"container\">\n");
-        html.append("            <div class=\"exception-badge\">EXCEPTION</div>\n");
-        html.append("            <h1 class=\"exception-class\">").append(exceptionClass).append("</h1>\n");
-        html.append("            <p class=\"exception-message\">").append(escapeHtml(message)).append("</p>\n");
-        html.append("            <div class=\"request-info\">\n");
-        html.append("                <span class=\"method-badge\">").append(method).append("</span>\n");
-        html.append("                <span class=\"path\">").append(escapeHtml(path)).append("</span>\n");
-        html.append("            </div>\n");
-        html.append("        </div>\n");
-        html.append("    </div>\n");
-
-        // Stack trace
-        html.append("    <div class=\"container\">\n");
-        html.append("        <div class=\"stack-trace\">\n");
-        html.append("            <div class=\"section-title\">Stack Trace</div>\n");
-
+        StringBuilder frames = new StringBuilder();
         for (int i = 0; i < stackTrace.length; i++) {
-            StackTraceElement element = stackTrace[i];
-            boolean isFirst = i == 0;
+            StackTraceElement el = stackTrace[i];
+            String activeClass = i == 0 ? " frame-active" : "";
+            String lineNumber = el.getLineNumber() > 0
+                    ? "<span class=\"frame-line\">:" + el.getLineNumber() + "</span>"
+                    : "";
 
-            html.append("            <div class=\"frame").append(isFirst ? " frame-active" : "").append("\">\n");
-            html.append("                <div class=\"frame-header\">\n");
-            html.append("                    <span class=\"frame-number\">").append(i + 1).append("</span>\n");
-            html.append("                    <span class=\"frame-class\">").append(escapeHtml(element.getClassName())).append("</span>\n");
-            html.append("                    <span class=\"frame-method\">").append(escapeHtml(element.getMethodName())).append("</span>\n");
-            html.append("                </div>\n");
-            html.append("                <div class=\"frame-file\">\n");
-            html.append("                    <span>").append(escapeHtml(element.getFileName())).append("</span>\n");
-            if (element.getLineNumber() > 0) {
-                html.append("                    <span class=\"frame-line\">:").append(element.getLineNumber()).append("</span>\n");
-            }
-            html.append("                </div>\n");
-            html.append("            </div>\n");
+            frames.append("""
+                    <div class="frame%s">
+                        <div class="frame-header">
+                            <span class="frame-number">%d</span>
+                            <span class="frame-class">%s</span>
+                            <span class="frame-method">%s</span>
+                        </div>
+                        <div class="frame-file">
+                            <span>%s</span>%s
+                        </div>
+                    </div>
+                    """.formatted(
+                    activeClass, i + 1,
+                    escapeHtml(el.getClassName()),
+                    escapeHtml(el.getMethodName()),
+                    escapeHtml(el.getFileName()),
+                    lineNumber
+            ));
         }
 
-        html.append("        </div>\n");
-        html.append("    </div>\n");
-
-        html.append("</body>\n");
-        html.append("</html>");
-
-        return html.toString();
+        return """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>%s</title>
+                    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+                    <style>%s</style>
+                </head>
+                <body class="noise">
+                    <div class="header">
+                        <div class="container">
+                            <div class="exception-badge">EXCEPTION</div>
+                            <h1 class="exception-class">%s</h1>
+                            <p class="exception-message">%s</p>
+                            <div class="request-info">
+                                <span class="method-badge">%s</span>
+                                <span class="path">%s</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="container">
+                        <div class="stack-trace">
+                            <div class="section-title">Stack Trace</div>
+                            %s
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """.formatted(
+                exceptionClass,
+                getCSS(),
+                exceptionClass,
+                escapeHtml(message),
+                method,
+                escapeHtml(path),
+                frames
+        );
     }
 
-    /**
-     * Generates HTML for production error page.
-     *
-     * @return Complete HTML page
-     */
     private static String generateProductionHTML()
     {
-        return "<!DOCTYPE html>\n" +
-                "<html lang=\"en\">\n" +
-                "<head>\n" +
-                "    <meta charset=\"UTF-8\">\n" +
-                "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
-                "    <title>Server Error</title>\n" +
-                "    <link href=\"https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap\" rel=\"stylesheet\">\n" +
-                "    <style>\n" +
-                "        * { margin: 0; padding: 0; box-sizing: border-box; }\n" +
-                "        body {\n" +
-                "            font-family: 'JetBrains Mono', monospace;\n" +
-                "            background: #000;\n" +
-                "            color: #d4d4d4;\n" +
-                "            display: flex;\n" +
-                "            align-items: center;\n" +
-                "            justify-content: center;\n" +
-                "            min-height: 100vh;\n" +
-                "            text-align: center;\n" +
-                "            padding: 2rem;\n" +
-                "        }\n" +
-                "        .error-container { max-width: 600px; }\n" +
-                "        .error-code { font-size: 6rem; font-weight: 700; color: #ef4444; margin-bottom: 1rem; }\n" +
-                "        h1 { font-size: 2rem; margin-bottom: 1rem; color: #fff; }\n" +
-                "        p { color: #9ca3af; line-height: 1.6; }\n" +
-                "    </style>\n" +
-                "</head>\n" +
-                "<body>\n" +
-                "    <div class=\"error-container\">\n" +
-                "        <div class=\"error-code\">500</div>\n" +
-                "        <h1>Internal Server Error</h1>\n" +
-                "        <p>Something went wrong on our end. Please try again later.</p>\n" +
-                "    </div>\n" +
-                "</body>\n" +
-                "</html>";
+        return """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Server Error</title>
+                    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body {
+                            font-family: 'JetBrains Mono', monospace;
+                            background: #000;
+                            color: #d4d4d4;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            min-height: 100vh;
+                            text-align: center;
+                            padding: 2rem;
+                        }
+                        .error-container { max-width: 600px; }
+                        .error-code { font-size: 6rem; font-weight: 700; color: #ef4444; margin-bottom: 1rem; }
+                        h1 { font-size: 2rem; margin-bottom: 1rem; color: #fff; }
+                        p { color: #9ca3af; line-height: 1.6; }
+                    </style>
+                </head>
+                <body>
+                    <div class="error-container">
+                        <div class="error-code">500</div>
+                        <h1>Internal Server Error</h1>
+                        <p>Something went wrong on our end. Please try again later.</p>
+                    </div>
+                </body>
+                </html>
+                """;
     }
 
     /**

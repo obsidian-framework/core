@@ -12,10 +12,6 @@ import static fr.kainovaii.obsidian.cli.Printer.*;
 
 /**
  * Generates --help output for commands from their annotations.
- * <p>
- * Uses {@link AnsiColors} for styling and {@link Printer} for output.
- * ANSI codes are automatically disabled when no terminal is detected.
- * </p>
  */
 public class HelpPrinter
 {
@@ -56,10 +52,6 @@ public class HelpPrinter
 
     /**
      * Prints the detailed help for a single command.
-     * <p>
-     * Displays the command description, usage line, arguments (from {@link Param})
-     * and options (from {@link Option}) sorted by their declared index.
-     * </p>
      *
      * @param cls the command class annotated with {@link Command}
      */

@@ -38,28 +38,23 @@ public class LiveComponentsLoader
             ClasspathLoader loader = new ClasspathLoader();
 
             // Bootstrap engine to instantiate ComponentManager before scanning
-            PebbleEngine componentPebble = new PebbleEngine.Builder()
+            PebbleEngine bootstrapEngine = new PebbleEngine.Builder()
                     .loader(loader)
                     .cacheActive(true)
                     .build();
 
-            componentManager = new ComponentManager(componentPebble);
+            componentManager = new ComponentManager(bootstrapEngine);
 
             // Scan and register all @LiveComponentImpl classes
             LiveComponentScanner.scan(Obsidian.getBasePackage(), componentManager);
 
-            // Rebuild engine with all required Pebble extensions
-            componentPebble = new PebbleEngine.Builder()
+            // Rebuild engine with all required Pebble extensions and inject via setter
+            componentManager.setPebbleEngine(new PebbleEngine.Builder()
                     .loader(loader)
                     .extension(new ComponentExtension(componentManager))
                     .extension(new ValidationExtension())
                     .cacheActive(true)
-                    .build();
-
-            // Inject final engine into manager via reflection
-            java.lang.reflect.Field field = ComponentManager.class.getDeclaredField("pebbleEngine");
-            field.setAccessible(true);
-            field.set(componentManager, componentPebble);
+                    .build());
 
             Container.singleton(ComponentManager.class, componentManager);
             List<Object> frameworkControllers = List.of(new LiveComponentController());

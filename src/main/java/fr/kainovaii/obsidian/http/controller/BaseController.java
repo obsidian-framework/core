@@ -15,9 +15,9 @@ import java.util.Map;
 import static spark.Spark.halt;
 
 /**
- * Base controller providing template rendering, flash messages, and CSRF helpers.
- * Authentication methods delegate to {@link Auth} and are kept here for convenience.
- */
+* Base controller providing template rendering, flash messages, and CSRF helpers.
+* Authentication methods delegate to {@link Auth} and are kept here for convenience.
+*/
 public class BaseController
 {
     /**
