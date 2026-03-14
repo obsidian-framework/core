@@ -1,5 +1,6 @@
 package fr.kainovaii.obsidian.core;
 
+import fr.kainovaii.obsidian.cache.CacheLoader;
 import fr.kainovaii.obsidian.cli.Cli;
 import fr.kainovaii.obsidian.config.ConfigLoader;
 import fr.kainovaii.obsidian.database.DB;
@@ -7,16 +8,8 @@ import fr.kainovaii.obsidian.database.DatabaseLoader;
 import fr.kainovaii.obsidian.database.MigrationManager;
 import fr.kainovaii.obsidian.database.seeder.SeederLoader;
 import fr.kainovaii.obsidian.di.ComponentScanner;
-import fr.kainovaii.obsidian.di.Container;
 import fr.kainovaii.obsidian.livecomponents.core.ComponentManager;
-import fr.kainovaii.obsidian.livecomponents.core.LiveComponent;
 import fr.kainovaii.obsidian.livecomponents.core.LiveComponentsLoader;
-import fr.kainovaii.obsidian.livecomponents.pebble.ComponentExtension;
-import fr.kainovaii.obsidian.livecomponents.scanner.LiveComponentScanner;
-import fr.kainovaii.obsidian.livereload.LiveReloadLoader;
-import fr.kainovaii.obsidian.validation.pebble.ValidationExtension;
-import io.pebbletemplates.pebble.PebbleEngine;
-import io.pebbletemplates.pebble.loader.ClasspathLoader;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
@@ -147,6 +140,12 @@ public class Obsidian
     public static int getWebPort() { return Integer.parseInt(EnvLoader.getInstance().get("PORT_WEB")); }
 
     /**
+     * Initializes cache system.
+     * Configures driver based on CACHE_DRIVER environment variable (memory or redis).
+     */
+    public void loadCache() { CacheLoader.loadCache(); }
+
+    /**
      * Displays startup message (MOTD) in console.
      */
     public void registerMotd()
@@ -191,6 +190,7 @@ public class Obsidian
         loadContainer();
         startWebServer();
         loadLiveComponents();
+        loadCache();
     }
 
     /**
