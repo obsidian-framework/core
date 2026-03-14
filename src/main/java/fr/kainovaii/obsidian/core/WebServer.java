@@ -1,6 +1,7 @@
 package fr.kainovaii.obsidian.core;
 
 import fr.kainovaii.obsidian.error.ErrorHandler;
+import fr.kainovaii.obsidian.http.middleware.MiddlewareManager;
 import fr.kainovaii.obsidian.livecomponents.http.LiveComponentsScriptRoute;
 import fr.kainovaii.obsidian.livecomponents.http.ObsidianFlowScriptRoute;
 import fr.kainovaii.obsidian.livereload.LiveReloadLoader;
@@ -52,9 +53,14 @@ public class WebServer
             res.body(ErrorHandler.handle(e, req, res));
         });
 
-        // Request preprocessing middleware
         before((req, res) ->
         {
+            try {
+                MiddlewareManager.executeBefore(new Class[0], req, res);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
             setGlobal("request", req);
             setGlobal("response", res);
             setGlobal("isLogged", isLogged(req));

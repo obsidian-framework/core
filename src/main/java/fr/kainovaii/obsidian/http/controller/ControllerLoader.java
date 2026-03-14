@@ -38,17 +38,7 @@ public class ControllerLoader
     public static void loadControllers()
     {
         MiddlewareManager.registerBuiltins();
-
-        before("/*", (req, res) -> {
-            try {
-                MiddlewareManager.executeBefore(new Class[0], req, res);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
-
         before("/*", RoleChecker::checkAccess);
-
         List<Object> controllers = discoverControllers();
         RouteLoader.registerRoutes(controllers);
         SseLoader.registerSseRoutes(controllers);
