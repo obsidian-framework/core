@@ -72,6 +72,7 @@ public class ControllerLoader
     public static void loadAdvicesControllers(Request req, Response res)
     {
         try {
+            MiddlewareManager.executeBefore(new Class[0], req, res);
             Reflections reflections = new Reflections(Obsidian.getBasePackage());
             Set<Class<?>> adviceClasses = reflections.getTypesAnnotatedWith(GlobalAdvice.class);
 
