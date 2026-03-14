@@ -2,6 +2,7 @@ package fr.kainovaii.obsidian.core;
 
 import fr.kainovaii.obsidian.error.ErrorHandler;
 import fr.kainovaii.obsidian.livecomponents.http.LiveComponentsScriptRoute;
+import fr.kainovaii.obsidian.livecomponents.http.ObsidianFlowScriptRoute;
 import fr.kainovaii.obsidian.livereload.LiveReloadLoader;
 import fr.kainovaii.obsidian.security.role.RoleChecker;
 import fr.kainovaii.obsidian.http.controller.ControllerLoader;
@@ -44,6 +45,7 @@ public class WebServer
 
         logger.info("Initializing Spark...");
         get("/obsidian/livecomponents.js", new LiveComponentsScriptRoute());
+        get("/obsidian/flow.js", new ObsidianFlowScriptRoute());
 
         // Global exception handler
         exception(Exception.class, (e, req, res) -> {
