@@ -2,13 +2,17 @@ package fr.kainovaii.obsidian.livecomponents.core;
 
 import fr.kainovaii.obsidian.core.Obsidian;
 import fr.kainovaii.obsidian.di.Container;
+import fr.kainovaii.obsidian.livecomponents.http.LiveComponentController;
 import fr.kainovaii.obsidian.livecomponents.pebble.ComponentExtension;
 import fr.kainovaii.obsidian.livecomponents.scanner.LiveComponentScanner;
+import fr.kainovaii.obsidian.routing.RouteLoader;
 import fr.kainovaii.obsidian.validation.pebble.ValidationExtension;
 import io.pebbletemplates.pebble.PebbleEngine;
 import io.pebbletemplates.pebble.loader.ClasspathLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.List;
 
 /**
  * LiveComponents discovery and initialization system.
@@ -58,6 +62,8 @@ public class LiveComponentsLoader
             field.set(componentManager, componentPebble);
 
             Container.singleton(ComponentManager.class, componentManager);
+            List<Object> frameworkControllers = List.of(new LiveComponentController());
+            RouteLoader.registerRoutes(frameworkControllers);
 
             logger.info("LiveComponents loaded successfully!");
         } catch (Exception e) {
