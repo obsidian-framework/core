@@ -17,8 +17,8 @@
  * - Re-executes inline <script> tags from new page
  * - Scroll reset on navigation
  */
-class ObsidianFlow
-{
+class ObsidianFlow {
+
     constructor() {
         /** @type {boolean} Whether a navigation is in progress */
         this.navigating = false;
@@ -245,7 +245,7 @@ class ObsidianFlow
             // Skip LiveComponents script and Flow itself — already loaded
             if (oldScript.src && (
                 oldScript.src.includes('livecomponents.js') ||
-                oldScript.src.includes('obsidian-flow.js')
+                oldScript.src.includes('flow.js')
             )) return;
 
             const newScript = document.createElement('script');
