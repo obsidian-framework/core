@@ -6,19 +6,22 @@
  * LiveComponents after each navigation.
  *
  * @class ObsidianFlow
- * @version 1.0.0
+ * @version 1.1.0
  *
  * Features:
  * - Intercepts <a> clicks and replaces <body> via fetch
+ * - Intercepts <form> submissions (GET and POST)
+ * - Updates <head> meta/link tags on navigation
  * - Handles browser back/forward (popstate)
  * - Opt-out via data-flow="false"
  * - Loading progress bar
+ * - Fetch timeout (8s) with fallback to full navigation
  * - Re-initializes ObsidianComponents after navigation
  * - Re-executes inline <script> tags from new page
  * - Scroll reset on navigation
  */
-class ObsidianFlow {
-
+class ObsidianFlow
+{
     constructor() {
         /** @type {boolean} Whether a navigation is in progress */
         this.navigating = false;
@@ -31,6 +34,9 @@ class ObsidianFlow {
 
         /** @type {number|null} Progress bar timeout */
         this.progressTimeout = null;
+
+        /** @type {number} Fetch timeout in milliseconds */
+        this.timeout = 8000;
 
         this._createProgressBar();
         this._attachListeners();
@@ -73,7 +79,6 @@ class ObsidianFlow {
         clearTimeout(this.progressTimeout);
         this.progressBar.style.opacity = '1';
         this.progressBar.style.width = '0%';
-        // Small delay then jump to 70% to give feedback
         requestAnimationFrame(() => {
             this.progressBar.style.width = '70%';
         });
@@ -98,14 +103,12 @@ class ObsidianFlow {
     // -------------------------------------------------------------------------
 
     /**
-     * Attaches global click and popstate listeners.
+     * Attaches global click, submit and popstate listeners.
      * @private
      */
     _attachListeners() {
-        // Intercept link clicks
         document.addEventListener('click', (e) => this._onClick(e));
-
-        // Handle browser back/forward
+        document.addEventListener('submit', (e) => this._onSubmit(e));
         window.addEventListener('popstate', (e) => this._onPopstate(e));
     }
 
@@ -127,13 +130,47 @@ class ObsidianFlow {
         // Only same-origin navigation
         if (!a.href || !a.href.startsWith(location.origin)) return;
 
-        // Skip anchors (#), mailto:, javascript:, etc.
+        // Skip anchors (#) on the same page
         const url = new URL(a.href);
         if (url.hash && url.pathname === location.pathname) return;
         if (a.target && a.target !== '_self') return;
 
         e.preventDefault();
         this.navigate(a.href);
+    }
+
+    /**
+     * Handles form submissions.
+     * Supports GET (query string) and POST (FormData body).
+     * @private
+     * @param {SubmitEvent} e
+     */
+    _onSubmit(e) {
+        const form = e.target.closest('form');
+        if (!form) return;
+
+        // Opt-out
+        if (form.dataset.flow === 'false') return;
+
+        // Only same-origin
+        const action = form.action || location.href;
+        if (!action.startsWith(location.origin)) return;
+
+        // Skip forms handled by LiveComponents
+        if (form.hasAttribute('live:submit')) return;
+
+        e.preventDefault();
+
+        const method = (form.method || 'get').toLowerCase();
+        const formData = new FormData(form);
+
+        if (method === 'get') {
+            const params = new URLSearchParams(formData).toString();
+            const url = action.split('?')[0] + (params ? '?' + params : '');
+            this.navigate(url);
+        } else {
+            this.navigate(action, { method: 'POST', body: formData });
+        }
     }
 
     /**
@@ -152,43 +189,59 @@ class ObsidianFlow {
     // -------------------------------------------------------------------------
 
     /**
-     * Navigates to a URL by fetching the page and replacing the body.
+     * Navigates to a URL by fetching the page and replacing the document.
      *
      * @param {string} url - Target URL
      * @param {Object} options
      * @param {boolean} [options.pushState=true] - Whether to push to history
+     * @param {string} [options.method='GET'] - HTTP method
+     * @param {FormData} [options.body] - Request body for POST
      * @returns {Promise<void>}
      */
-    async navigate(url, { pushState = true } = {}) {
+    async navigate(url, { pushState = true, method = 'GET', body = null } = {}) {
         if (this.navigating) return;
-        if (url === this.currentUrl && pushState) return;
+        if (method === 'GET' && url === this.currentUrl && pushState) return;
 
         this.navigating = true;
         this._progressStart();
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
         try {
             const res = await fetch(url, {
+                method,
+                body,
                 headers: {
                     'X-Obsidian-Flow': '1',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                signal: controller.signal
             });
 
+            clearTimeout(timeoutId);
+
             if (!res.ok) {
-                // On error, fallback to regular navigation
                 window.location.href = url;
                 return;
             }
 
+            // Follow redirects — use final URL after POST/redirect
+            const finalUrl = res.url || url;
+
             const html = await res.text();
             const doc = new DOMParser().parseFromString(html, 'text/html');
 
-            this._applyPage(doc, url, pushState);
+            this._applyPage(doc, finalUrl, pushState);
 
         } catch (err) {
-            // Network error — fallback to full navigation
-            console.warn('[ObsidianFlow] Navigation failed, falling back:', err);
+            clearTimeout(timeoutId);
+            if (err.name === 'AbortError') {
+                console.warn('[ObsidianFlow] Request timed out, falling back to full navigation');
+            } else {
+                console.warn('[ObsidianFlow] Navigation failed, falling back:', err);
+            }
             window.location.href = url;
         } finally {
             this.navigating = false;
@@ -198,8 +251,8 @@ class ObsidianFlow {
 
     /**
      * Applies the fetched page to the current document.
-     * Updates title, body, pushes history state, re-runs scripts,
-     * and re-initializes LiveComponents.
+     * Updates <head> meta/link tags, title, body, history,
+     * re-runs scripts and re-initializes LiveComponents.
      *
      * @private
      * @param {Document} doc - Parsed document from fetched page
@@ -207,29 +260,52 @@ class ObsidianFlow {
      * @param {boolean} pushState - Whether to push to history
      */
     _applyPage(doc, url, pushState) {
-        // Update <title>
         document.title = doc.title;
 
-        // Update <body>
+        this._applyHead(doc.head);
+
         document.body.innerHTML = doc.body.innerHTML;
 
-        // Scroll to top
         window.scrollTo(0, 0);
 
-        // Push to history
         if (pushState) {
             history.pushState({ obsidianFlow: true, url }, '', url);
         }
         this.currentUrl = url;
 
-        // Re-execute inline scripts from new body
         this._rerunScripts(document.body);
-
-        // Re-initialize LiveComponents
         this._reinitLiveComponents();
 
-        // Dispatch navigation event (useful for analytics, etc.)
         window.dispatchEvent(new CustomEvent('obsidian:flow:load', { detail: { url } }));
+    }
+
+    /**
+     * Syncs <head> meta and link tags from the fetched page.
+     * Adds new tags, removes stale ones. Skips scripts to avoid re-loading JS.
+     *
+     * @private
+     * @param {HTMLHeadElement} newHead - <head> from fetched document
+     */
+    _applyHead(newHead) {
+        const current = new Map();
+        document.head.querySelectorAll('meta, link').forEach(el => {
+            current.set(el.outerHTML, el);
+        });
+
+        const incoming = new Set();
+        newHead.querySelectorAll('meta, link').forEach(el => {
+            incoming.add(el.outerHTML);
+            if (!current.has(el.outerHTML)) {
+                document.head.appendChild(el.cloneNode(true));
+            }
+        });
+
+        // Remove stale elements not present in new head
+        current.forEach((el, key) => {
+            if (!incoming.has(key)) {
+                el.remove();
+            }
+        });
     }
 
     /**
@@ -242,19 +318,16 @@ class ObsidianFlow {
     _rerunScripts(container) {
         const scripts = container.querySelectorAll('script');
         scripts.forEach(oldScript => {
-            // Skip LiveComponents script and Flow itself — already loaded
+            // Skip Flow and LiveComponents — already loaded once
             if (oldScript.src && (
                 oldScript.src.includes('livecomponents.js') ||
                 oldScript.src.includes('flow.js')
             )) return;
 
             const newScript = document.createElement('script');
-
-            // Copy attributes
             Array.from(oldScript.attributes).forEach(attr => {
                 newScript.setAttribute(attr.name, attr.value);
             });
-
             newScript.textContent = oldScript.textContent;
             oldScript.parentNode.replaceChild(newScript, oldScript);
         });
@@ -268,7 +341,6 @@ class ObsidianFlow {
      */
     _reinitLiveComponents() {
         if (window.ObsidianComponents) {
-            // Reset component registry to avoid stale references
             window.ObsidianComponents.components.clear();
             window.ObsidianComponents.init();
         }
@@ -279,11 +351,6 @@ class ObsidianFlow {
 // Bootstrap
 // -------------------------------------------------------------------------
 
-/**
- * Initializes ObsidianFlow when DOM is ready.
- * Creates global instance accessible via window.ObsidianFlow.
- * Must be loaded AFTER livecomponents.js.
- */
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         window.ObsidianFlow = new ObsidianFlow();
