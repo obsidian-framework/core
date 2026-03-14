@@ -72,6 +72,7 @@ public class ControllerLoader
     public static void loadAdvicesControllers(Request req, Response res)
     {
         try {
+            MiddlewareManager.executeBefore(new Class[0], req, res);
             Reflections reflections = new Reflections(Obsidian.getBasePackage());
             Set<Class<?>> adviceClasses = reflections.getTypesAnnotatedWith(GlobalAdvice.class);
 
@@ -109,7 +110,9 @@ public class ControllerLoader
     private static Object instantiateController(Class<?> cls)
     {
         try {
-            return cls.getDeclaredConstructor().newInstance();
+            Object instance = cls.getDeclaredConstructor().newInstance();
+            Container.injectFields(instance);
+            return instance;
         } catch (Exception e) {
             logger.error("Failed to instantiate controller: {}", cls.getName(), e);
             return null;

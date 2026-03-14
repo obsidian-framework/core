@@ -5,6 +5,7 @@ import fr.kainovaii.obsidian.security.csrf.CsrfProtection;
 import fr.kainovaii.obsidian.security.role.RoleChecker;
 import fr.kainovaii.obsidian.di.Container;
 import fr.kainovaii.obsidian.error.ErrorHandler;
+import fr.kainovaii.obsidian.http.middleware.Middleware;
 import fr.kainovaii.obsidian.http.middleware.annotations.After;
 import fr.kainovaii.obsidian.http.middleware.annotations.Before;
 import fr.kainovaii.obsidian.http.middleware.MiddlewareManager;
@@ -20,11 +21,17 @@ import java.lang.reflect.Parameter;
 /**
  * Creates Spark route handlers with middleware, CSRF protection, and error handling.
  * Handles method parameter injection and exception handling.
+ *
+ * regardless of whether the route method has {@link Before} or {@link After} annotations.</p>
  */
 public class RouteHandler
 {
     /** Logger instance */
     private static final Logger logger = LoggerFactory.getLogger(RouteHandler.class);
+
+    /** Empty middleware array used when no @Before or @After annotation is present */
+    @SuppressWarnings("unchecked")
+    private static final Class<? extends Middleware>[] EMPTY_MIDDLEWARES = new Class[0];
 
     /**
      * Creates Spark route handler for controller method.
@@ -60,23 +67,25 @@ public class RouteHandler
     }
 
     /**
-     * Executes before middleware if present.
+     * Executes before middleware chain.
+     * Built-in middlewares always run. User-defined middlewares run if {@link Before} is present.
      *
      * @param method Controller method
      * @param req HTTP request
      * @param res HTTP response
-     * @throws Exception if middleware execution fails
+     * @throws Exception if any middleware throws an exception
      */
     private static void executeBeforeMiddleware(Method method, Request req, Response res) throws Exception
     {
-        if (method.isAnnotationPresent(Before.class)) {
-            Before beforeAnnotation = method.getAnnotation(Before.class);
-            MiddlewareManager.executeBefore(beforeAnnotation.value(), req, res);
-        }
+        Class<? extends Middleware>[] userMiddlewares = method.isAnnotationPresent(Before.class)
+                ? method.getAnnotation(Before.class).value()
+                : EMPTY_MIDDLEWARES;
+
+        MiddlewareManager.executeBefore(userMiddlewares, req, res);
     }
 
     /**
-     * Validates CSRF token if @CsrfProtect annotation present.
+     * Validates CSRF token if {@link CsrfProtect} annotation present.
      *
      * @param controller Controller instance
      * @param method Controller method
@@ -150,18 +159,20 @@ public class RouteHandler
     }
 
     /**
-     * Executes after middleware if present.
+     * Executes after middleware chain.
+     * Built-in middlewares always run. User-defined middlewares run if {@link After} is present.
      *
      * @param method Controller method
      * @param req HTTP request
      * @param res HTTP response
-     * @throws Exception if middleware execution fails
+     * @throws Exception if any middleware throws an exception
      */
     private static void executeAfterMiddleware(Method method, Request req, Response res) throws Exception
     {
-        if (method.isAnnotationPresent(After.class)) {
-            After afterAnnotation = method.getAnnotation(After.class);
-            MiddlewareManager.executeAfter(afterAnnotation.value(), req, res);
-        }
+        Class<? extends Middleware>[] userMiddlewares = method.isAnnotationPresent(After.class)
+                ? method.getAnnotation(After.class).value()
+                : EMPTY_MIDDLEWARES;
+
+        MiddlewareManager.executeAfter(userMiddlewares, req, res);
     }
 }
