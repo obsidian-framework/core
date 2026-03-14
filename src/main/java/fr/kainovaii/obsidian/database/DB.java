@@ -251,7 +251,7 @@ public class DB
      * Opens database connection.
      * Uses JDBC for SQLite, connection pool for MySQL/PostgreSQL.
      */
-    private void connect()
+    public void connect()
     {
         try {
             if (type.equals("sqlite")) {
