@@ -109,7 +109,9 @@ public class ControllerLoader
     private static Object instantiateController(Class<?> cls)
     {
         try {
-            return cls.getDeclaredConstructor().newInstance();
+            Object instance = cls.getDeclaredConstructor().newInstance();
+            Container.injectFields(instance);
+            return instance;
         } catch (Exception e) {
             logger.error("Failed to instantiate controller: {}", cls.getName(), e);
             return null;
