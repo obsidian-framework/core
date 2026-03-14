@@ -2,6 +2,7 @@ package fr.kainovaii.obsidian.livecomponents.core;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import fr.kainovaii.obsidian.di.Container;
 import fr.kainovaii.obsidian.error.ErrorHandler;
 import fr.kainovaii.obsidian.livecomponents.ComponentException;
 import io.pebbletemplates.pebble.PebbleEngine;
@@ -72,6 +73,7 @@ public class ComponentManager
             }
 
             LiveComponent instance = componentClass.getDeclaredConstructor().newInstance();
+            Container.injectFields(instance);
             instance.setRequest(req);
 
             String sessionId = session != null ? session.id() : "anonymous";
@@ -114,6 +116,7 @@ public class ComponentManager
             synchronized (component) {
                 component.hydrate(request.getState());
                 component.setRequest(req);
+                Container.injectFields(component);
                 executeAction(component, request.getAction(), request.getParams());
                 component.captureState();
 

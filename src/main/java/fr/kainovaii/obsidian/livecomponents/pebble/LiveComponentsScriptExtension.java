@@ -18,7 +18,8 @@ public class LiveComponentsScriptExtension extends AbstractExtension
         String env = System.getenv("ENVIRONMENT");
         String version = "production".equalsIgnoreCase(env) ? "1.0.0" : String.valueOf(System.currentTimeMillis());
 
-        String scriptTag = "<script src=\"/obsidian/livecomponents.js?v=" + version + "\"></script>";
+        String scriptTag = "<script src=\"/obsidian/livecomponents.js?v=" + version + "\"></script>\n"
+                + "<script src=\"/obsidian/flow.js?v=" + version + "\"></script>";
         globals.put("livecomponents_scripts", scriptTag);
 
         return globals;
