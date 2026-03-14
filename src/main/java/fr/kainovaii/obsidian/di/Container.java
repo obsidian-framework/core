@@ -8,26 +8,31 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Dependency injection container.
  * Manages singleton instances and handles automatic dependency resolution.
  * Supports both constructor injection and field injection via @Inject.
+ * Thread-safe: singletons and bindings use ConcurrentHashMap;
+ * circular dependency detection is per-thread via ThreadLocal.
  */
 public class Container
 {
     /** Singleton instances cache */
-    private static final Map<Class<?>, Object> singletons = new HashMap<>();
+    private static final Map<Class<?>, Object> singletons = new ConcurrentHashMap<>();
 
     /** Interface to implementation bindings */
-    private static final Map<Class<?>, Class<?>> bindings = new HashMap<>();
+    private static final Map<Class<?>, Class<?>> bindings = new ConcurrentHashMap<>();
 
-    /** Tracks classes currently being resolved to detect circular dependencies */
-    private static final Set<Class<?>> resolving = new HashSet<>();
+    /**
+     * Tracks classes currently being resolved per thread to detect circular dependencies.
+     * ThreadLocal ensures each resolution chain is isolated to its own thread.
+     */
+    private static final ThreadLocal<Set<Class<?>>> resolving = ThreadLocal.withInitial(HashSet::new);
 
     /** Allowed component annotations */
     private static final Set<Class<? extends Annotation>> COMPONENT_ANNOTATIONS = Set.of(Service.class, Repository.class);
@@ -79,19 +84,19 @@ public class Container
         if (!isComponent(resolvedClass) && !bindings.containsKey(clazz)) {
             throw new IllegalArgumentException(
                     "Cannot resolve '" + resolvedClass.getSimpleName() + "': " +
-                            "class must be annotated with @Service or @Repository, " +
-                            "or registered manually via Container.bind() / Container.singleton()."
+                    "class must be annotated with @Service or @Repository, " +
+                    "or registered manually via Container.bind() / Container.singleton()."
             );
         }
 
         // Guard: circular dependency detection
-        if (resolving.contains(resolvedClass)) {
+        if (resolving.get().contains(resolvedClass)) {
             throw new RuntimeException(
                     "Circular dependency detected while resolving: " + resolvedClass.getName()
             );
         }
 
-        resolving.add(resolvedClass);
+        resolving.get().add(resolvedClass);
         try {
             Constructor<?> constructor = selectConstructor(resolvedClass);
             constructor.setAccessible(true);
@@ -115,7 +120,7 @@ public class Container
         } catch (Exception e) {
             throw new RuntimeException("Cannot resolve dependency: " + resolvedClass.getName(), e);
         } finally {
-            resolving.remove(resolvedClass);
+            resolving.get().remove(resolvedClass);
         }
     }
 
@@ -163,9 +168,7 @@ public class Container
         }
 
         if (injected.length > 1) {
-            throw new IllegalArgumentException(
-                    "'" + clazz.getSimpleName() + "' has multiple constructors annotated with @Inject. Only one is allowed."
-            );
+            throw new IllegalArgumentException("'" + clazz.getSimpleName() + "' has multiple constructors annotated with @Inject. Only one is allowed.");
         }
 
         // No @Inject: only valid if there is exactly one constructor
@@ -173,10 +176,7 @@ public class Container
             return constructors[0];
         }
 
-        throw new IllegalArgumentException(
-                "'" + clazz.getSimpleName() + "' has " + constructors.length + " constructors. " +
-                        "Annotate the one to use with @Inject."
-        );
+        throw new IllegalArgumentException("'" + clazz.getSimpleName() + "' has " + constructors.length + " constructors. " + "Annotate the one to use with @Inject.");
     }
 
     /**
@@ -198,6 +198,6 @@ public class Container
     {
         singletons.clear();
         bindings.clear();
-        resolving.clear();
+        resolving.remove();
     }
 }

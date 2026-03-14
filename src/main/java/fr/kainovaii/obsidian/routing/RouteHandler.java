@@ -23,12 +23,6 @@ import java.lang.reflect.Parameter;
 /**
  * Creates Spark route handlers with middleware, CSRF protection, and error handling.
  * Handles method parameter injection and exception handling.
- *
- * <p>Built-in framework middlewares (e.g. database connection) are always executed
- * regardless of whether the route method has {@link Before} or {@link After} annotations.</p>
- *
- * <p>Supports {@link CurrentUser} annotation on method parameters to inject
- * the currently authenticated user directly.</p>
  */
 public class RouteHandler
 {

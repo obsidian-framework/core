@@ -7,11 +7,8 @@ import java.util.*;
 /**
  * Entry point for the Obsidian CLI.
  * Zero external dependencies.
- *
  * Called from {@link fr.kainovaii.obsidian.core.Obsidian#startCli()}.
- *
  * The application's main class must pass args to the framework:
- *
  */
 public class Cli
 {

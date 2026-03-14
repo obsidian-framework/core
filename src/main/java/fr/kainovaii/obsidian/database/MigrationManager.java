@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -95,16 +96,18 @@ public class MigrationManager
 
     /**
      * Executes all pending migrations.
+     * Loads executed migrations in a single query, then iterates locally.
      * Runs within a transaction.
      */
     public void migrate() {
         database.executeWithTransaction(() -> {
             createMigrationsTable();
+            Set<String> executed = loadExecutedMigrations();
 
             for (int i = 0; i < migrations.size(); i++) {
                 String migrationName = "migration_" + (i + 1);
 
-                if (!isMigrationExecuted(migrationName)) {
+                if (!executed.contains(migrationName)) {
                     logger.info("Executing migration: " + migrationName);
                     migrations.get(i).up();
                     recordMigration(migrationName);
@@ -124,10 +127,12 @@ public class MigrationManager
      */
     public void rollback() {
         database.executeWithTransaction(() -> {
+            Set<String> executed = loadExecutedMigrations();
+
             for (int i = migrations.size() - 1; i >= 0; i--) {
                 String migrationName = "migration_" + (i + 1);
 
-                if (isMigrationExecuted(migrationName)) {
+                if (executed.contains(migrationName)) {
                     logger.info("Rolling back migration: " + migrationName);
                     migrations.get(i).down();
                     removeMigration(migrationName);
@@ -145,10 +150,12 @@ public class MigrationManager
      */
     public void rollbackLast() {
         database.executeWithTransaction(() -> {
+            Set<String> executed = loadExecutedMigrations();
+
             for (int i = migrations.size() - 1; i >= 0; i--) {
                 String migrationName = "migration_" + (i + 1);
 
-                if (isMigrationExecuted(migrationName)) {
+                if (executed.contains(migrationName)) {
                     logger.info("Rolling back last migration: " + migrationName);
                     migrations.get(i).down();
                     removeMigration(migrationName);
@@ -174,13 +181,13 @@ public class MigrationManager
      */
     public void status() {
         database.executeWithConnection(() -> {
-            System.out.println("\n=== Migration Status ===");
+            Set<String> executed = loadExecutedMigrations();
+
             for (int i = 0; i < migrations.size(); i++) {
                 String migrationName = "migration_" + (i + 1);
-                String status = isMigrationExecuted(migrationName) ? "✓ Executed" : "✗ Pending";
-                System.out.println(migrationName + " - " + status);
+                String status = executed.contains(migrationName) ? "✓ Executed" : "✗ Pending";
+                logger.info("{} - {}", migrationName, status);
             }
-            System.out.println("========================\n");
             return null;
         });
     }
@@ -205,17 +212,16 @@ public class MigrationManager
     }
 
     /**
-     * Checks if a migration has been executed.
+     * Loads all executed migration names in a single query.
      *
-     * @param migrationName Migration name
-     * @return true if executed, false otherwise
+     * @return Set of executed migration names
      */
-    private boolean isMigrationExecuted(String migrationName) {
-        Object result = Base.firstCell("SELECT COUNT(*) FROM migrations WHERE migration = ?", migrationName);
-        if (result == null) return false;
-
-        long count = result instanceof Long ? (Long) result : Long.parseLong(result.toString());
-        return count > 0;
+    private Set<String> loadExecutedMigrations() {
+        Set<String> executed = new HashSet<>();
+        Base.findAll("SELECT migration FROM migrations").forEach(row ->
+                executed.add(row.get("migration").toString())
+        );
+        return executed;
     }
 
     /**

@@ -9,17 +9,19 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Optional;
 
 /**
  * Environment configuration loader for Obsidian applications.
  * Handles .env file discovery, creation from template, and variable access.
+ * Singleton: loaded once via {@link #load()}, accessed anywhere via {@link #getInstance()}.
  */
 public class EnvLoader
 {
     private static final Logger logger = LoggerFactory.getLogger(EnvLoader.class);
     private static final String ENV_FILE = ".env";
     private static final String ENV_TEMPLATE = "/env.template";
+
+    private static EnvLoader instance;
 
     private Dotenv dotenv;
     private final Path workingDirectory;
@@ -43,13 +45,30 @@ public class EnvLoader
     }
 
     /**
-     * Loads environment variables from .env file.
+     * Returns the singleton instance.
+     *
+     * @return EnvLoader instance
+     * @throws IllegalStateException if {@link #load()} has not been called yet
+     */
+    public static EnvLoader getInstance()
+    {
+        if (instance == null) {
+            throw new IllegalStateException("EnvLoader not initialized. Call load() first.");
+        }
+        return instance;
+    }
+
+    /**
+     * Loads environment variables from .env file and stores the singleton instance.
+     * No-op if already loaded.
      * Creates the file from template if it doesn't exist.
      *
      * @throws RuntimeException if loading fails
      */
     public void load()
     {
+        if (instance != null) return;
+
         try {
             Path envFile = workingDirectory.resolve(ENV_FILE);
 
@@ -64,6 +83,7 @@ public class EnvLoader
                     .ignoreIfMissing()
                     .load();
 
+            instance = this;
             logger.info("Environment configuration loaded successfully");
 
         } catch (IOException e) {
@@ -100,18 +120,6 @@ public class EnvLoader
     {
         ensureLoaded();
         return dotenv.get(key);
-    }
-
-    /**
-     * Retrieves an environment variable as Optional.
-     *
-     * @param key The variable name
-     * @return Optional containing the value, or empty if not found
-     */
-    public Optional<String> getOptional(String key)
-    {
-        ensureLoaded();
-        return Optional.ofNullable(dotenv.get(key));
     }
 
     /**

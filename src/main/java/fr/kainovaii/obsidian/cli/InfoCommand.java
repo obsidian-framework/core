@@ -6,8 +6,8 @@ import static fr.kainovaii.obsidian.cli.AnsiColors.*;
 import static fr.kainovaii.obsidian.cli.Printer.*;
 
 /**
- * Built-in command that displays framework and environment information.
- */
+* Built-in command that displays framework and environment information.
+*/
 @Command(name = "info", description = "Display framework and environment information")
 public class InfoCommand implements Runnable
 {

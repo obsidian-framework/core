@@ -23,9 +23,9 @@ import java.util.stream.Collectors;
 import static spark.Spark.before;
 
 /**
- * Controller discovery and registration system.
- * Scans for @Controller and @GlobalAdvice annotated classes and registers their routes.
- */
+* Controller discovery and registration system.
+* Scans for @Controller and @GlobalAdvice annotated classes and registers their routes.
+*/
 public class ControllerLoader
 {
     /** Logger instance */

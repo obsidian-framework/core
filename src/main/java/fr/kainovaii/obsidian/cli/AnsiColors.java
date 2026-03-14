@@ -6,8 +6,7 @@ package fr.kainovaii.obsidian.cli;
 public class AnsiColors
 {
     // ─── ANSI support detection ───────────────────────────────
-    public static final boolean ANSI = System.console() != null
-            || System.getenv("FORCE_COLOR") != null;
+    public static final boolean ANSI = System.console() != null || System.getenv("FORCE_COLOR") != null;
 
     // ─── Reset ───────────────────────────────────────────────
     public static final String RESET       = "\u001B[0m";

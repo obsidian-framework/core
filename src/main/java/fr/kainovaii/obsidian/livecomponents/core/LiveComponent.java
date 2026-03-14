@@ -8,9 +8,13 @@ import spark.Request;
 
 import java.io.StringWriter;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Base class for all LiveComponents — server-side reactive UI components.
@@ -19,6 +23,11 @@ import java.util.UUID;
  */
 public abstract class LiveComponent
 {
+    /**
+     * Per-class cache of @State-annotated fields.
+     * Built once on first access, reused across all instances and render cycles.
+     */
+    private static final Map<Class<?>, Field[]> STATE_FIELDS_CACHE = new ConcurrentHashMap<>();
     /** Unique component identifier, included in state */
     @State
     protected String _id;
@@ -82,8 +91,10 @@ public abstract class LiveComponent
      */
     protected Object getSessionAttribute(String key)
     {
-        if (request == null || request.session(false) == null) return null;
-        return request.session(false).attribute(key);
+        if (request == null) return null;
+        spark.Session session = request.session(false);
+        if (session == null) return null;
+        return session.attribute(key);
     }
 
     /**
@@ -93,15 +104,11 @@ public abstract class LiveComponent
     public void captureState()
     {
         stateSnapshot.clear();
-        for (Field field : getAllFields(this.getClass()))
-        {
-            if (field.isAnnotationPresent(State.class)) {
-                field.setAccessible(true);
-                try {
-                    stateSnapshot.put(field.getName(), field.get(this));
-                } catch (IllegalAccessException e) {
-                    throw new ComponentException("Cannot capture state field: " + field.getName(), e);
-                }
+        for (Field field : getStateFields(this.getClass())) {
+            try {
+                stateSnapshot.put(field.getName(), field.get(this));
+            } catch (IllegalAccessException e) {
+                throw new ComponentException("Cannot capture state field: " + field.getName(), e);
             }
         }
     }
@@ -114,17 +121,14 @@ public abstract class LiveComponent
      */
     public void hydrate(Map<String, Object> state)
     {
-        for (Field field : getAllFields(this.getClass())) {
-            if (field.isAnnotationPresent(State.class)) {
-                field.setAccessible(true);
-                try {
-                    Object value = state.get(field.getName());
-                    if (value != null) {
-                        field.set(this, convertValue(value, field.getType()));
-                    }
-                } catch (IllegalAccessException e) {
-                    throw new ComponentException.StateHydrationException(field.getName(), e);
+        for (Field field : getStateFields(this.getClass())) {
+            try {
+                Object value = state.get(field.getName());
+                if (value != null) {
+                    field.set(this, convertValue(value, field.getType()));
                 }
+            } catch (IllegalAccessException e) {
+                throw new ComponentException.StateHydrationException(field.getName(), e);
             }
         }
     }
@@ -145,11 +149,8 @@ public abstract class LiveComponent
             context.put("_id", _id);
 
             // Expose @State fields
-            for (Field field : getAllFields(this.getClass())) {
-                if (field.isAnnotationPresent(State.class)) {
-                    field.setAccessible(true);
-                    context.put(field.getName(), field.get(this));
-                }
+            for (Field field : getStateFields(this.getClass())) {
+                context.put(field.getName(), field.get(this));
             }
 
             // Expose public getters
@@ -200,19 +201,28 @@ public abstract class LiveComponent
     }
 
     /**
-     * Collects all declared fields from the class hierarchy, including inherited fields.
+     * Returns cached @State-annotated fields for the given class.
+     * Built once per class via reflection, then stored in a static cache.
      *
-     * @param clazz Starting class
-     * @return Array of all fields up to (but not including) {@link Object}
+     * @param clazz Component class
+     * @return Array of @State fields from the full class hierarchy
      */
-    private Field[] getAllFields(Class<?> clazz)
+    private static Field[] getStateFields(Class<?> clazz)
     {
-        java.util.List<Field> fields = new java.util.ArrayList<>();
-        while (clazz != null && clazz != Object.class) {
-            fields.addAll(java.util.Arrays.asList(clazz.getDeclaredFields()));
-            clazz = clazz.getSuperclass();
-        }
-        return fields.toArray(new Field[0]);
+        return STATE_FIELDS_CACHE.computeIfAbsent(clazz, c -> {
+            List<Field> fields = new ArrayList<>();
+            Class<?> current = c;
+            while (current != null && current != Object.class) {
+                for (Field field : current.getDeclaredFields()) {
+                    if (field.isAnnotationPresent(State.class)) {
+                        field.setAccessible(true);
+                        fields.add(field);
+                    }
+                }
+                current = current.getSuperclass();
+            }
+            return fields.toArray(new Field[0]);
+        });
     }
 
     /**
@@ -225,20 +235,7 @@ public abstract class LiveComponent
      */
     private Object convertValue(Object value, Class<?> targetType)
     {
-        if (value == null || targetType.isInstance(value)) return value;
-
-        if (targetType == Integer.class || targetType == int.class)
-            return value instanceof Number ? ((Number) value).intValue() : Integer.parseInt(value.toString());
-        if (targetType == Long.class || targetType == long.class)
-            return value instanceof Number ? ((Number) value).longValue() : Long.parseLong(value.toString());
-        if (targetType == Double.class || targetType == double.class)
-            return value instanceof Number ? ((Number) value).doubleValue() : Double.parseDouble(value.toString());
-        if (targetType == Boolean.class || targetType == boolean.class)
-            return value instanceof Boolean ? value : Boolean.parseBoolean(value.toString());
-        if (targetType == String.class)
-            return value.toString();
-
-        return value;
+        return ValueConverter.convert(value, targetType);
     }
 
     /**

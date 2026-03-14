@@ -327,18 +327,37 @@ public final class Auth
      * @return UserDetailsService instance
      * @throws RuntimeException if no implementation found or instantiation fails
      */
+    /**
+     * Auto-detects UserDetailsService and TokenResolver in a single Reflections scan.
+     * Populates {@link #tokenResolver} as a side effect to avoid a second scan later.
+     *
+     * @return UserDetailsService instance
+     * @throws RuntimeException if no implementation found or instantiation fails
+     */
     private static UserDetailsService autoDetectUserDetailsService()
     {
         try {
             org.reflections.Reflections reflections = new org.reflections.Reflections(Obsidian.getBasePackage());
-            Set<Class<?>> annotated = reflections.getTypesAnnotatedWith(UserDetailsServiceImpl.class);
 
+            // Detect TokenResolver while we have the Reflections instance
+            if (tokenResolver == null) {
+                Set<Class<?>> tokenAnnotated = reflections.getTypesAnnotatedWith(TokenResolverImpl.class);
+                if (!tokenAnnotated.isEmpty()) {
+                    Class<?> implClass = tokenAnnotated.iterator().next();
+                    if (TokenResolver.class.isAssignableFrom(implClass)) {
+                        try {
+                            tokenResolver = instantiate(implClass, TokenResolver.class);
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
+
+            Set<Class<?>> annotated = reflections.getTypesAnnotatedWith(UserDetailsServiceImpl.class);
             if (annotated.isEmpty()) {
                 throw new RuntimeException("No @UserDetailsServiceImpl found in " + Obsidian.getBasePackage());
             }
 
             Class<?> implClass = annotated.iterator().next();
-
             if (!UserDetailsService.class.isAssignableFrom(implClass)) {
                 throw new RuntimeException(implClass.getName() + " does not implement UserDetailsService");
             }
@@ -351,7 +370,7 @@ public final class Auth
 
     /**
      * Auto-detects TokenResolver implementation via {@link TokenResolverImpl} annotation.
-     * Returns null if no implementation is found — token auth is simply unavailable.
+     * Only runs a new scan if not already populated by {@link #autoDetectUserDetailsService()}.
      *
      * @return TokenResolver instance or null
      */
