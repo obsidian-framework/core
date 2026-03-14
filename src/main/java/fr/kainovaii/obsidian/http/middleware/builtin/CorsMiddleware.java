@@ -6,7 +6,6 @@ import spark.Response;
 
 public class CorsMiddleware implements Middleware
 {
-    
     @Override
     public void handle(Request req, Response res) {
         res.header("Access-Control-Allow-Origin", "*");

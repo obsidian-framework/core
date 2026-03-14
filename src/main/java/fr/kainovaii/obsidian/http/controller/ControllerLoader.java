@@ -4,6 +4,7 @@ import fr.kainovaii.obsidian.core.Obsidian;
 import fr.kainovaii.obsidian.di.Container;
 import fr.kainovaii.obsidian.http.controller.annotations.Controller;
 import fr.kainovaii.obsidian.http.controller.annotations.GlobalAdvice;
+import fr.kainovaii.obsidian.http.middleware.MiddlewareManager;
 import fr.kainovaii.obsidian.security.role.RoleChecker;
 import fr.kainovaii.obsidian.routing.RouteLoader;
 import fr.kainovaii.obsidian.realtime.sse.SseLoader;
@@ -36,6 +37,7 @@ public class ControllerLoader
      */
     public static void loadControllers()
     {
+        MiddlewareManager.registerBuiltins();
         before("/*", RoleChecker::checkAccess);
         List<Object> controllers = discoverControllers();
         RouteLoader.registerRoutes(controllers);
