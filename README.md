@@ -5,7 +5,7 @@
 
 > Core package for the Obsidian Framework - Published on GitHub Packages
 
-**Full documentation**: [obsidian.kainovaii.dev](https://obsidian.kainovaii.dev)
+**Full documentation**: [obsidian-java.com](https://obsidian-java.com/)
 
 ## Installation
 
@@ -28,7 +28,7 @@ Add dependency
 <dependency>
     <groupId>com.github.obsidian-framework</groupId>
     <artifactId>core</artifactId>
-    <version>v1.1.8</version>
+    <version>v1.2.0</version>
 </dependency>
 ```
 
