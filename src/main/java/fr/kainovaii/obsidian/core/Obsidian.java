@@ -191,8 +191,8 @@ public class Obsidian
         loadMigrations();
         loadSeeders();
         loadContainer();
-        loadLiveComponents();
         startWebServer();
+        loadLiveComponents();
     }
 
     /**
