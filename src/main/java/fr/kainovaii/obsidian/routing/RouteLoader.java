@@ -3,6 +3,7 @@ package fr.kainovaii.obsidian.routing;
 import fr.kainovaii.obsidian.security.role.HasRole;
 import fr.kainovaii.obsidian.security.role.RoleChecker;
 import fr.kainovaii.obsidian.routing.methods.*;
+import fr.kainovaii.obsidian.security.user.RequireLogin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,7 +67,7 @@ public class RouteLoader
         String name = annotation.name();
 
         Route.registerNamedRoute(name, path);
-        registerRoleIfPresent(method, path);
+        registerAccessIfPresent(controller.getClass(), method, path);
         get(path, RouteHandler.create(controller, method));
 
         logger.debug("Registered GET route: {} -> {}", name, path);
@@ -87,7 +88,7 @@ public class RouteLoader
         String name = annotation.name();
 
         Route.registerNamedRoute(name, path);
-        registerRoleIfPresent(method, path);
+        registerAccessIfPresent(controller.getClass(), method, path);
         post(path, RouteHandler.create(controller, method));
 
         logger.debug("Registered POST route: {} -> {}", name, path);
@@ -108,7 +109,7 @@ public class RouteLoader
         String name = annotation.name();
 
         Route.registerNamedRoute(name, path);
-        registerRoleIfPresent(method, path);
+        registerAccessIfPresent(controller.getClass(), method, path);
         put(path, RouteHandler.create(controller, method));
 
         logger.debug("Registered PUT route: {} -> {}", name, path);
@@ -129,7 +130,7 @@ public class RouteLoader
         String name = annotation.name();
 
         Route.registerNamedRoute(name, path);
-        registerRoleIfPresent(method, path);
+        registerAccessIfPresent(controller.getClass(), method, path);
         patch(path, RouteHandler.create(controller, method));
 
         logger.debug("Registered PATCH route: {} -> {}", name, path);
@@ -150,7 +151,7 @@ public class RouteLoader
         String name = annotation.name();
 
         Route.registerNamedRoute(name, path);
-        registerRoleIfPresent(method, path);
+        registerAccessIfPresent(controller.getClass(), method, path);
         delete(path, RouteHandler.create(controller, method));
 
         logger.debug("Registered DELETE route: {} -> {}", name, path);
@@ -171,7 +172,7 @@ public class RouteLoader
         String name = annotation.name();
 
         Route.registerNamedRoute(name, path);
-        registerRoleIfPresent(method, path);
+        registerAccessIfPresent(controller.getClass(), method, path);
         options(path, RouteHandler.create(controller, method));
 
         logger.debug("Registered OPTIONS route: {} -> {}", name, path);
@@ -192,23 +193,58 @@ public class RouteLoader
         String name = annotation.name();
 
         Route.registerNamedRoute(name, path);
-        registerRoleIfPresent(method, path);
+        registerAccessIfPresent(controller.getClass(), method, path);
         head(path, RouteHandler.create(controller, method));
 
         logger.debug("Registered HEAD route: {} -> {}", name, path);
     }
 
     /**
-     * Registers role requirement for path if @HasRole annotation present.
+     * Registers access control for a route path.
      *
+     * @param controllerClass Controller class
      * @param method Controller method
      * @param path Route path
      */
-    private static void registerRoleIfPresent(Method method, String path)
+    private static void registerAccessIfPresent(Class<?> controllerClass, Method method, String path)
     {
+        // Method-level Bearer
+        if (method.isAnnotationPresent(fr.kainovaii.obsidian.security.token.Bearer.class)) {
+            RoleChecker.registerTokenRequired(path);
+            return;
+        }
+
+        // Method-level HasRole
         if (method.isAnnotationPresent(HasRole.class)) {
-            HasRole roleAnnotation = method.getAnnotation(HasRole.class);
-            RoleChecker.registerPathWithRole(path, roleAnnotation.value());
+            RoleChecker.registerPathWithRole(path, method.getAnnotation(HasRole.class).value());
+            return;
+        }
+
+        // Method-level RequireLogin
+        if (method.isAnnotationPresent(RequireLogin.class)) {
+            RoleChecker.registerLoginRequired(path);
+            return;
+        }
+
+        // Class-level ApiController
+        if (controllerClass.isAnnotationPresent(fr.kainovaii.obsidian.http.controller.annotations.ApiController.class)) {
+            if (method.isAnnotationPresent(HasRole.class)) {
+                RoleChecker.registerTokenPathWithRole(path, method.getAnnotation(HasRole.class).value());
+            } else {
+                RoleChecker.registerTokenRequired(path);
+            }
+            return;
+        }
+
+        // Class-level HasRole
+        if (controllerClass.isAnnotationPresent(HasRole.class)) {
+            RoleChecker.registerPathWithRole(path, controllerClass.getAnnotation(HasRole.class).value());
+            return;
+        }
+
+        // Class-level RequireLogin
+        if (controllerClass.isAnnotationPresent(RequireLogin.class)) {
+            RoleChecker.registerLoginRequired(path);
         }
     }
 }
