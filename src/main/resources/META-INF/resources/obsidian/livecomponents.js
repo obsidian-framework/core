@@ -38,6 +38,7 @@ class ObsidianComponents {
      */
     init() {
         this.discoverComponents();
+        this.mountLazyComponents();
         this.attachEventListeners();
         console.log('Obsidian LiveComponents initialized:', this.components.size, 'components found');
     }
@@ -61,6 +62,65 @@ class ObsidianComponents {
                 this.attachInit(el, componentId);
                 this.attachSubmit(el, componentId);
             }
+        });
+    }
+
+    /**
+     * Mounts all [live:lazy] placeholders after page load.
+     * Fetches rendered HTML from the server and replaces the placeholder.
+     * Props are read from the [live:props] attribute as a JSON object.
+     *
+     * Usage:
+     *   <div live:lazy="PlayerSearch"></div>
+     *   <div live:lazy="UserCard" live:props='{"userId": 42}'></div>
+     */
+    mountLazyComponents() {
+        document.querySelectorAll('[live\\:lazy]').forEach(placeholder => {
+            const componentName = placeholder.getAttribute('live:lazy');
+            const propsAttr = placeholder.getAttribute('live:props');
+
+            // Show a minimal loading state on the placeholder
+            placeholder.innerHTML = '';
+            placeholder.style.minHeight = '2rem';
+
+            let url = `/obsidian/components/mount?component=${encodeURIComponent(componentName)}`;
+            if (propsAttr) {
+                url += `&props=${encodeURIComponent(propsAttr)}`;
+            }
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success || !data.html) {
+                        console.error(`[LiveComponents] Failed to lazy-mount '${componentName}':`, data.error);
+                        return;
+                    }
+
+                    const temp = document.createElement('div');
+                    temp.innerHTML = data.html;
+                    const newElement = temp.firstElementChild;
+
+                    if (!newElement) return;
+
+                    placeholder.parentNode.replaceChild(newElement, placeholder);
+
+                    // Register and wire the newly mounted component
+                    const componentId = newElement.getAttribute('live:id');
+                    if (componentId) {
+                        this.components.set(componentId, {
+                            element: newElement,
+                            loading: false,
+                            pollInterval: null
+                        });
+                        this.attachModelBindings(newElement, componentId);
+                        this.attachPolling(newElement, componentId);
+                        this.attachInit(newElement, componentId);
+                        this.attachSubmit(newElement, componentId);
+                    }
+                })
+                .catch(err => {
+                    console.error(`[LiveComponents] Lazy mount error for '${componentName}':`, err);
+                });
         });
     }
 
@@ -99,7 +159,7 @@ class ObsidianComponents {
      * Supports modifiers:
      * - live:debounce="500" - Custom debounce time (default: 300ms)
      * - live:blur - Update only on blur
-     * - live:lazy - Update only on Enter key
+     * - live:enter - Update only on Enter key
      *
      * @param {Element} element - Component root element
      * @param {string} componentId - Component identifier
@@ -112,7 +172,7 @@ class ObsidianComponents {
             const fieldName = input.getAttribute('live:model');
             const debounceTime = parseInt(input.getAttribute('live:debounce')) || 300;
             const updateOnBlur = input.hasAttribute('live:blur');
-            const updateOnEnter = input.hasAttribute('live:lazy');
+            const updateOnEnter = input.hasAttribute('live:enter');
 
             if (updateOnBlur) {
                 // Update only on blur
