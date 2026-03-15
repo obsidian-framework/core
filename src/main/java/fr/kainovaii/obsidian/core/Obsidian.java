@@ -8,8 +8,10 @@ import fr.kainovaii.obsidian.database.DatabaseLoader;
 import fr.kainovaii.obsidian.database.MigrationManager;
 import fr.kainovaii.obsidian.database.seeder.SeederLoader;
 import fr.kainovaii.obsidian.di.ComponentScanner;
+import fr.kainovaii.obsidian.di.ServiceProviderLoader;
 import fr.kainovaii.obsidian.livecomponents.core.ComponentManager;
 import fr.kainovaii.obsidian.livecomponents.core.LiveComponentsLoader;
+import fr.kainovaii.obsidian.storage.StorageLoader;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
@@ -179,6 +181,10 @@ public class Obsidian
         return LiveComponentsLoader.getComponentManager();
     }
 
+    private void loadStorage() { StorageLoader.loadStorage(); }
+
+    private void loadServiceProvider() { ServiceProviderLoader.load(); }
+
     public void init()
     {
         loadConfigAndEnv();
@@ -188,6 +194,8 @@ public class Obsidian
         loadMigrations();
         loadSeeders();
         loadContainer();
+        loadStorage();
+        loadServiceProvider();
         startWebServer();
         loadLiveComponents();
         loadCache();
