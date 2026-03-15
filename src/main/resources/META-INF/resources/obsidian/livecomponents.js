@@ -330,13 +330,31 @@ class ObsidianComponents {
             const data = await response.json();
 
             if (data.success) {
+                // Redirect — navigate and stop processing
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                    return;
+                }
+
                 this.updateComponent(componentId, data.html);
+
+                // Dispatch client-side event after re-render
+                if (data.event) {
+                    const event = new CustomEvent(data.event, {
+                        bubbles: true,
+                        detail: data.eventPayload ?? null
+                    });
+                    document.dispatchEvent(event);
+                }
 
                 // Check if component has validation errors in new state
                 if (data.state && data.state.errors) {
                     this.displayValidationErrors(component.element, data.state.errors);
                 }
             } else {
+                if (data.html) {
+                    this.updateComponent(componentId, data.html);
+                }
                 console.error('Component error:', data.error);
                 this.showError(component.element, data.error);
             }

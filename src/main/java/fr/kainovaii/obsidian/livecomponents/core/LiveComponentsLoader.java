@@ -4,6 +4,7 @@ import fr.kainovaii.obsidian.core.Obsidian;
 import fr.kainovaii.obsidian.di.Container;
 import fr.kainovaii.obsidian.livecomponents.http.LiveComponentController;
 import fr.kainovaii.obsidian.livecomponents.pebble.ComponentExtension;
+import fr.kainovaii.obsidian.livecomponents.pebble.ComponentTagExtension;
 import fr.kainovaii.obsidian.livecomponents.scanner.LiveComponentScanner;
 import fr.kainovaii.obsidian.routing.RouteLoader;
 import fr.kainovaii.obsidian.validation.pebble.ValidationExtension;
@@ -16,28 +17,20 @@ import java.util.List;
 
 /**
  * LiveComponents discovery and initialization system.
- * Scans for @LiveComponentImpl annotated classes and registers them with the ComponentManager.
+ * Scans for {@code @LiveComponentImpl}-annotated classes, registers them with the
+ * {@link ComponentManager}, and wires all required Pebble extensions.
  */
 public class LiveComponentsLoader
 {
-    /** LiveComponents manager */
     private static ComponentManager componentManager;
-
-    /** Logger instance */
     static Logger logger = LoggerFactory.getLogger(LiveComponent.class);
 
-    /**
-     * Loads and registers all LiveComponents in application.
-     * Discovers @LiveComponentImpl classes, builds Pebble engine with required extensions,
-     * and registers the ComponentManager in the DI container.
-     */
     public static void loadLiveComponents()
     {
         logger.info("Loading LiveComponents...");
         try {
             ClasspathLoader loader = new ClasspathLoader();
 
-            // Bootstrap engine to instantiate ComponentManager before scanning
             PebbleEngine bootstrapEngine = new PebbleEngine.Builder()
                     .loader(loader)
                     .cacheActive(true)
@@ -45,20 +38,19 @@ public class LiveComponentsLoader
 
             componentManager = new ComponentManager(bootstrapEngine);
 
-            // Scan and register all @LiveComponentImpl classes
             LiveComponentScanner.scan(Obsidian.getBasePackage(), componentManager);
 
-            // Rebuild engine with all required Pebble extensions and inject via setter
+            // Final engine — includes both the function-based and tag-based component extensions
             componentManager.setPebbleEngine(new PebbleEngine.Builder()
                     .loader(loader)
                     .extension(new ComponentExtension(componentManager))
+                    .extension(new ComponentTagExtension())
                     .extension(new ValidationExtension())
                     .cacheActive(true)
                     .build());
 
             Container.singleton(ComponentManager.class, componentManager);
-            List<Object> frameworkControllers = List.of(new LiveComponentController());
-            RouteLoader.registerRoutes(frameworkControllers);
+            RouteLoader.registerRoutes(List.of(new LiveComponentController()));
 
             logger.info("LiveComponents loaded successfully!");
         } catch (Exception e) {
@@ -67,11 +59,5 @@ public class LiveComponentsLoader
         }
     }
 
-    /**
-     * Returns the initialized ComponentManager instance.
-     * Must be called after loadLiveComponents().
-     *
-     * @return The singleton ComponentManager, or null if initialization failed
-     */
     public static ComponentManager getComponentManager() { return componentManager; }
 }

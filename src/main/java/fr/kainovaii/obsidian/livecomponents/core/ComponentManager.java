@@ -5,11 +5,14 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import fr.kainovaii.obsidian.di.Container;
 import fr.kainovaii.obsidian.error.ErrorHandler;
 import fr.kainovaii.obsidian.livecomponents.ComponentException;
+import fr.kainovaii.obsidian.livecomponents.annotations.Action;
+import fr.kainovaii.obsidian.livecomponents.annotations.Prop;
 import io.pebbletemplates.pebble.PebbleEngine;
 import spark.Request;
 import spark.Response;
 import spark.Session;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
@@ -22,60 +25,52 @@ import java.util.concurrent.TimeUnit;
  */
 public class ComponentManager
 {
-    /** Pebble template engine used for rendering components */
+    /** Pebble template engine used for rendering components. */
     private PebbleEngine pebbleEngine;
 
-    /** Registry of component classes indexed by component name */
+    /** Registry of component classes indexed by component name. */
     private final Map<String, Class<? extends LiveComponent>> registeredComponents = new ConcurrentHashMap<>();
 
-    /** Cache of active component instances keyed by sessionId:componentId */
+    /** Cache of active component instances keyed by {@code sessionId:componentId}. */
     private final Cache<String, LiveComponent> activeComponents = Caffeine.newBuilder()
             .expireAfterAccess(1, TimeUnit.HOURS)
             .maximumSize(10_000)
             .build();
 
-    /**
-     * Constructs a new ComponentManager.
-     *
-     * @param pebbleEngine Pebble template engine instance
-     */
     public ComponentManager(PebbleEngine pebbleEngine) {
         this.pebbleEngine = pebbleEngine;
     }
 
-    /**
-     * Replaces the Pebble engine after initial construction.
-     * Used by {@link fr.kainovaii.obsidian.livecomponents.core.LiveComponentsLoader}
-     * to inject the final engine with all extensions once components are scanned.
-     *
-     * @param pebbleEngine Final Pebble engine instance
-     */
     public void setPebbleEngine(PebbleEngine pebbleEngine) {
         this.pebbleEngine = pebbleEngine;
     }
 
-    /**
-     * Registers a component class under the given name.
-     * The name is used in templates via {@code component('Name')}.
-     *
-     * @param name           Component name
-     * @param componentClass Component class to register
-     */
     public void register(String name, Class<? extends LiveComponent> componentClass) {
         registeredComponents.put(name, componentClass);
     }
 
     /**
-     * Mounts a new component instance for the given session and request.
-     * Creates the instance, injects the request, caches it, and returns the initial render.
+     * Mounts a new component instance with no props.
      *
      * @param componentName Component name as registered
      * @param session        Current HTTP session
      * @param req            Current HTTP request
      * @return Rendered HTML string
-     * @throws ComponentException if the component is not found or mounting fails
      */
-    public String mount(String componentName, Session session, Request req)
+    public String mount(String componentName, Session session, Request req) {
+        return mount(componentName, session, req, null);
+    }
+
+    /**
+     * Mounts a new component instance, injecting the provided props before {@code onMount()}.
+     *
+     * @param componentName Component name as registered
+     * @param session        Current HTTP session
+     * @param req            Current HTTP request
+     * @param props          Map of prop field names to values — injected into {@code @Prop} fields
+     * @return Rendered HTML string
+     */
+    public String mount(String componentName, Session session, Request req, Map<String, Object> props)
     {
         try {
             Class<? extends LiveComponent> componentClass = registeredComponents.get(componentName);
@@ -86,6 +81,12 @@ public class ComponentManager
             LiveComponent instance = componentClass.getDeclaredConstructor().newInstance();
             Container.injectFields(instance);
             instance.setRequest(req);
+
+            if (props != null && !props.isEmpty()) {
+                injectProps(instance, props);
+            }
+
+            instance.onMount();
 
             String sessionId = session != null ? session.id() : "anonymous";
             String key = sessionId + ":" + instance.getId();
@@ -103,15 +104,14 @@ public class ComponentManager
 
     /**
      * Handles an incoming component action from the client.
-     * Hydrates the component state, injects the current request, executes the action,
-     * captures the new state, and re-renders the component.
-     * On error, delegates to {@link ErrorHandler} and wraps the error page in the response.
+     * Hydrates state, validates the action against {@code @Action}, executes it,
+     * calls {@code onUpdate()}, captures new state, and re-renders.
      *
-     * @param request Component action request containing state, action name and params
+     * @param request Component action request
      * @param session Current HTTP session
      * @param req     Current Spark HTTP request
      * @param res     Current Spark HTTP response
-     * @return {@link ComponentResponse} with rendered HTML or error details
+     * @return {@link ComponentResponse} with rendered HTML, redirect, event, or error
      */
     public ComponentResponse handleAction(ComponentRequest request, Session session, Request req, Response res)
     {
@@ -128,8 +128,25 @@ public class ComponentManager
                 component.hydrate(request.getState());
                 component.setRequest(req);
                 Container.injectFields(component);
-                executeAction(component, request.getAction(), request.getParams());
+
+                ComponentResponse actionResult = executeAction(component, request.getAction(), request.getParams());
+                component.onUpdate();
                 component.captureState();
+
+                // Action returned an explicit response (redirect / emit)
+                if (actionResult != null) {
+                    if (actionResult.getRedirect() != null) {
+                        return actionResult;
+                    }
+                    // Merge event metadata into a normal success response
+                    String html = component.render(pebbleEngine);
+                    ComponentResponse merged = ComponentResponse.success(html, component.getStateSnapshot());
+                    if (actionResult.getEvent() != null) {
+                        merged.setEvent(actionResult.getEvent());
+                        merged.setEventPayload(actionResult.getEventPayload());
+                    }
+                    return merged;
+                }
 
                 String html = component.render(pebbleEngine);
                 return ComponentResponse.success(html, component.getStateSnapshot());
@@ -142,52 +159,85 @@ public class ComponentManager
     }
 
     /**
-     * Executes an action method on the given component instance.
-     * Handles special built-in actions such as {@code __refresh} and {@code updateField_*}.
+     * Injects props into {@code @Prop}-annotated fields of the component.
      *
-     * @param component  Component instance to invoke the action on
-     * @param actionName Action method name or special action identifier
-     * @param params     List of parameters to pass to the action method
-     * @throws ComponentException if the action is not found or execution fails
+     * @param component Component instance
+     * @param props     Props map
      */
-    private void executeAction(LiveComponent component, String actionName, List<Object> params)
+    private void injectProps(LiveComponent component, Map<String, Object> props)
+    {
+        Class<?> clazz = component.getClass();
+        while (clazz != null && clazz != Object.class) {
+            for (Field field : clazz.getDeclaredFields()) {
+                if (field.isAnnotationPresent(Prop.class)) {
+                    Object value = props.get(field.getName());
+                    if (value != null) {
+                        try {
+                            field.setAccessible(true);
+                            field.set(component, ValueConverter.convert(value, field.getType()));
+                        } catch (IllegalAccessException e) {
+                            throw new ComponentException("Cannot inject prop: " + field.getName(), e);
+                        }
+                    }
+                }
+            }
+            clazz = clazz.getSuperclass();
+        }
+    }
+
+    /**
+     * Executes an action method on the component.
+     * Built-in actions ({@code __refresh}, {@code updateField_*}) bypass the {@code @Action} guard.
+     * All other actions must be annotated with {@link Action}.
+     *
+     * @param component  Component instance
+     * @param actionName Action name or built-in identifier
+     * @param params     Parameters
+     * @return Explicit {@link ComponentResponse} if the action returned one, otherwise null
+     */
+    private ComponentResponse executeAction(LiveComponent component, String actionName, List<Object> params)
     {
         try {
             if ("__refresh".equals(actionName)) {
-                return;
+                return null;
             }
 
             if (actionName.startsWith("updateField_")) {
                 String fieldName = actionName.substring("updateField_".length());
                 Object value = (params != null && !params.isEmpty()) ? params.get(0) : null;
                 component.updateField(fieldName, value);
-                return;
+                return null;
             }
 
             Method method = findMethod(component.getClass(), actionName, params != null ? params.size() : 0);
             if (method == null) {
                 throw new ComponentException.ActionNotFoundException(
-                        component.getClass().getSimpleName(),
-                        actionName
-                );
+                        component.getClass().getSimpleName(), actionName);
+            }
+
+            if (!method.isAnnotationPresent(Action.class)) {
+                throw new ComponentException("Method '" + actionName + "' on "
+                        + component.getClass().getSimpleName()
+                        + " is not annotated with @Action and cannot be called from the client.");
             }
 
             method.setAccessible(true);
 
+            Object result;
             if (method.getParameterCount() == 0) {
-                method.invoke(component);
+                result = method.invoke(component);
             } else {
                 Object[] convertedParams = new Object[method.getParameterCount()];
                 Class<?>[] paramTypes = method.getParameterTypes();
-
                 for (int i = 0; i < method.getParameterCount(); i++) {
                     convertedParams[i] = (params != null && i < params.size())
-                            ? convertValue(params.get(i), paramTypes[i])
+                            ? ValueConverter.convert(params.get(i), paramTypes[i])
                             : null;
                 }
-
-                method.invoke(component, convertedParams);
+                result = method.invoke(component, convertedParams);
             }
+
+            return result instanceof ComponentResponse ? (ComponentResponse) result : null;
 
         } catch (ComponentException e) {
             throw e;
@@ -196,14 +246,6 @@ public class ComponentManager
         }
     }
 
-    /**
-     * Searches for a method by name and parameter count in the class hierarchy.
-     *
-     * @param clazz       Class to search
-     * @param methodName  Method name
-     * @param paramCount  Expected parameter count
-     * @return Matching {@link Method}, or null if not found
-     */
     private Method findMethod(Class<?> clazz, String methodName, int paramCount)
     {
         while (clazz != null && clazz != Object.class) {
@@ -217,47 +259,13 @@ public class ComponentManager
         return null;
     }
 
-    /**
-     * Converts a value to the specified target type.
-     * Handles primitive wrappers and String conversion.
-     *
-     * @param value      Value to convert
-     * @param targetType Target class
-     * @return Converted value, or the original if no conversion is needed
-     */
-    private Object convertValue(Object value, Class<?> targetType)
-    {
-        return ValueConverter.convert(value, targetType);
-    }
-
-    /**
-     * Returns the number of active components currently held in cache.
-     *
-     * @return Estimated active component count
-     */
-    public int getActiveComponentCount() {
-        return (int) activeComponents.estimatedSize();
-    }
-
-    /**
-     * Returns the Pebble engine instance used for rendering.
-     *
-     * @return Pebble engine
-     */
-    public PebbleEngine getPebbleEngine() {
-        return pebbleEngine;
-    }
-
-    /**
-     * Removes all cached components associated with the given session.
-     * Should be called on logout or session invalidation.
-     *
-     * @param session HTTP session to clear
-     */
     public void clearSession(Session session)
     {
         if (session == null) return;
         String prefix = session.id() + ":";
         activeComponents.asMap().keySet().removeIf(key -> key.startsWith(prefix));
     }
+
+    public int getActiveComponentCount() { return (int) activeComponents.estimatedSize(); }
+    public PebbleEngine getPebbleEngine() { return pebbleEngine; }
 }
