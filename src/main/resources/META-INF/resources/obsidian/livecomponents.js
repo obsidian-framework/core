@@ -79,9 +79,8 @@ class ObsidianComponents {
             const componentName = placeholder.getAttribute('live:lazy');
             const propsAttr = placeholder.getAttribute('live:props');
 
-            // Show a minimal loading state on the placeholder
-            placeholder.innerHTML = '';
-            placeholder.style.minHeight = '2rem';
+            // Keep existing innerHTML as skeleton — if empty, nothing is shown
+            const skeleton = placeholder.innerHTML.trim();
 
             let url = `/obsidian/components/mount?component=${encodeURIComponent(componentName)}`;
             if (propsAttr) {
