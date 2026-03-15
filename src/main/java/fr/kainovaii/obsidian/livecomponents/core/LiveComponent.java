@@ -9,7 +9,6 @@ import spark.Request;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,29 +18,22 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Base class for all LiveComponents — server-side reactive UI components.
  * Components maintain state, handle user interactions, and re-render automatically.
- * Subclasses must implement {@link #template()} to return the Pebble template path.
  */
 public abstract class LiveComponent
 {
-    /**
-     * Per-class cache of @State-annotated fields.
-     * Built once on first access, reused across all instances and render cycles.
-     */
+    /** Per-class cache of @State-annotated fields. */
     private static final Map<Class<?>, Field[]> STATE_FIELDS_CACHE = new ConcurrentHashMap<>();
-    /** Unique component identifier, included in state */
+
+    /** Unique component identifier, included in state. */
     @State
     protected String _id;
 
-    /** Current HTTP request — transient, not serialized in state */
+    /** Current HTTP request — transient, not serialized in state. */
     protected transient Request request;
 
-    /** Snapshot of component state used for diffing and hydration */
+    /** Snapshot of component state used for diffing and hydration. */
     protected transient Map<String, Object> stateSnapshot = new HashMap<>();
 
-    /**
-     * Constructor.
-     * Generates a unique component ID on instantiation.
-     */
     public LiveComponent() {
         this._id = UUID.randomUUID().toString();
     }
@@ -54,55 +46,118 @@ public abstract class LiveComponent
     public abstract String template();
 
     /**
-     * Sets the current HTTP request on this component.
-     * Called by {@link ComponentManager} before each mount and action execution.
-     *
-     * @param request Current HTTP request
+     * Called once after props are injected and before the first render.
+     * Override to initialize state that depends on props or session data.
      */
-    public void setRequest(Request request) {
-        this.request = request;
-    }
+    public void onMount() {}
 
     /**
-     * Returns the current HTTP request.
-     *
-     * @return Current HTTP request, or null if not set
+     * Called after every action execution, before re-render.
+     * Override to run cross-cutting logic (logging, audit, etc.).
      */
-    public Request getRequest() {
-        return request;
-    }
+    public void onUpdate() {}
 
-    /**
-     * Returns the current HTTP session.
-     *
-     * @return Current Spark session, or null if request is not set or no session exists
-     */
+    public void setRequest(Request request) { this.request = request; }
+    public Request getRequest() { return request; }
+
+    /** Returns the current Spark session, or null if none exists. */
     protected spark.Session getSession() {
         if (request == null) return null;
         return request.session(false);
     }
 
     /**
-     * Retrieves a session attribute by key.
-     * Safe to call even if no session exists — returns null in that case.
+     * Returns a session attribute cast to {@code T}, or null if absent.
      *
      * @param key Session attribute key
-     * @return Attribute value, or null if not found
      */
-    protected Object getSessionAttribute(String key)
-    {
+    @SuppressWarnings("unchecked")
+    protected <T> T session(String key) {
         if (request == null) return null;
-        spark.Session session = request.session(false);
-        if (session == null) return null;
-        return session.attribute(key);
+        spark.Session s = request.session(false);
+        if (s == null) return null;
+        return (T) s.attribute(key);
     }
 
     /**
-     * Captures the current state of all {@link State}-annotated fields.
-     * Used for state synchronization between renders.
+     * Sets a session attribute.
+     *
+     * @param key   Session attribute key
+     * @param value Value to store
      */
-    public void captureState()
-    {
+    protected void session(String key, Object value) {
+        if (request == null) return;
+        spark.Session s = request.session(true);
+        s.attribute(key, value);
+    }
+
+    /**
+     * Returns a query parameter value, or null if absent.
+     *
+     * @param name Query parameter name
+     */
+    protected String param(String name) {
+        return request != null ? request.queryParams(name) : null;
+    }
+
+    /**
+     * Returns a query parameter value, or {@code defaultValue} if absent.
+     *
+     * @param name         Query parameter name
+     * @param defaultValue Fallback value
+     */
+    protected String param(String name, String defaultValue) {
+        String val = param(name);
+        return val != null ? val : defaultValue;
+    }
+
+    /**
+     * Returns a route parameter value (e.g. {@code :id}), or null if absent.
+     *
+     * @param name Route parameter name
+     */
+    protected String routeParam(String name) {
+        return request != null ? request.params(name) : null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Action response helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Signals a client-side redirect after the current action.
+     * The component will not re-render; the browser navigates to {@code url}.
+     *
+     * @param url Target URL
+     * @return Redirect response — return this from your action method
+     */
+    protected ComponentResponse redirect(String url) {
+        return ComponentResponse.redirect(url);
+    }
+
+    /**
+     * Signals a client-side CustomEvent dispatch after re-render.
+     *
+     * @param event Event name
+     * @return Response with event — return this from your action method
+     */
+    protected ComponentResponse emit(String event) {
+        return ComponentResponse.withEvent(null, stateSnapshot, event);
+    }
+
+    /**
+     * Signals a client-side CustomEvent dispatch with a payload after re-render.
+     *
+     * @param event   Event name
+     * @param payload JSON-serializable payload
+     * @return Response with event and payload
+     */
+    protected ComponentResponse emit(String event, Object payload) {
+        return ComponentResponse.withEvent(null, stateSnapshot, event, payload);
+    }
+
+    /** Captures the current state of all {@link State}-annotated fields. */
+    public void captureState() {
         stateSnapshot.clear();
         for (Field field : getStateFields(this.getClass())) {
             try {
@@ -115,17 +170,15 @@ public abstract class LiveComponent
 
     /**
      * Hydrates component state from the provided map.
-     * Used when restoring a component from the client's serialized state.
      *
      * @param state Map of field names to values
      */
-    public void hydrate(Map<String, Object> state)
-    {
+    public void hydrate(Map<String, Object> state) {
         for (Field field : getStateFields(this.getClass())) {
             try {
                 Object value = state.get(field.getName());
                 if (value != null) {
-                    field.set(this, convertValue(value, field.getType()));
+                    field.set(this, ValueConverter.convert(value, field.getType()));
                 }
             } catch (IllegalAccessException e) {
                 throw new ComponentException.StateHydrationException(field.getName(), e);
@@ -135,25 +188,20 @@ public abstract class LiveComponent
 
     /**
      * Renders the component to HTML using the Pebble template engine.
-     * Exposes all {@link State}-annotated fields and public getter methods to the template context.
      *
      * @param pebble Pebble engine instance
      * @return Rendered HTML string
-     * @throws ComponentException if template loading or rendering fails
      */
-    public String render(PebbleEngine pebble)
-    {
+    public String render(PebbleEngine pebble) {
         try {
             PebbleTemplate template = pebble.getTemplate(template());
             Map<String, Object> context = new HashMap<>();
             context.put("_id", _id);
 
-            // Expose @State fields
             for (Field field : getStateFields(this.getClass())) {
                 context.put(field.getName(), field.get(this));
             }
 
-            // Expose public getters
             for (java.lang.reflect.Method method : this.getClass().getMethods()) {
                 String name = method.getName();
                 if ((name.startsWith("get") || name.startsWith("is"))
@@ -179,19 +227,16 @@ public abstract class LiveComponent
 
     /**
      * Updates a single {@link State}-annotated field by name.
-     * Used for {@code live:model} bindings from the client.
      *
      * @param fieldName Name of the field to update
      * @param value     New value to set
-     * @throws ComponentException if the field is not found or not annotated with {@link State}
      */
-    public void updateField(String fieldName, Object value)
-    {
+    public void updateField(String fieldName, Object value) {
         try {
             Field field = findField(this.getClass(), fieldName);
             if (field != null && field.isAnnotationPresent(State.class)) {
                 field.setAccessible(true);
-                field.set(this, convertValue(value, field.getType()));
+                field.set(this, ValueConverter.convert(value, field.getType()));
             } else {
                 throw new ComponentException("Field '" + fieldName + "' not found or not marked with @State");
             }
@@ -200,15 +245,7 @@ public abstract class LiveComponent
         }
     }
 
-    /**
-     * Returns cached @State-annotated fields for the given class.
-     * Built once per class via reflection, then stored in a static cache.
-     *
-     * @param clazz Component class
-     * @return Array of @State fields from the full class hierarchy
-     */
-    private static Field[] getStateFields(Class<?> clazz)
-    {
+    private static Field[] getStateFields(Class<?> clazz) {
         return STATE_FIELDS_CACHE.computeIfAbsent(clazz, c -> {
             List<Field> fields = new ArrayList<>();
             Class<?> current = c;
@@ -225,26 +262,6 @@ public abstract class LiveComponent
         });
     }
 
-    /**
-     * Converts a value to the specified target type.
-     * Handles primitive wrappers and String conversion.
-     *
-     * @param value      Value to convert
-     * @param targetType Target class
-     * @return Converted value, or the original value if no conversion is needed
-     */
-    private Object convertValue(Object value, Class<?> targetType)
-    {
-        return ValueConverter.convert(value, targetType);
-    }
-
-    /**
-     * Searches for a field by name in the class hierarchy.
-     *
-     * @param clazz     Starting class
-     * @param fieldName Field name to search for
-     * @return Matching {@link Field}, or null if not found
-     */
     private Field findField(Class<?> clazz, String fieldName) {
         while (clazz != null && clazz != Object.class) {
             try {
@@ -256,17 +273,6 @@ public abstract class LiveComponent
         return null;
     }
 
-    /**
-     * Returns the unique component identifier.
-     *
-     * @return Component ID
-     */
     public String getId() { return _id; }
-
-    /**
-     * Returns the current state snapshot.
-     *
-     * @return Map of field names to their current values
-     */
     public Map<String, Object> getStateSnapshot() { return stateSnapshot; }
 }

@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * Response from LiveComponent action execution.
- * Contains rendered HTML, updated state, or error information.
+ * Contains rendered HTML, updated state, redirect instruction, client-side event, or error.
  */
 public class ComponentResponse
 {
@@ -22,104 +22,78 @@ public class ComponentResponse
     private String error;
 
     /**
-     * Creates successful response with HTML and state.
-     *
-     * @param html Rendered HTML
-     * @param state Updated state
-     * @return Success response
+     * Optional client-side redirect URL.
+     * When set, the JS runtime navigates to this URL instead of re-rendering.
      */
-    public static ComponentResponse success(String html, Map<String, Object> state)
-    {
-        ComponentResponse response = new ComponentResponse();
-        response.html = html;
-        response.state = state;
-        return response;
-    }
+    private String redirect;
 
     /**
-     * Creates error response with rendered HTML from ErrorHandler.
-     * The HTML is injected directly into the component slot on the client.
-     *
-     * @param message Error message
-     * @param errorHtml Rendered HTML from ErrorHandler
-     * @return Error response with visual feedback
+     * Optional client-side event name to dispatch after re-render.
+     * The JS runtime dispatches a CustomEvent on {@code document} with this name.
      */
-    public static ComponentResponse error(String message, String errorHtml)
-    {
-        ComponentResponse response = new ComponentResponse();
-        response.success = false;
-        response.error = message;
-        response.html = errorHtml;
-        return response;
+    private String event;
+
+    /** Optional payload for the dispatched client-side event. */
+    private Object eventPayload;
+
+    public static ComponentResponse success(String html, Map<String, Object> state) {
+        ComponentResponse r = new ComponentResponse();
+        r.html = html;
+        r.state = state;
+        return r;
     }
 
-    /**
-     * Creates error response without HTML (fallback, no visual rendering).
-     *
-     * @param message Error message
-     * @return Error response
-     */
-    public static ComponentResponse error(String message)
-    {
-        ComponentResponse response = new ComponentResponse();
-        response.success = false;
-        response.error = message;
-        return response;
+    public static ComponentResponse redirect(String url) {
+        ComponentResponse r = new ComponentResponse();
+        r.redirect = url;
+        return r;
     }
 
-    /**
-     * Gets rendered HTML.
-     *
-     * @return HTML string
-     */
+    public static ComponentResponse withEvent(String html, Map<String, Object> state, String event) {
+        ComponentResponse r = success(html, state);
+        r.event = event;
+        return r;
+    }
+
+    public static ComponentResponse withEvent(String html, Map<String, Object> state, String event, Object payload) {
+        ComponentResponse r = withEvent(html, state, event);
+        r.eventPayload = payload;
+        return r;
+    }
+
+    public static ComponentResponse error(String message, String errorHtml) {
+        ComponentResponse r = new ComponentResponse();
+        r.success = false;
+        r.error = message;
+        r.html = errorHtml;
+        return r;
+    }
+
+    public static ComponentResponse error(String message) {
+        ComponentResponse r = new ComponentResponse();
+        r.success = false;
+        r.error = message;
+        return r;
+    }
+
     public String getHtml() { return html; }
-
-    /**
-     * Sets rendered HTML.
-     *
-     * @param html HTML string
-     */
     public void setHtml(String html) { this.html = html; }
 
-    /**
-     * Gets updated state.
-     *
-     * @return State map
-     */
     public Map<String, Object> getState() { return state; }
-
-    /**
-     * Sets updated state.
-     *
-     * @param state State map
-     */
     public void setState(Map<String, Object> state) { this.state = state; }
 
-    /**
-     * Checks if action was successful.
-     *
-     * @return true if successful, false otherwise
-     */
     public boolean isSuccess() { return success; }
-
-    /**
-     * Sets success flag.
-     *
-     * @param success Success flag
-     */
     public void setSuccess(boolean success) { this.success = success; }
 
-    /**
-     * Gets error message.
-     *
-     * @return Error message or null
-     */
     public String getError() { return error; }
-
-    /**
-     * Sets error message.
-     *
-     * @param error Error message
-     */
     public void setError(String error) { this.error = error; }
+
+    public String getRedirect() { return redirect; }
+    public void setRedirect(String redirect) { this.redirect = redirect; }
+
+    public String getEvent() { return event; }
+    public void setEvent(String event) { this.event = event; }
+
+    public Object getEventPayload() { return eventPayload; }
+    public void setEventPayload(Object eventPayload) { this.eventPayload = eventPayload; }
 }
