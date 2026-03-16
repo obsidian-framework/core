@@ -2,8 +2,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-17+-orange.svg)](https://www.oracle.com/java/)
+[![](https://jitpack.io/v/obsidian-framework/core.svg)](https://jitpack.io/#obsidian-framework/core)
 
-> Core package for the Obsidian Framework - Published on GitHub Packages
+> Core package for the Obsidian Framework
 
 **Full documentation**: [obsidian-java.com](https://obsidian-java.com/)
 
@@ -28,7 +29,7 @@ Add dependency
 <dependency>
     <groupId>com.github.obsidian-framework</groupId>
     <artifactId>core</artifactId>
-    <version>v1.2.0</version>
+    <version>latest</version>
 </dependency>
 ```
 
