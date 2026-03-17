@@ -52,8 +52,8 @@ public class PebbleTemplateEngine extends TemplateEngine
                 .cacheActive(!isDev);
 
         if (isDev) {
-            FileLoader loader = new FileLoader();
-            loader.setPrefix(System.getProperty("user.dir") + "/src/main/resources/");
+            String prefix = System.getProperty("user.dir") + "/src/main/resources/";
+            FileLoader loader = new FileLoader(prefix);
             builder.loader(loader);
             builder.extension(new LiveReloadScriptExtension());
         } else {
