@@ -7,6 +7,7 @@ import fr.kainovaii.obsidian.routing.pebble.RouteExtension;
 import fr.kainovaii.obsidian.security.csrf.pebble.CsrfExtension;
 import fr.kainovaii.obsidian.livecomponents.pebble.ComponentHelperExtension;
 import fr.kainovaii.obsidian.flash.pebble.FlashExtension;
+import fr.kainovaii.obsidian.template.extension.FlowScriptExtension;
 import fr.kainovaii.obsidian.template.extension.MarkdownFilter;
 import fr.kainovaii.obsidian.template.extension.MarkdownTag;
 import fr.kainovaii.obsidian.template.extension.StripTagsFilter;
@@ -45,6 +46,7 @@ public class PebbleTemplateEngine extends TemplateEngine
                 .extension(new ComponentHelperExtension())
                 .extension(new ValidationExtension())
                 .extension(new LiveComponentsScriptExtension())
+                .extension(new FlowScriptExtension())
                 .extension(new MarkdownFilter())
                 .extension(new MarkdownTag())
                 .cacheActive(!isDev);

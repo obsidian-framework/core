@@ -1,4 +1,4 @@
-package fr.kainovaii.obsidian.livecomponents.pebble;
+package fr.kainovaii.obsidian.template.extension;
 
 import io.pebbletemplates.pebble.extension.AbstractExtension;
 
@@ -6,10 +6,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Pebble extension for LiveComponents scripts.
- * Provides livecomponents_scripts global variable.
+ * Pebble extension for Flow scripts.
+ * Provides flow_scripts global variable.
  */
-public class LiveComponentsScriptExtension extends AbstractExtension
+public class FlowScriptExtension extends AbstractExtension
 {
     @Override
     public Map<String, Object> getGlobalVariables()
@@ -18,8 +18,9 @@ public class LiveComponentsScriptExtension extends AbstractExtension
         String env = System.getenv("ENVIRONMENT");
         String version = "production".equalsIgnoreCase(env) ? "1.0.0" : String.valueOf(System.currentTimeMillis());
 
-        String scriptTag = "<script src=\"/obsidian/livecomponents.js?v=" + version + "\"></script>\n";
-        globals.put("livecomponents_scripts", scriptTag);
+        String scriptTag = "<script src=\"/obsidian/flow.js?v=" + version + "\"></script>";
+        globals.put("flow_scripts", scriptTag);
+
         return globals;
     }
 }
