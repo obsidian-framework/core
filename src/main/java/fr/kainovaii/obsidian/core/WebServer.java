@@ -60,6 +60,11 @@ public class WebServer
                 throw new RuntimeException(e);
             }
 
+            // Flag prefetch requests — allows controllers to skip side effects
+            // (analytics, rate limiting, etc.) while still enforcing security checks
+            boolean isPrefetch = "1".equals(req.headers("X-Obsidian-Prefetch"));
+            req.attribute("prefetch", isPrefetch);
+
             setGlobal("request", req);
             setGlobal("response", res);
             setGlobal("isLogged", isLogged(req));
