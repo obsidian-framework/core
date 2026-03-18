@@ -1,15 +1,15 @@
 package com.obsidian.core.security.role;
 
+import com.obsidian.core.core.EnvKeys;
 import com.obsidian.core.core.Obsidian;
 import com.obsidian.core.security.auth.Auth;
 import com.obsidian.core.security.user.UserDetails;
 import spark.Request;
 import spark.Response;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static spark.Spark.halt;
 
@@ -20,16 +20,16 @@ import static spark.Spark.halt;
 public class RoleChecker
 {
     /** Map of route patterns to required roles */
-    private static final Map<String, String> pathToRole = new HashMap<>();
+    private static final Map<String, String> pathToRole = new ConcurrentHashMap<>();
 
     /** Set of route patterns that require authentication (session) */
-    private static final Set<String> loginRequiredPaths = new HashSet<>();
+    private static final Set<String> loginRequiredPaths = ConcurrentHashMap.newKeySet();
 
     /** Set of route patterns that require Bearer token authentication */
-    private static final Set<String> tokenRequiredPaths = new HashSet<>();
+    private static final Set<String> tokenRequiredPaths = ConcurrentHashMap.newKeySet();
 
     /** Map of route patterns to required roles (token auth) */
-    private static final Map<String, String> tokenPathToRole = new HashMap<>();
+    private static final Map<String, String> tokenPathToRole = new ConcurrentHashMap<>();
 
     /**
      * Registers a route with its required role (session auth).
@@ -102,7 +102,7 @@ public class RoleChecker
         UserDetails user = Auth.user(req);
         String userRole = user.getRole();
         if (userRole == null || !userRole.equals(requiredRole)) {
-            res.redirect(Obsidian.loadConfigAndEnv().get("SITE_URL"));
+            res.redirect(Obsidian.loadConfigAndEnv().get(EnvKeys.SITE_URL));
             halt();
         }
     }

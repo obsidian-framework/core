@@ -1,5 +1,6 @@
 package com.obsidian.core.template;
 
+import com.obsidian.core.core.EnvKeys;
 import com.obsidian.core.core.Obsidian;
 import com.obsidian.core.livereload.LiveReloadScriptExtension;
 import com.obsidian.core.routing.pebble.RouteExtension;
@@ -35,7 +36,7 @@ public class PebbleTemplateEngine extends TemplateEngine
      */
     public PebbleTemplateEngine()
     {
-        boolean isDev = Obsidian.loadConfigAndEnv().get("ENVIRONMENT").equalsIgnoreCase("DEV");
+        boolean isDev = Obsidian.loadConfigAndEnv().get(EnvKeys.ENVIRONMENT).equalsIgnoreCase("DEV");
 
         PebbleEngine.Builder builder = new PebbleEngine.Builder()
                 .extension(new RouteExtension())
@@ -108,7 +109,7 @@ public class PebbleTemplateEngine extends TemplateEngine
 
     private String getScriptTag()
     {
-        String env = System.getenv("ENVIRONMENT");
+        String env = System.getenv(EnvKeys.ENVIRONMENT);
         String version = "production".equalsIgnoreCase(env) ? "1.0.0" : String.valueOf(System.currentTimeMillis());
         return "<script src=\"/obsidian/livecomponents.js?v=" + version + "\"></script>\n";
     }

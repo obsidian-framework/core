@@ -1,5 +1,6 @@
 package com.obsidian.core.security.auth;
 
+import com.obsidian.core.security.SessionKeys;
 import com.obsidian.core.security.user.UserDetails;
 import com.obsidian.core.security.user.UserDetailsService;
 import org.junit.jupiter.api.BeforeEach;
@@ -132,10 +133,10 @@ class AuthTest
 
         Auth.login("admin", "secret", req);
 
-        assertEquals(true, sessionAttrs.get("logged"));
-        assertEquals(1, sessionAttrs.get("user_id"));
-        assertEquals("admin", sessionAttrs.get("username"));
-        assertEquals("ADMIN", sessionAttrs.get("role"));
+        assertEquals(true, sessionAttrs.get(SessionKeys.LOGGED));
+        assertEquals(1, sessionAttrs.get(SessionKeys.USER_ID));
+        assertEquals("admin", sessionAttrs.get(SessionKeys.USERNAME));
+        assertEquals("ADMIN", sessionAttrs.get(SessionKeys.ROLE));
     }
 
     // ──────────────────────────────────────────────
@@ -151,7 +152,7 @@ class AuthTest
 
     @Test
     void isLogged_sessionWithLogged_returnsTrue() {
-        sessionAttrs.put("logged", true);
+        sessionAttrs.put(SessionKeys.LOGGED, true);
 
         assertTrue(Auth.isLogged(req));
     }
@@ -185,7 +186,7 @@ class AuthTest
     @Test
     void user_loggedIn_returnsUserDetails() {
         UserDetails user = fakeUser(42, "bob", "pass", "USER");
-        sessionAttrs.put("user_id", 42);
+        sessionAttrs.put(SessionKeys.USER_ID, 42);
         when(userService.loadById(42)).thenReturn(user);
 
         UserDetails result = Auth.user(req);
@@ -210,7 +211,7 @@ class AuthTest
     @Test
     void user_cachesResultInRequestAttribute() {
         UserDetails user = fakeUser(42, "bob", "pass", "USER");
-        sessionAttrs.put("user_id", 42);
+        sessionAttrs.put(SessionKeys.USER_ID, 42);
         when(userService.loadById(42)).thenReturn(user);
 
         Auth.user(req);
@@ -227,7 +228,7 @@ class AuthTest
     @Test
     void hasRole_matchingRole_returnsTrue() {
         UserDetails user = fakeUser(1, "admin", "pass", "ADMIN");
-        sessionAttrs.put("user_id", 1);
+        sessionAttrs.put(SessionKeys.USER_ID, 1);
         when(userService.loadById(1)).thenReturn(user);
 
         assertTrue(Auth.hasRole(req, "ADMIN"));
@@ -236,7 +237,7 @@ class AuthTest
     @Test
     void hasRole_differentRole_returnsFalse() {
         UserDetails user = fakeUser(1, "admin", "pass", "USER");
-        sessionAttrs.put("user_id", 1);
+        sessionAttrs.put(SessionKeys.USER_ID, 1);
         when(userService.loadById(1)).thenReturn(user);
 
         assertFalse(Auth.hasRole(req, "ADMIN"));

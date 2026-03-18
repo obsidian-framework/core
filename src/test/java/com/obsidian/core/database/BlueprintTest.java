@@ -2,19 +2,22 @@ package com.obsidian.core.database;
 
 import com.obsidian.core.database.Migration.Blueprint;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.obsidian.core.database.DatabaseType.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BlueprintTest
 {
-    private Blueprint blueprint(String dbType) {
+    private Blueprint blueprint(DatabaseType dbType) {
         return new Blueprint(new ArrayList<>(), dbType);
     }
 
-    private Blueprint blueprint(List<String> columns, String dbType) {
+    private Blueprint blueprint(List<String> columns, DatabaseType dbType) {
         return new Blueprint(columns, dbType);
     }
 
@@ -25,7 +28,7 @@ class BlueprintTest
     @Test
     void id_sqlite() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "sqlite").id();
+        blueprint(cols, SQLITE).id();
 
         assertEquals(1, cols.size());
         assertEquals("id INTEGER PRIMARY KEY AUTOINCREMENT", cols.get(0));
@@ -34,7 +37,7 @@ class BlueprintTest
     @Test
     void id_mysql() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").id();
+        blueprint(cols, MYSQL).id();
 
         assertEquals("id INT AUTO_INCREMENT PRIMARY KEY", cols.get(0));
     }
@@ -42,7 +45,7 @@ class BlueprintTest
     @Test
     void id_postgresql() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "postgresql").id();
+        blueprint(cols, POSTGRESQL).id();
 
         assertEquals("id SERIAL PRIMARY KEY", cols.get(0));
     }
@@ -50,7 +53,7 @@ class BlueprintTest
     @Test
     void id_customName() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").id("user_id");
+        blueprint(cols, MYSQL).id("user_id");
 
         assertEquals("user_id INT AUTO_INCREMENT PRIMARY KEY", cols.get(0));
     }
@@ -62,7 +65,7 @@ class BlueprintTest
     @Test
     void string_sqlite_usesText() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "sqlite").string("name");
+        blueprint(cols, SQLITE).string("name");
 
         assertEquals("name TEXT", cols.get(0));
     }
@@ -70,7 +73,7 @@ class BlueprintTest
     @Test
     void string_mysql_usesVarchar255() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").string("name");
+        blueprint(cols, MYSQL).string("name");
 
         assertEquals("name VARCHAR(255)", cols.get(0));
     }
@@ -78,7 +81,7 @@ class BlueprintTest
     @Test
     void string_customLength() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "postgresql").string("email", 100);
+        blueprint(cols, POSTGRESQL).string("email", 100);
 
         assertEquals("email VARCHAR(100)", cols.get(0));
     }
@@ -90,7 +93,7 @@ class BlueprintTest
     @Test
     void integer_postgresql_usesINTEGER() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "postgresql").integer("age");
+        blueprint(cols, POSTGRESQL).integer("age");
 
         assertEquals("age INTEGER", cols.get(0));
     }
@@ -98,7 +101,7 @@ class BlueprintTest
     @Test
     void integer_mysql_usesINT() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").integer("age");
+        blueprint(cols, MYSQL).integer("age");
 
         assertEquals("age INT", cols.get(0));
     }
@@ -106,7 +109,7 @@ class BlueprintTest
     @Test
     void bigInteger() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").bigInteger("total");
+        blueprint(cols, MYSQL).bigInteger("total");
 
         assertEquals("total BIGINT", cols.get(0));
     }
@@ -114,7 +117,7 @@ class BlueprintTest
     @Test
     void decimal() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").decimal("price", 10, 2);
+        blueprint(cols, MYSQL).decimal("price", 10, 2);
 
         assertEquals("price DECIMAL(10,2)", cols.get(0));
     }
@@ -126,7 +129,7 @@ class BlueprintTest
     @Test
     void bool_sqlite_usesInteger() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "sqlite").bool("active");
+        blueprint(cols, SQLITE).bool("active");
 
         assertEquals("active INTEGER", cols.get(0));
     }
@@ -134,7 +137,7 @@ class BlueprintTest
     @Test
     void bool_mysql_usesBoolean() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").bool("active");
+        blueprint(cols, MYSQL).bool("active");
 
         assertEquals("active BOOLEAN", cols.get(0));
     }
@@ -146,7 +149,7 @@ class BlueprintTest
     @Test
     void dateTime_sqlite_usesText() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "sqlite").dateTime("created");
+        blueprint(cols, SQLITE).dateTime("created");
 
         assertEquals("created TEXT", cols.get(0));
     }
@@ -154,7 +157,7 @@ class BlueprintTest
     @Test
     void dateTime_mysql_usesDatetime() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").dateTime("created");
+        blueprint(cols, MYSQL).dateTime("created");
 
         assertEquals("created DATETIME", cols.get(0));
     }
@@ -162,7 +165,7 @@ class BlueprintTest
     @Test
     void dateTime_postgresql_usesTimestamp() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "postgresql").dateTime("created");
+        blueprint(cols, POSTGRESQL).dateTime("created");
 
         assertEquals("created TIMESTAMP", cols.get(0));
     }
@@ -174,7 +177,7 @@ class BlueprintTest
     @Test
     void timestamps_mysql() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").timestamps();
+        blueprint(cols, MYSQL).timestamps();
 
         assertEquals(2, cols.size());
         assertTrue(cols.get(0).contains("created_at"));
@@ -184,7 +187,7 @@ class BlueprintTest
     @Test
     void timestamps_sqlite_usesText() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "sqlite").timestamps();
+        blueprint(cols, SQLITE).timestamps();
 
         assertEquals(2, cols.size());
         assertTrue(cols.get(0).startsWith("created_at TEXT"));
@@ -198,7 +201,7 @@ class BlueprintTest
     @Test
     void notNull_appendsToLastColumn() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").string("email").notNull();
+        blueprint(cols, MYSQL).string("email").notNull();
 
         assertEquals("email VARCHAR(255) NOT NULL", cols.get(0));
     }
@@ -206,7 +209,7 @@ class BlueprintTest
     @Test
     void unique_appendsToLastColumn() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").string("email").unique();
+        blueprint(cols, MYSQL).string("email").unique();
 
         assertEquals("email VARCHAR(255) UNIQUE", cols.get(0));
     }
@@ -214,7 +217,7 @@ class BlueprintTest
     @Test
     void defaultValue_appendsToLastColumn() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").integer("status").defaultValue("0");
+        blueprint(cols, MYSQL).integer("status").defaultValue("0");
 
         assertEquals("status INT DEFAULT 0", cols.get(0));
     }
@@ -222,7 +225,7 @@ class BlueprintTest
     @Test
     void chained_modifiers() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").string("email").notNull().unique();
+        blueprint(cols, MYSQL).string("email").notNull().unique();
 
         assertEquals("email VARCHAR(255) NOT NULL UNIQUE", cols.get(0));
     }
@@ -230,7 +233,7 @@ class BlueprintTest
     @Test
     void nullable_isNoOp() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql").string("bio").nullable();
+        blueprint(cols, MYSQL).string("bio").nullable();
 
         assertEquals("bio VARCHAR(255)", cols.get(0));
     }
@@ -242,7 +245,7 @@ class BlueprintTest
     @Test
     void fullTable_mysql() {
         List<String> cols = new ArrayList<>();
-        blueprint(cols, "mysql")
+        blueprint(cols, MYSQL)
                 .id()
                 .string("username").notNull().unique()
                 .string("email", 100).notNull()
@@ -260,7 +263,7 @@ class BlueprintTest
     void notNull_onEmptyColumns_doesNothing() {
         List<String> cols = new ArrayList<>();
         // Should not throw
-        blueprint(cols, "mysql").notNull();
+        blueprint(cols, MYSQL).notNull();
         assertTrue(cols.isEmpty());
     }
 }

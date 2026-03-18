@@ -19,8 +19,8 @@ public class DB
     /** Logger instance */
     private final Logger logger;
 
-    /** Database type (sqlite, mysql, postgresql) */
-    private final String type;
+    /** Database type */
+    private final DatabaseType type;
 
     /** Database path (for SQLite) or name (for MySQL/PostgreSQL) */
     private final String dbPath;
@@ -36,7 +36,7 @@ public class DB
      * @return DB instance
      */
     public static DB initSQLite(String path, Logger logger) {
-        instance = new DB("sqlite", path, null, 0, null, null, logger);
+        instance = new DB(DatabaseType.SQLITE, path, null, 0, null, null, logger);
         return instance;
     }
 
@@ -52,7 +52,7 @@ public class DB
      * @return DB instance
      */
     public static DB initMySQL(String host, int port, String database, String user, String password, Logger logger) {
-        instance = new DB("mysql", database, host, port, user, password, logger);
+        instance = new DB(DatabaseType.MYSQL, database, host, port, user, password, logger);
         return instance;
     }
 
@@ -68,7 +68,7 @@ public class DB
      * @return DB instance
      */
     public static DB initPostgreSQL(String host, int port, String database, String user, String password, Logger logger) {
-        instance = new DB("postgresql", database, host, port, user, password, logger);
+        instance = new DB(DatabaseType.POSTGRESQL, database, host, port, user, password, logger);
         return instance;
     }
 
@@ -121,13 +121,13 @@ public class DB
      * @param password Database password (null for SQLite)
      * @param logger Logger instance
      */
-    private DB(String type, String database, String host, int port, String user, String password, Logger logger)
+    private DB(DatabaseType type, String database, String host, int port, String user, String password, Logger logger)
     {
         this.type = type;
         this.logger = logger;
         this.dbPath = database;
 
-        if (type.equals("sqlite")) {
+        if (type == DatabaseType.SQLITE) {
             logger.info("SQLite database initialized: " + database);
         } else {
             setupConnectionPool(type, host, port, database, user, password);
@@ -144,13 +144,13 @@ public class DB
      * @param user Database user
      * @param password Database password
      */
-    private void setupConnectionPool(String type, String host, int port, String database, String user, String password)
+    private void setupConnectionPool(DatabaseType type, String host, int port, String database, String user, String password)
     {
         HikariConfig config = new HikariConfig();
 
         String url = switch (type) {
-            case "mysql" -> String.format("jdbc:mysql://%s:%d/%s?useSSL=false", host, port, database);
-            case "postgresql" -> String.format("jdbc:postgresql://%s:%d/%s", host, port, database);
+            case MYSQL -> String.format("jdbc:mysql://%s:%d/%s?useSSL=false", host, port, database);
+            case POSTGRESQL -> String.format("jdbc:postgresql://%s:%d/%s", host, port, database);
             default -> throw new IllegalArgumentException("Unsupported type: " + type);
         };
 
@@ -241,9 +241,9 @@ public class DB
     /**
      * Gets database type.
      *
-     * @return Database type (sqlite, mysql, postgresql)
+     * @return Database type
      */
-    public String getType() {
+    public DatabaseType getType() {
         return type;
     }
 
@@ -254,7 +254,7 @@ public class DB
     public void connect()
     {
         try {
-            if (type.equals("sqlite")) {
+            if (type == DatabaseType.SQLITE) {
                 String url = "jdbc:sqlite:" + dbPath;
                 Base.open("org.sqlite.JDBC", url, "", "");
             } else if (pool != null) {

@@ -140,7 +140,7 @@ public class Obsidian
      *
      * @return Configured port for web server
      */
-    public static int getWebPort() { return Integer.parseInt(EnvLoader.getInstance().get("PORT_WEB")); }
+    public static int getWebPort() { return Integer.parseInt(EnvLoader.getInstance().get(EnvKeys.PORT_WEB)); }
 
     /**
      * Initializes cache system.
@@ -161,8 +161,8 @@ public class Obsidian
         System.out.println(CYAN + "|               Obsidian               |" + RESET);
         System.out.println(CYAN + "+--------------------------------------+" + RESET);
         System.out.println(GREEN + "| Version           : 1.1.0            |" + RESET);
-        System.out.println(GREEN + "| Environment       : " + env.get("ENVIRONMENT") + "              |" + RESET);
-        System.out.println(GREEN + "| Web Port          : " + env.get("PORT_WEB")+ "             |" + RESET);
+        System.out.println(GREEN + "| Environment       : " + env.get(EnvKeys.ENVIRONMENT) + "              |" + RESET);
+        System.out.println(GREEN + "| Web Port          : " + env.get(EnvKeys.PORT_WEB)+ "             |" + RESET);
         System.out.println(CYAN + "+--------------------------------------+" + RESET);
         System.out.println(CYAN + "|           Loading modules...         |" + RESET);
         System.out.println(CYAN + "+--------------------------------------+" + RESET);

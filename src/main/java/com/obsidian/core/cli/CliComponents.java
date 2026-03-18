@@ -200,7 +200,7 @@ public class CliComponents
         public void stop(String finalMessage)
         {
             running = false;
-            try { thread.join(); } catch (InterruptedException ignored) {}
+            try { thread.join(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
             System.out.print("\r" + " ".repeat(label.length() + 4) + "\r");
             System.out.println(finalMessage);
         }

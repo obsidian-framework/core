@@ -2,6 +2,7 @@ package com.obsidian.core.cache;
 
 import com.obsidian.core.cache.drivers.InMemoryCacheDriver;
 import com.obsidian.core.cache.drivers.RedisCacheDriver;
+import com.obsidian.core.core.EnvKeys;
 import com.obsidian.core.core.EnvLoader;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
@@ -17,7 +18,7 @@ public class CacheLoader
      */
     public static void loadCache()
     {
-        String driver = EnvLoader.getInstance().get("CACHE_DRIVER");
+        String driver = EnvLoader.getInstance().get(EnvKeys.CACHE_DRIVER);
         if ("redis".equalsIgnoreCase(driver)) {
             String host = EnvLoader.getInstance().get("REDIS_HOST");
             int port = Integer.parseInt(EnvLoader.getInstance().get("REDIS_PORT"));

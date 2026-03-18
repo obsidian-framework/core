@@ -2,6 +2,8 @@ package com.obsidian.core.cli;
 
 import com.obsidian.core.cli.annotations.Option;
 import com.obsidian.core.cli.annotations.Param;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 import java.util.*;
@@ -12,6 +14,7 @@ import java.util.*;
  */
 public class ArgParser
 {
+    private static final Logger logger = LoggerFactory.getLogger(ArgParser.class);
     /**
      * Injects parsed args into {@code instance}.
      *
@@ -112,7 +115,9 @@ public class ArgParser
             if (!opt.required()) continue;
             try {
                 if (f.get(instance) == null) throw new CliException("Missing required option: " + opt.name());
-            } catch (IllegalAccessException ignored) {}
+            } catch (IllegalAccessException e) {
+                logger.warn("Cannot check required option '{}': {}", opt.name(), e.getMessage());
+            }
         }
     }
 
@@ -156,7 +161,9 @@ public class ArgParser
                 if (current == null || isPrimitiveDefault(current)) {
                     f.set(instance, coerce(opt.defaultValue(), f.getType()));
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                logger.warn("Failed to apply default for option '{}': {}", opt.name(), e.getMessage());
+            }
         }
     }
 

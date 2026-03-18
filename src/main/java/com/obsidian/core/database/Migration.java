@@ -12,8 +12,8 @@ import java.util.List;
  */
 public abstract class Migration
 {
-    /** Database type (sqlite, mysql, postgresql) */
-    protected String type;
+    /** Database type */
+    protected DatabaseType type;
 
     /** Logger instance */
     protected Logger logger;
@@ -79,7 +79,7 @@ public abstract class Migration
      * @param columnName Column name
      */
     protected void dropColumn(String tableName, String columnName) {
-        if (type.equals("sqlite")) {
+        if (type == DatabaseType.SQLITE) {
             logger.warn("SQLite does not support DROP COLUMN - migration skipped");
             return;
         }
@@ -96,8 +96,8 @@ public abstract class Migration
     protected boolean tableExists(String tableName)
     {
         String checkSQL = switch (type) {
-            case "mysql" -> "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?";
-            case "postgresql" -> "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?";
+            case MYSQL -> "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?";
+            case POSTGRESQL -> "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?";
             default -> "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?";
         };
 
@@ -122,9 +122,9 @@ public abstract class Migration
      */
     public static class Blueprint {
         private final List<String> columns;
-        private final String dbType;
+        private final DatabaseType dbType;
 
-        public Blueprint(List<String> columns, String dbType) {
+        public Blueprint(List<String> columns, DatabaseType dbType) {
             this.columns = columns;
             this.dbType = dbType;
         }
@@ -143,8 +143,8 @@ public abstract class Migration
          */
         public Blueprint id(String name) {
             String column = switch (dbType) {
-                case "mysql" -> name + " INT AUTO_INCREMENT PRIMARY KEY";
-                case "postgresql" -> name + " SERIAL PRIMARY KEY";
+                case MYSQL -> name + " INT AUTO_INCREMENT PRIMARY KEY";
+                case POSTGRESQL -> name + " SERIAL PRIMARY KEY";
                 default -> name + " INTEGER PRIMARY KEY AUTOINCREMENT";
             };
             columns.add(column);
@@ -167,7 +167,7 @@ public abstract class Migration
          * @param length Maximum length
          */
         public Blueprint string(String name, int length) {
-            String type = dbType.equals("sqlite") ? "TEXT" : "VARCHAR(" + length + ")";
+            String type = dbType == DatabaseType.SQLITE ? "TEXT" : "VARCHAR(" + length + ")";
             columns.add(name + " " + type);
             return this;
         }
@@ -188,7 +188,7 @@ public abstract class Migration
          * @param name Column name
          */
         public Blueprint integer(String name) {
-            String type = dbType.equals("postgresql") ? "INTEGER" : "INT";
+            String type = dbType == DatabaseType.POSTGRESQL ? "INTEGER" : "INT";
             columns.add(name + " " + type);
             return this;
         }
@@ -221,7 +221,7 @@ public abstract class Migration
          * @param name Column name
          */
         public Blueprint bool(String name) {
-            String type = dbType.equals("sqlite") ? "INTEGER" : "BOOLEAN";
+            String type = dbType == DatabaseType.SQLITE ? "INTEGER" : "BOOLEAN";
             columns.add(name + " " + type);
             return this;
         }
@@ -243,8 +243,8 @@ public abstract class Migration
          */
         public Blueprint dateTime(String name) {
             String type = switch (dbType) {
-                case "postgresql" -> "TIMESTAMP";
-                case "mysql" -> "DATETIME";
+                case POSTGRESQL -> "TIMESTAMP";
+                case MYSQL -> "DATETIME";
                 default -> "TEXT";
             };
             columns.add(name + " " + type);
@@ -266,10 +266,10 @@ public abstract class Migration
          */
         public Blueprint timestamps()
         {
-            if (dbType.equals("mysql")) {
+            if (dbType == DatabaseType.MYSQL) {
                 columns.add("created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
                 columns.add("updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
-            } else if (dbType.equals("postgresql")) {
+            } else if (dbType == DatabaseType.POSTGRESQL) {
                 columns.add("created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
                 columns.add("updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
             } else {

@@ -28,7 +28,7 @@ public class MigrationManager
     private final List<Migration> migrations;
 
     /** Database type */
-    private final String dbType;
+    private final DatabaseType dbType;
 
     /**
      * Constructor.
@@ -197,8 +197,8 @@ public class MigrationManager
      */
     private void createMigrationsTable() {
         String idColumn = switch (dbType) {
-            case "mysql" -> "INT AUTO_INCREMENT PRIMARY KEY";
-            case "postgresql" -> "SERIAL PRIMARY KEY";
+            case MYSQL -> "INT AUTO_INCREMENT PRIMARY KEY";
+            case POSTGRESQL -> "SERIAL PRIMARY KEY";
             default -> "INTEGER PRIMARY KEY AUTOINCREMENT";
         };
 
