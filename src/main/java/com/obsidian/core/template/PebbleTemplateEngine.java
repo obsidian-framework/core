@@ -97,7 +97,7 @@ public class PebbleTemplateEngine extends TemplateEngine
      * @return The rendered HTML as a string
      * @throws RuntimeException If template evaluation fails
      */
-    protected String render(String templateName, Map<String, Object> model)
+    public String render(String templateName, Map<String, Object> model)
     {
         Map<String, Object> merged = new HashMap(TemplateManager.getGlobals());
         if (model != null) {
