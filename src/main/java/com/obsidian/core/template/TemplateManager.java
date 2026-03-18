@@ -1,7 +1,7 @@
 package com.obsidian.core.template;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Template manager for global template access and variables.
@@ -13,7 +13,7 @@ public class TemplateManager
     private static final PebbleTemplateEngine engine = new PebbleTemplateEngine();
 
     /** Global template variables */
-    private static final Map<String, Object> globals = new HashMap<>();
+    private static final Map<String, Object> globals = new ConcurrentHashMap<>();
 
     /**
      * Gets template engine instance.

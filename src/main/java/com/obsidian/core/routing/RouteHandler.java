@@ -1,6 +1,7 @@
 package com.obsidian.core.routing;
 
 import com.obsidian.core.security.auth.Auth;
+import com.obsidian.core.security.SessionKeys;
 import com.obsidian.core.security.csrf.annotations.CsrfProtect;
 import com.obsidian.core.security.csrf.CsrfProtection;
 import com.obsidian.core.security.role.RoleChecker;
@@ -103,7 +104,7 @@ public class RouteHandler
                         method.getName());
 
                 if (req.session(false) != null) {
-                    req.session().attribute("flash_error", "Invalid security token. Please try again.");
+                    req.session().attribute(SessionKeys.FLASH_ERROR, "Invalid security token. Please try again.");
                 }
 
                 res.status(403);

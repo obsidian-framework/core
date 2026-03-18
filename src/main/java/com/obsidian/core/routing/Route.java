@@ -2,6 +2,7 @@ package com.obsidian.core.routing;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Named route registry.
@@ -10,7 +11,7 @@ import java.util.Map;
 public class Route
 {
     /** Map of route names to paths */
-    private static final Map<String, String> namedRoutes = new HashMap<>();
+    private static final Map<String, String> namedRoutes = new ConcurrentHashMap<>();
 
     /**
      * Registers a named route.

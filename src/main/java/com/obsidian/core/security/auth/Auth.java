@@ -7,7 +7,10 @@ import com.obsidian.core.security.token.TokenResolverImpl;
 import com.obsidian.core.security.user.UserDetails;
 import com.obsidian.core.security.user.UserDetailsService;
 import com.obsidian.core.security.user.UserDetailsServiceImpl;
+import com.obsidian.core.security.SessionKeys;
 import org.mindrot.jbcrypt.BCrypt;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import spark.Request;
 import spark.Response;
 import spark.Session;
@@ -24,6 +27,8 @@ import static spark.Spark.halt;
  */
 public final class Auth
 {
+    private static final Logger logger = LoggerFactory.getLogger(Auth.class);
+
     /** Request attribute key used to cache the session-authenticated user */
     static final String CURRENT_USER_ATTR = "_current_user";
 
@@ -102,10 +107,10 @@ public final class Auth
             if (oldSession != null) oldSession.invalidate();
 
             Session newSession = req.session(true);
-            newSession.attribute("logged", true);
-            newSession.attribute("user_id", user.getId());
-            newSession.attribute("username", user.getUsername());
-            newSession.attribute("role", user.getRole());
+            newSession.attribute(SessionKeys.LOGGED, true);
+            newSession.attribute(SessionKeys.USER_ID, user.getId());
+            newSession.attribute(SessionKeys.USERNAME, user.getUsername());
+            newSession.attribute(SessionKeys.ROLE, user.getRole());
 
             if (redirectUrl != null) {
                 newSession.attribute(REDIRECT_AFTER_LOGIN_ATTR, redirectUrl);
@@ -155,7 +160,7 @@ public final class Auth
     {
         Session session = req.session(false);
         if (session == null) return false;
-        return Boolean.TRUE.equals(session.attribute("logged"));
+        return Boolean.TRUE.equals(session.attribute(SessionKeys.LOGGED));
     }
 
     /**
@@ -175,7 +180,7 @@ public final class Auth
         Session session = req.session(false);
         if (session == null) return null;
 
-        Object userId = session.attribute("user_id");
+        Object userId = session.attribute(SessionKeys.USER_ID);
         if (userId == null) return null;
 
         T user = (T) getUserService().loadById(userId);
@@ -347,7 +352,9 @@ public final class Auth
                     if (TokenResolver.class.isAssignableFrom(implClass)) {
                         try {
                             tokenResolver = instantiate(implClass, TokenResolver.class);
-                        } catch (Exception ignored) {}
+                        } catch (Exception e) {
+                            logger.warn("Failed to instantiate TokenResolver: {}", implClass.getName(), e);
+                        }
                     }
                 }
             }

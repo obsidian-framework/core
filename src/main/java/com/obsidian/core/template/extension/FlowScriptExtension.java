@@ -1,5 +1,6 @@
 package com.obsidian.core.template.extension;
 
+import com.obsidian.core.core.EnvKeys;
 import io.pebbletemplates.pebble.extension.AbstractExtension;
 
 import java.util.HashMap;
@@ -15,7 +16,7 @@ public class FlowScriptExtension extends AbstractExtension
     public Map<String, Object> getGlobalVariables()
     {
         Map<String, Object> globals = new HashMap<>();
-        String env = System.getenv("ENVIRONMENT");
+        String env = System.getenv(EnvKeys.ENVIRONMENT);
         String version = "production".equalsIgnoreCase(env) ? "1.0.0" : String.valueOf(System.currentTimeMillis());
 
         String scriptTag = "<script src=\"/obsidian/flow.js?v=" + version + "\"></script>";

@@ -1,5 +1,6 @@
 package com.obsidian.core.error;
 
+import com.obsidian.core.core.EnvKeys;
 import com.obsidian.core.core.EnvLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +18,7 @@ public class ErrorHandler
 
     /** Debug mode flag — true if ENVIRONMENT != production */
     private static boolean debugMode = !"production".equalsIgnoreCase(
-            EnvLoader.getInstance().get("ENVIRONMENT", "dev")
+            EnvLoader.getInstance().get(EnvKeys.ENVIRONMENT, "dev")
     );
 
     /**

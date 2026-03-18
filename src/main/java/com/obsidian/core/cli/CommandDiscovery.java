@@ -1,6 +1,8 @@
 package com.obsidian.core.cli;
 
 import com.obsidian.core.cli.annotations.Command;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.*;
@@ -13,6 +15,7 @@ import java.util.jar.*;
  */
 public class CommandDiscovery
 {
+    private static final Logger logger = LoggerFactory.getLogger(CommandDiscovery.class);
 
     /**
      * @return unmodifiable list of {@link Command}-annotated classes found on the classpath
@@ -27,7 +30,9 @@ public class CommandDiscovery
                 File f = new File(url.toURI());
                 if      (f.isDirectory())             scanDir(f, f, cl, found);
                 else if (f.getName().endsWith(".jar")) scanJar(f, cl, found);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                logger.debug("Skipping classpath entry {}: {}", url, e.getMessage());
+            }
         }
 
         return Collections.unmodifiableList(found);
@@ -45,7 +50,9 @@ public class CommandDiscovery
         } else {
             for (String entry : System.getProperty("java.class.path", "").split(File.pathSeparator)) {
                 try { urls.add(new File(entry).toURI().toURL()); }
-                catch (MalformedURLException ignored) {}
+                catch (MalformedURLException e) {
+                    logger.debug("Skipping malformed classpath entry '{}': {}", entry, e.getMessage());
+                }
             }
         }
         return urls;
@@ -101,6 +108,8 @@ public class CommandDiscovery
         try {
             Class<?> cls = cl.loadClass(className);
             if (cls.isAnnotationPresent(Command.class)) found.add(cls);
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            logger.trace("Cannot load class '{}': {}", className, e.getMessage());
+        }
     }
 }

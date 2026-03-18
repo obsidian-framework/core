@@ -14,6 +14,10 @@
   <a href="https://jitpack.io/#obsidian-framework/core">
     <img src="https://jitpack.io/v/obsidian-framework/core.svg" alt="JitPack">
   </a>
+
+  <a href="https://jitpack.io/#obsidian-framework/core">
+    <img src="https://github.com/obsidian-framework/core/actions/workflows/ci.yml/badge.svg" alt="workflows">
+  </a>
 </p>
 
 > Core package for the Obsidian Framework

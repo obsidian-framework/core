@@ -1,5 +1,6 @@
 package com.obsidian.core.database;
 
+import com.obsidian.core.core.EnvKeys;
 import com.obsidian.core.core.EnvLoader;
 import com.obsidian.core.core.Obsidian;
 import org.slf4j.Logger;
@@ -17,13 +18,6 @@ public class DatabaseLoader
 
     /**
      * Loads and initializes database connection from environment configuration.
-     * Reads DB_TYPE, DB_PATH/DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD from environment.
-     *
-     * Default values:
-     * - DB_TYPE: sqlite
-     * - DB_PATH: data.db (for SQLite)
-     * - DB_HOST: localhost
-     * - DB_PORT: 3306 (MySQL) or 5432 (PostgreSQL)
      *
      * @throws IllegalArgumentException if database type is not supported
      */
@@ -32,44 +26,41 @@ public class DatabaseLoader
         logger.info("Loading database...");
         EnvLoader env = Obsidian.loadConfigAndEnv();
 
-        String dbType = env.get("DB_TYPE");
-        if (dbType == null || dbType.isEmpty()) { dbType = "sqlite"; }
+        DatabaseType dbType = DatabaseType.fromString(env.get(EnvKeys.DB_TYPE));
 
-        switch (dbType.toLowerCase())
+        switch (dbType)
         {
-            case "sqlite":
-                String dbPath = env.get("DB_PATH");
+            case SQLITE:
+                String dbPath = env.get(EnvKeys.DB_PATH);
                 if (dbPath == null || dbPath.isEmpty()) {
                     dbPath = "data.db";
                 }
                 DB.initSQLite(dbPath, logger);
                 break;
-            case "mysql":
-                String mysqlHost = env.get("DB_HOST");
-                String mysqlPort = env.get("DB_PORT");
+            case MYSQL:
+                String mysqlHost = env.get(EnvKeys.DB_HOST);
+                String mysqlPort = env.get(EnvKeys.DB_PORT);
                 DB.initMySQL(
                         mysqlHost != null ? mysqlHost : "localhost",
                         Integer.parseInt(mysqlPort != null ? mysqlPort : "3306"),
-                        env.get("DB_NAME"),
-                        env.get("DB_USER"),
-                        env.get("DB_PASSWORD"),
+                        env.get(EnvKeys.DB_NAME),
+                        env.get(EnvKeys.DB_USER),
+                        env.get(EnvKeys.DB_PASSWORD),
                         logger
                 );
                 break;
-            case "postgresql":
-                String pgHost = env.get("DB_HOST");
-                String pgPort = env.get("DB_PORT");
+            case POSTGRESQL:
+                String pgHost = env.get(EnvKeys.DB_HOST);
+                String pgPort = env.get(EnvKeys.DB_PORT);
                 DB.initPostgreSQL(
                         pgHost != null ? pgHost : "localhost",
                         Integer.parseInt(pgPort != null ? pgPort : "5432"),
-                        env.get("DB_NAME"),
-                        env.get("DB_USER"),
-                        env.get("DB_PASSWORD"),
+                        env.get(EnvKeys.DB_NAME),
+                        env.get(EnvKeys.DB_USER),
+                        env.get(EnvKeys.DB_PASSWORD),
                         logger
                 );
                 break;
-            default:
-                throw new IllegalArgumentException("Unsupported database type: " + dbType);
         }
     }
 }

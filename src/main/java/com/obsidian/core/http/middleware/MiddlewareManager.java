@@ -8,10 +8,10 @@ import org.slf4j.LoggerFactory;
 import spark.Request;
 import spark.Response;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Middleware execution manager.
@@ -24,13 +24,13 @@ public class MiddlewareManager
     private static final Logger logger = LoggerFactory.getLogger(MiddlewareManager.class);
 
     /** Singleton instances of middleware classes */
-    private static final Map<Class<? extends Middleware>, Middleware> instances = new HashMap<>();
+    private static final Map<Class<? extends Middleware>, Middleware> instances = new ConcurrentHashMap<>();
 
     /** Built-in middlewares executed before every route */
-    private static final List<Class<? extends Middleware>> globalBefore = new ArrayList<>();
+    private static final List<Class<? extends Middleware>> globalBefore = new CopyOnWriteArrayList<>();
 
     /** Built-in middlewares executed after every route */
-    private static final List<Class<? extends Middleware>> globalAfter = new ArrayList<>();
+    private static final List<Class<? extends Middleware>> globalAfter = new CopyOnWriteArrayList<>();
 
     /**
      * Registers built-in framework middlewares.

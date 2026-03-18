@@ -1,5 +1,6 @@
 package com.obsidian.core.storage;
 
+import com.obsidian.core.core.EnvKeys;
 import com.obsidian.core.core.EnvLoader;
 import com.obsidian.core.di.Container;
 import com.obsidian.core.storage.disks.LocalDisk;
@@ -20,9 +21,9 @@ public class StorageLoader
     public static void loadStorage() {
         EnvLoader env = EnvLoader.getInstance();
 
-        String localRoot = env.get("STORAGE_LOCAL_ROOT", "storage/app");
-        String localUrl  = env.get("STORAGE_LOCAL_URL",  "http://localhost:4567/storage");
-        String defaultDisk = env.get("STORAGE_DISK", "local");
+        String localRoot = env.get(EnvKeys.STORAGE_LOCAL_ROOT, "storage/app");
+        String localUrl  = env.get(EnvKeys.STORAGE_LOCAL_URL,  "http://localhost:4567/storage");
+        String defaultDisk = env.get(EnvKeys.STORAGE_DISK, "local");
 
         StorageManager manager = new StorageManager()
                 .addDisk("local",  new LocalDisk(localRoot, localUrl))

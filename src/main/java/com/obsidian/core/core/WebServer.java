@@ -41,7 +41,7 @@ public class WebServer
         logger.info("Loading WebSocket handlers...");
         WebSocketLoader.registerWebSockets();
 
-        if (Obsidian.loadConfigAndEnv().get("ENVIRONMENT").equalsIgnoreCase("DEV")) {
+        if (Obsidian.loadConfigAndEnv().get(EnvKeys.ENVIRONMENT).equalsIgnoreCase("DEV")) {
             LiveReloadLoader.load();
         }
 
