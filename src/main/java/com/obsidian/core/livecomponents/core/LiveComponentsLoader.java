@@ -7,6 +7,7 @@ import com.obsidian.core.livecomponents.pebble.ComponentExtension;
 import com.obsidian.core.livecomponents.pebble.ComponentTagExtension;
 import com.obsidian.core.livecomponents.scanner.LiveComponentScanner;
 import com.obsidian.core.routing.RouteLoader;
+import com.obsidian.core.template.TemplateManager;
 import com.obsidian.core.validation.pebble.ValidationExtension;
 import io.pebbletemplates.pebble.PebbleEngine;
 import io.pebbletemplates.pebble.loader.ClasspathLoader;
@@ -51,6 +52,15 @@ public class LiveComponentsLoader
 
             Container.singleton(ComponentManager.class, componentManager);
             RouteLoader.registerRoutes(List.of(new LiveComponentController()));
+
+            String env = System.getenv("ENVIRONMENT");
+            String version = "production".equalsIgnoreCase(env)
+                    ? "1.0.0"
+                    : String.valueOf(System.currentTimeMillis());
+            TemplateManager.setGlobal(
+                    "livecomponents_scripts",
+                    "<script src=\"/obsidian/livecomponents.js?v=" + version + "\"></script>\n"
+            );
 
             logger.info("LiveComponents loaded successfully!");
         } catch (Exception e) {

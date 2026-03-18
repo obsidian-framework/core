@@ -1,7 +1,6 @@
 package com.obsidian.core.template;
 
 import com.obsidian.core.core.Obsidian;
-import com.obsidian.core.livecomponents.pebble.LiveComponentsScriptExtension;
 import com.obsidian.core.livereload.LiveReloadScriptExtension;
 import com.obsidian.core.routing.pebble.RouteExtension;
 import com.obsidian.core.security.csrf.pebble.CsrfExtension;
@@ -19,11 +18,13 @@ import spark.ModelAndView;
 import spark.TemplateEngine;
 
 import java.io.StringWriter;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Pebble template engine integration for Spark.
  * Provides template rendering with custom extensions and environment-aware configuration.
+ * Global variables from {@link TemplateManager} are automatically merged into every render call.
  */
 public class PebbleTemplateEngine extends TemplateEngine
 {
@@ -39,22 +40,20 @@ public class PebbleTemplateEngine extends TemplateEngine
         boolean isDev = Obsidian.loadConfigAndEnv().get("ENVIRONMENT").equalsIgnoreCase("DEV");
 
         PebbleEngine.Builder builder = new PebbleEngine.Builder()
-                .extension(new RouteExtension())
-                .extension(new StripTagsFilter())
-                .extension(new CsrfExtension())
-                .extension(new FlashExtension())
-                .extension(new ComponentHelperExtension())
-                .extension(new ValidationExtension())
-                .extension(new LiveComponentsScriptExtension())
-                .extension(new FlowScriptExtension())
-                .extension(new MarkdownFilter())
-                .extension(new MarkdownTag())
-                .cacheActive(!isDev);
+            .extension(new RouteExtension())
+            .extension(new StripTagsFilter())
+            .extension(new CsrfExtension())
+            .extension(new FlashExtension())
+            .extension(new ComponentHelperExtension())
+            .extension(new ValidationExtension())
+            .extension(new FlowScriptExtension())
+            .extension(new MarkdownFilter())
+            .extension(new MarkdownTag())
+            .cacheActive(!isDev);
 
         if (isDev) {
             String prefix = System.getProperty("user.dir") + "/src/main/resources/";
-            FileLoader loader = new FileLoader(prefix);
-            builder.loader(loader);
+            builder.loader(new FileLoader(prefix));
             builder.extension(new LiveReloadScriptExtension());
         } else {
             builder.loader(new ClasspathLoader());
@@ -65,8 +64,8 @@ public class PebbleTemplateEngine extends TemplateEngine
 
     /**
      * Renders a template from a {@link ModelAndView} object.
-     * The view name is used to locate the template, and the model provides
-     * the variables available during rendering.
+     * Global variables from {@link TemplateManager} are merged into the model,
+     * with model values taking precedence over globals.
      *
      * @param modelAndView The model and view name to render
      * @return The rendered HTML as a string
@@ -78,7 +77,7 @@ public class PebbleTemplateEngine extends TemplateEngine
         try {
             var template = engine.getTemplate(modelAndView.getViewName());
             var writer = new StringWriter();
-            template.evaluate(writer, (Map<String, Object>) modelAndView.getModel());
+            template.evaluate(writer, mergeWithGlobals((Map<String, Object>) modelAndView.getModel()));
             return writer.toString();
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -87,7 +86,8 @@ public class PebbleTemplateEngine extends TemplateEngine
 
     /**
      * Renders a template by name with the provided model data.
-     * Useful for rendering templates outside of the standard Spark route context.
+     * Global variables from {@link TemplateManager} are merged into the model,
+     * with model values taking precedence over globals.
      *
      * @param templateName The path to the template relative to the resources root
      * @param model        A map of variables to expose during template rendering
@@ -99,10 +99,24 @@ public class PebbleTemplateEngine extends TemplateEngine
         try {
             var template = engine.getTemplate(templateName);
             var writer = new StringWriter();
-            template.evaluate(writer, model);
+            template.evaluate(writer, mergeWithGlobals(model));
             return writer.toString();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Merges global template variables with the provided model.
+     * Model values take precedence over globals in case of key conflicts.
+     *
+     * @param model The route-specific model
+     * @return A new map containing globals + model
+     */
+    private Map<String, Object> mergeWithGlobals(Map<String, Object> model)
+    {
+        Map<String, Object> merged = new HashMap<>(TemplateManager.getGlobals());
+        merged.putAll(model);
+        return merged;
     }
 }

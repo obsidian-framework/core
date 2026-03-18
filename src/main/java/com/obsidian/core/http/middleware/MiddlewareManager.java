@@ -2,6 +2,7 @@ package com.obsidian.core.http.middleware;
 
 import com.obsidian.core.http.middleware.builtin.DatabaseCloseMiddleware;
 import com.obsidian.core.http.middleware.builtin.DatabaseMiddleware;
+import com.obsidian.core.livecomponents.session.SessionMiddleware;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import spark.Request;
@@ -38,6 +39,7 @@ public class MiddlewareManager
     public static void registerBuiltins()
     {
         globalBefore.add(DatabaseMiddleware.class);
+        globalBefore.add(SessionMiddleware.class);
         globalAfter.add(DatabaseCloseMiddleware.class);
     }
 
