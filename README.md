@@ -1,8 +1,16 @@
-# Obsidian Core
+<p align="center"><a href="https://obsidian-java.com/" target="_blank"><img src="https://obsidian-java.com/assets/img/logo.png" width="300" alt="Laravel Logo"></a></p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Java](https://img.shields.io/badge/Java-17+-orange.svg)](https://www.oracle.com/java/)
-[![](https://jitpack.io/v/obsidian-framework/core.svg)](https://jitpack.io/#obsidian-framework/core)
+<p align="center">
+    <a href="https://github.com/laravel/framework/actions">
+        <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+    </a>
+    <a href="(https://www.oracle.com/java/">
+        <img src="https://img.shields.io/badge/Java-17+-orange.svg" alt="Java">
+    </a>
+    <a href="https://jitpack.io/#obsidian-framework/core">
+        <img src="https://jitpack.io/v/obsidian-framework/core.svg" alt="Jitpack latest">
+    </a>
+</p>
 
 > Core package for the Obsidian Framework
 
