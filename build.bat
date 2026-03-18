@@ -1,1 +1,0 @@
-mvn clean package && cls && java -jar target/Spark-1.0-jar-with-dependencies.jar
