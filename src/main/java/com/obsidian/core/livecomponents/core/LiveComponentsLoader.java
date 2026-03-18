@@ -7,6 +7,7 @@ import com.obsidian.core.livecomponents.pebble.ComponentExtension;
 import com.obsidian.core.livecomponents.pebble.ComponentTagExtension;
 import com.obsidian.core.livecomponents.scanner.LiveComponentScanner;
 import com.obsidian.core.routing.RouteLoader;
+import com.obsidian.core.template.TemplateManager;
 import com.obsidian.core.validation.pebble.ValidationExtension;
 import io.pebbletemplates.pebble.PebbleEngine;
 import io.pebbletemplates.pebble.loader.ClasspathLoader;

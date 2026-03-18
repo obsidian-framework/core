@@ -12,6 +12,7 @@ import com.obsidian.core.di.ServiceProviderLoader;
 import com.obsidian.core.livecomponents.core.ComponentManager;
 import com.obsidian.core.livecomponents.core.LiveComponentsLoader;
 import com.obsidian.core.storage.StorageLoader;
+import com.obsidian.core.template.TemplateManager;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
@@ -200,6 +201,7 @@ public class Obsidian
         loadLiveComponents();
         loadCache();
     }
+
 
     /**
      * Main entry point to start Obsidian application.

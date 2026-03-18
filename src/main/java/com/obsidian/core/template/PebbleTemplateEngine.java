@@ -1,7 +1,6 @@
 package com.obsidian.core.template;
 
 import com.obsidian.core.core.Obsidian;
-import com.obsidian.core.livecomponents.pebble.LiveComponentsScriptExtension;
 import com.obsidian.core.livereload.LiveReloadScriptExtension;
 import com.obsidian.core.routing.pebble.RouteExtension;
 import com.obsidian.core.security.csrf.pebble.CsrfExtension;
@@ -45,7 +44,6 @@ public class PebbleTemplateEngine extends TemplateEngine
                 .extension(new FlashExtension())
                 .extension(new ComponentHelperExtension())
                 .extension(new ValidationExtension())
-                .extension(new LiveComponentsScriptExtension())
                 .extension(new FlowScriptExtension())
                 .extension(new MarkdownFilter())
                 .extension(new MarkdownTag())
@@ -100,9 +98,18 @@ public class PebbleTemplateEngine extends TemplateEngine
             var template = engine.getTemplate(templateName);
             var writer = new StringWriter();
             template.evaluate(writer, model);
-            return writer.toString();
+            String html = writer.toString();
+            return html.replace("</body>", getScriptTag() + "</body>");
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+
+    private String getScriptTag()
+    {
+        String env = System.getenv("ENVIRONMENT");
+        String version = "production".equalsIgnoreCase(env) ? "1.0.0" : String.valueOf(System.currentTimeMillis());
+        return "<script src=\"/obsidian/livecomponents.js?v=" + version + "\"></script>\n";
     }
 }
