@@ -4,6 +4,7 @@ import com.obsidian.core.error.ErrorHandler;
 import com.obsidian.core.http.middleware.MiddlewareManager;
 import com.obsidian.core.livecomponents.http.LiveComponentsScriptRoute;
 import com.obsidian.core.livecomponents.http.ObsidianFlowScriptRoute;
+import com.obsidian.core.livecomponents.session.SessionMiddleware;
 import com.obsidian.core.livereload.LiveReloadLoader;
 import com.obsidian.core.security.role.RoleChecker;
 import com.obsidian.core.http.controller.ControllerLoader;
@@ -79,6 +80,7 @@ public class WebServer
         ControllerLoader.loadControllers();
 
         init();
+        after((req, res) -> SessionMiddleware.clear());
 
         logger.info("Web server started on port {}", Obsidian.getWebPort());
     }

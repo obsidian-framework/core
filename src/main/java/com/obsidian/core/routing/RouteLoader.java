@@ -1,11 +1,11 @@
 package com.obsidian.core.routing;
 
 import com.obsidian.core.http.controller.annotations.ApiController;
+import com.obsidian.core.http.controller.annotations.Controller;
 import com.obsidian.core.routing.methods.*;
 import com.obsidian.core.security.token.Bearer;
 import com.obsidian.core.security.role.HasRole;
 import com.obsidian.core.security.role.RoleChecker;
-import com.obsidian.core.routing.methods.*;
 import com.obsidian.core.security.user.RequireLogin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,8 +21,7 @@ import static spark.Spark.*;
 /**
  * Route registration system.
  * Discovers HTTP method annotations and registers routes with Spark.
- * Single-pass per method: iterates the annotation map once instead of calling
- * one check per HTTP verb.
+ * Supports controller-level path prefix via @Controller("/prefix").
  */
 public class RouteLoader
 {
@@ -31,7 +30,6 @@ public class RouteLoader
 
     /**
      * Maps each HTTP annotation type to its Spark registration function.
-     * Insertion order is preserved but irrelevant — each method carries at most one HTTP annotation.
      */
     private static final Map<Class<? extends Annotation>, BiConsumer<String, spark.Route>> SPARK_REGISTRARS = Map.of(
             GET.class,     (path, handler) -> get(path, handler),
@@ -57,21 +55,22 @@ public class RouteLoader
 
     /**
      * Registers routes from a single controller.
-     * Single pass per method: checks each annotation type from the map and stops at the first match.
+     * Applies controller-level prefix from @Controller("value") to all routes.
      *
      * @param controller Controller instance
      */
     private static void registerControllerRoutes(Object controller)
     {
         Class<?> controllerClass = controller.getClass();
+        String prefix = resolvePrefix(controllerClass);
 
         for (Method method : controllerClass.getDeclaredMethods()) {
             for (Map.Entry<Class<? extends Annotation>, BiConsumer<String, spark.Route>> entry : SPARK_REGISTRARS.entrySet()) {
                 Annotation annotation = method.getAnnotation(entry.getKey());
                 if (annotation == null) continue;
 
-                String path = getAnnotationValue(annotation);
-                String name = getAnnotationName(annotation);
+                String path   = prefix + getAnnotationValue(annotation);
+                String name   = getAnnotationName(annotation);
 
                 Route.registerNamedRoute(name, path);
                 registerAccessIfPresent(controllerClass, method, path);
@@ -81,6 +80,37 @@ public class RouteLoader
                 break;
             }
         }
+    }
+
+    /**
+     * Resolves the controller-level path prefix.
+     * Reads value() from @Controller or @ApiController (whichever is present).
+     * Returns "" if neither carries a value.
+     *
+     * @param controllerClass Controller class
+     * @return Prefix string, never null
+     */
+    private static String resolvePrefix(Class<?> controllerClass)
+    {
+        Controller controllerAnn = controllerClass.getAnnotation(Controller.class);
+        ApiController apiAnn     = controllerClass.getAnnotation(ApiController.class);
+
+        String raw = "";
+        if (controllerAnn != null && !controllerAnn.value().isEmpty()) {
+            raw = controllerAnn.value();
+        } else if (apiAnn != null && !apiAnn.value().isEmpty()) {
+            raw = apiAnn.value();
+        }
+
+        String prefix = raw.trim();
+
+        // Ensure it starts with "/" if non-empty, and strip trailing "/"
+        if (!prefix.isEmpty()) {
+            if (!prefix.startsWith("/")) prefix = "/" + prefix;
+            prefix = prefix.replaceAll("/+$", "");
+        }
+
+        return prefix;
     }
 
     /**
@@ -118,29 +148,25 @@ public class RouteLoader
      *
      * @param controllerClass Controller class
      * @param method Controller method
-     * @param path Route path
+     * @param path Route path (already prefixed)
      */
     private static void registerAccessIfPresent(Class<?> controllerClass, Method method, String path)
     {
-        // Method-level Bearer
         if (method.isAnnotationPresent(Bearer.class)) {
             RoleChecker.registerTokenRequired(path);
             return;
         }
 
-        // Method-level HasRole
         if (method.isAnnotationPresent(HasRole.class)) {
             RoleChecker.registerPathWithRole(path, method.getAnnotation(HasRole.class).value());
             return;
         }
 
-        // Method-level RequireLogin
         if (method.isAnnotationPresent(RequireLogin.class)) {
             RoleChecker.registerLoginRequired(path);
             return;
         }
 
-        // Class-level ApiController
         if (controllerClass.isAnnotationPresent(ApiController.class)) {
             if (method.isAnnotationPresent(HasRole.class)) {
                 RoleChecker.registerTokenPathWithRole(path, method.getAnnotation(HasRole.class).value());
@@ -150,13 +176,11 @@ public class RouteLoader
             return;
         }
 
-        // Class-level HasRole
         if (controllerClass.isAnnotationPresent(HasRole.class)) {
             RoleChecker.registerPathWithRole(path, controllerClass.getAnnotation(HasRole.class).value());
             return;
         }
 
-        // Class-level RequireLogin
         if (controllerClass.isAnnotationPresent(RequireLogin.class)) {
             RoleChecker.registerLoginRequired(path);
         }

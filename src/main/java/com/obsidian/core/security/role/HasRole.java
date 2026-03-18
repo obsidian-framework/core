@@ -6,7 +6,7 @@ import java.lang.annotation.*;
  * Restricts route access to users with a specific role.
  * Authentication is always enforced when this annotation is present.
  */
-@Target(ElementType.METHOD)
+@Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface HasRole
 {
