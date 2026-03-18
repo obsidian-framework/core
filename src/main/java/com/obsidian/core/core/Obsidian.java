@@ -152,8 +152,9 @@ public class Obsidian
     private void loadLiveComponentsScript()
     {
         String env = System.getenv("ENVIRONMENT");
-        String version = "production".equalsIgnoreCase(env)  ? "1.0.0" : String.valueOf(System.currentTimeMillis());
+        String version = "production".equalsIgnoreCase(env) ? "1.0.0" : String.valueOf(System.currentTimeMillis());
         TemplateManager.setGlobal("livecomponents_scripts", "<script src=\"/obsidian/livecomponents.js?v=" + version + "\"></script>\n");
+        logger.info("LiveComponents script injected with version: {}", version); // 👈
     }
 
     /**
