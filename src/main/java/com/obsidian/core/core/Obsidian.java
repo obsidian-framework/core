@@ -12,6 +12,7 @@ import com.obsidian.core.di.ServiceProviderLoader;
 import com.obsidian.core.livecomponents.core.ComponentManager;
 import com.obsidian.core.livecomponents.core.LiveComponentsLoader;
 import com.obsidian.core.storage.StorageLoader;
+import com.obsidian.core.template.TemplateManager;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
@@ -147,6 +148,14 @@ public class Obsidian
      */
     public void loadCache() { CacheLoader.loadCache(); }
 
+
+    private void loadLiveComponentsScript()
+    {
+        String env = System.getenv("ENVIRONMENT");
+        String version = "production".equalsIgnoreCase(env)  ? "1.0.0" : String.valueOf(System.currentTimeMillis());
+        TemplateManager.setGlobal("livecomponents_scripts", "<script src=\"/obsidian/livecomponents.js?v=" + version + "\"></script>\n");
+    }
+
     /**
      * Displays startup message (MOTD) in console.
      */
@@ -196,10 +205,12 @@ public class Obsidian
         loadContainer();
         loadStorage();
         loadServiceProvider();
-        loadLiveComponents();
         startWebServer();
+        loadLiveComponents();
+        loadLiveComponentsScript();
         loadCache();
     }
+
 
     /**
      * Main entry point to start Obsidian application.
