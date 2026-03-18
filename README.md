@@ -1,15 +1,19 @@
-<p align="center"><a href="https://obsidian-java.com/" target="_blank"><img src="https://obsidian-java.com/assets/img/logo.png" width="300" alt="Laravel Logo"></a></p>
+<p align="center">
+  <a href="https://obsidian-java.com/" target="_blank">
+    <img src="https://obsidian-java.com/assets/img/logo.png" width="300" alt="Obsidian Framework">
+  </a>
+</p>
 
 <p align="center">
-    <a href="https://github.com/laravel/framework/actions">
-        <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
-    </a>
-    <a href="(https://www.oracle.com/java/">
-        <img src="https://img.shields.io/badge/Java-17+-orange.svg" alt="Java">
-    </a>
-    <a href="https://jitpack.io/#obsidian-framework/core">
-        <img src="https://jitpack.io/v/obsidian-framework/core.svg" alt="Jitpack latest">
-    </a>
+  <a href="https://github.com/obsidian-framework/core/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+  </a>
+  <a href="https://www.oracle.com/java/">
+    <img src="https://img.shields.io/badge/Java-17+-orange.svg" alt="Java 17+">
+  </a>
+  <a href="https://jitpack.io/#obsidian-framework/core">
+    <img src="https://jitpack.io/v/obsidian-framework/core.svg" alt="JitPack">
+  </a>
 </p>
 
 > Core package for the Obsidian Framework
@@ -18,26 +22,23 @@
 
 ## Getting Started
 
-To quickly bootstrap a new project using Obsidian Core, use the official skeleton:
+To quickly bootstrap a new project, use the official skeleton:
 
-**[obsidian-framework/skeleton](https://github.com/obsidian-framework/skeleton)**
-
-The skeleton includes a pre-configured project structure, build scripts, and example code to get you up and running in minutes.
+**[obsidian-framework/obsidian](https://github.com/obsidian-framework/obsidian)**
 
 ```bash
-git clone https://github.com/obsidian-framework/skeleton.git
-cd skeleton
-mvn clean package
-mvn exec:java
+git clone https://github.com/obsidian-framework/obsidian my-app
+cd my-app
+mvn compile exec:java
 ```
 
-→ The app runs on `http://localhost:8888`
+→ App runs on `http://localhost:8888`
 
 ## Installation
 
 ### Maven
 
-Add Jitpack Packages repository
+Add the JitPack repository:
 
 ```xml
 <repositories>
@@ -48,7 +49,7 @@ Add Jitpack Packages repository
 </repositories>
 ```
 
-Add dependency
+Add the dependency:
 
 ```xml
 <dependency>
@@ -60,4 +61,4 @@ Add dependency
 
 ## License
 
-MIT © [KainoVaii](https://github.com/KainoVaii)
+MIT © [Obsidian Framework](https://github.com/obsidian-framework)
