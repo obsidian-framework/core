@@ -404,7 +404,9 @@ public final class Auth
     private static <T> T instantiate(Class<?> implClass, Class<T> targetType) throws Exception
     {
         try {
-            return (T) implClass.getDeclaredConstructor().newInstance();
+            T instance = (T) implClass.getDeclaredConstructor().newInstance();
+            Container.injectFields(instance);
+            return instance;
         } catch (Exception e) {
             Constructor<?>[] constructors = implClass.getConstructors();
             if (constructors.length > 0) {
