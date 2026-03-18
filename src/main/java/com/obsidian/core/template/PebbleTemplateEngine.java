@@ -1,6 +1,7 @@
 package com.obsidian.core.template;
 
 import com.obsidian.core.core.Obsidian;
+import com.obsidian.core.error.ErrorHandler;
 import com.obsidian.core.livereload.LiveReloadScriptExtension;
 import com.obsidian.core.routing.pebble.RouteExtension;
 import com.obsidian.core.security.csrf.pebble.CsrfExtension;
@@ -15,6 +16,8 @@ import io.pebbletemplates.pebble.PebbleEngine;
 import io.pebbletemplates.pebble.loader.ClasspathLoader;
 import io.pebbletemplates.pebble.loader.FileLoader;
 import spark.ModelAndView;
+import spark.Request;
+import spark.Response;
 import spark.TemplateEngine;
 
 import java.io.StringWriter;
@@ -94,15 +97,20 @@ public class PebbleTemplateEngine extends TemplateEngine
      * @return The rendered HTML as a string
      * @throws RuntimeException If template evaluation fails
      */
-    public String render(String templateName, Map<String, Object> model)
+    protected String render(String templateName, Map<String, Object> model)
     {
+        Map<String, Object> merged = new HashMap(TemplateManager.getGlobals());
+        if (model != null) {
+            merged.putAll(model);
+        }
+
         try {
-            var template = engine.getTemplate(templateName);
-            var writer = new StringWriter();
-            template.evaluate(writer, mergeWithGlobals(model));
-            return writer.toString();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            String html = TemplateManager.get().render("view/" + templateName, merged);
+            return injectLiveComponentsScript(html);
+        } catch (Exception exception) {
+            Request req = (Request) merged.get("request");
+            Response res = (Response) merged.get("response");
+            return ErrorHandler.handle(exception, req, res);
         }
     }
 
@@ -118,5 +126,14 @@ public class PebbleTemplateEngine extends TemplateEngine
         Map<String, Object> merged = new HashMap<>(TemplateManager.getGlobals());
         merged.putAll(model);
         return merged;
+    }
+
+    private String injectLiveComponentsScript(String html)
+    {
+        if (html == null || !html.contains("</body>")) return html;
+        String env = System.getenv("ENVIRONMENT");
+        String version = "production".equalsIgnoreCase(env) ? "1.0.0" : String.valueOf(System.currentTimeMillis());
+        String script = "<script src=\"/obsidian/livecomponents.js?v=" + version + "\"></script>\n";
+        return html.replace("</body>", script + "</body>");
     }
 }
