@@ -86,6 +86,13 @@ public class ComponentExtension extends AbstractExtension
                 spark.Request request = RequestContext.get();
                 return componentManager.mount(componentName, session, request);
             } catch (Exception e) {
+                boolean devMode = Boolean.parseBoolean(
+                        System.getProperty("obsidian.dev", "false"));
+                if (devMode) {
+                    // In dev mode, throw so errors are visible immediately
+                    throw new RuntimeException(
+                            "[LiveComponents] Failed to mount '" + componentName + "' at line " + lineNumber + ": " + e.getMessage(), e);
+                }
                 return "<!-- Error loading component '" + componentName + "': " + e.getMessage() + " -->";
             }
         }

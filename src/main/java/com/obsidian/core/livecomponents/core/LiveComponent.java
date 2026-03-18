@@ -176,6 +176,10 @@ public abstract class LiveComponent
     public void hydrate(Map<String, Object> state) {
         for (Field field : getStateFields(this.getClass())) {
             try {
+                // Never hydrate server-only fields from client-supplied state
+                if (field.isAnnotationPresent(com.obsidian.core.livecomponents.annotations.ServerOnly.class)) {
+                    continue;
+                }
                 Object value = state.get(field.getName());
                 if (value != null) {
                     field.set(this, ValueConverter.convert(value, field.getType()));

@@ -49,6 +49,10 @@ public class ComponentManager
         registeredComponents.put(name, componentClass);
     }
 
+    public boolean isRegistered(String name) {
+        return registeredComponents.containsKey(name);
+    }
+
     /**
      * Mounts a new component instance with no props.
      *
