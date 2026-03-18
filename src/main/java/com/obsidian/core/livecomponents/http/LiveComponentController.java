@@ -72,6 +72,12 @@ public class LiveComponentController
                         ComponentResponse.error("Missing 'component' query parameter"));
             }
 
+            // Security: only allow mounting registered components
+            if (!componentManager.isRegistered(componentName)) {
+                return objectMapper.writeValueAsString(
+                        ComponentResponse.error("Unknown component: " + componentName));
+            }
+
             Map<String, Object> props = null;
             String propsJson = req.queryParams("props");
             if (propsJson != null && !propsJson.isEmpty()) {

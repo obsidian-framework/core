@@ -26,8 +26,19 @@ public class SessionMiddleware implements Middleware
             SessionContext.set(req.session(true));
             RequestContext.set(req);
         } catch (Exception e) {
-            SessionContext.set(null);
-            RequestContext.set(null);
+            SessionContext.clear();
+            RequestContext.clear();
         }
+    }
+
+    /**
+     * Clears thread-local contexts after request processing.
+     * Must be called (or wired as an after-filter) to prevent memory leaks
+     * on thread-pooled servers.
+     */
+    public static void clear()
+    {
+        SessionContext.clear();
+        RequestContext.clear();
     }
 }
