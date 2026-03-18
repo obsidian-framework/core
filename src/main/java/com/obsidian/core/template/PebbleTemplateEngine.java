@@ -1,7 +1,7 @@
 package com.obsidian.core.template;
 
 import com.obsidian.core.core.Obsidian;
-import com.obsidian.core.error.ErrorHandler;
+import com.obsidian.core.livecomponents.pebble.LiveComponentsScriptExtension;
 import com.obsidian.core.livereload.LiveReloadScriptExtension;
 import com.obsidian.core.routing.pebble.RouteExtension;
 import com.obsidian.core.security.csrf.pebble.CsrfExtension;
@@ -16,18 +16,14 @@ import io.pebbletemplates.pebble.PebbleEngine;
 import io.pebbletemplates.pebble.loader.ClasspathLoader;
 import io.pebbletemplates.pebble.loader.FileLoader;
 import spark.ModelAndView;
-import spark.Request;
-import spark.Response;
 import spark.TemplateEngine;
 
 import java.io.StringWriter;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Pebble template engine integration for Spark.
  * Provides template rendering with custom extensions and environment-aware configuration.
- * Global variables from {@link TemplateManager} are automatically merged into every render call.
  */
 public class PebbleTemplateEngine extends TemplateEngine
 {
@@ -43,20 +39,22 @@ public class PebbleTemplateEngine extends TemplateEngine
         boolean isDev = Obsidian.loadConfigAndEnv().get("ENVIRONMENT").equalsIgnoreCase("DEV");
 
         PebbleEngine.Builder builder = new PebbleEngine.Builder()
-            .extension(new RouteExtension())
-            .extension(new StripTagsFilter())
-            .extension(new CsrfExtension())
-            .extension(new FlashExtension())
-            .extension(new ComponentHelperExtension())
-            .extension(new ValidationExtension())
-            .extension(new FlowScriptExtension())
-            .extension(new MarkdownFilter())
-            .extension(new MarkdownTag())
-            .cacheActive(!isDev);
+                .extension(new RouteExtension())
+                .extension(new StripTagsFilter())
+                .extension(new CsrfExtension())
+                .extension(new FlashExtension())
+                .extension(new ComponentHelperExtension())
+                .extension(new ValidationExtension())
+                .extension(new LiveComponentsScriptExtension())
+                .extension(new FlowScriptExtension())
+                .extension(new MarkdownFilter())
+                .extension(new MarkdownTag())
+                .cacheActive(!isDev);
 
         if (isDev) {
             String prefix = System.getProperty("user.dir") + "/src/main/resources/";
-            builder.loader(new FileLoader(prefix));
+            FileLoader loader = new FileLoader(prefix);
+            builder.loader(loader);
             builder.extension(new LiveReloadScriptExtension());
         } else {
             builder.loader(new ClasspathLoader());
@@ -67,8 +65,8 @@ public class PebbleTemplateEngine extends TemplateEngine
 
     /**
      * Renders a template from a {@link ModelAndView} object.
-     * Global variables from {@link TemplateManager} are merged into the model,
-     * with model values taking precedence over globals.
+     * The view name is used to locate the template, and the model provides
+     * the variables available during rendering.
      *
      * @param modelAndView The model and view name to render
      * @return The rendered HTML as a string
@@ -80,7 +78,7 @@ public class PebbleTemplateEngine extends TemplateEngine
         try {
             var template = engine.getTemplate(modelAndView.getViewName());
             var writer = new StringWriter();
-            template.evaluate(writer, mergeWithGlobals((Map<String, Object>) modelAndView.getModel()));
+            template.evaluate(writer, (Map<String, Object>) modelAndView.getModel());
             return writer.toString();
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -89,8 +87,7 @@ public class PebbleTemplateEngine extends TemplateEngine
 
     /**
      * Renders a template by name with the provided model data.
-     * Global variables from {@link TemplateManager} are merged into the model,
-     * with model values taking precedence over globals.
+     * Useful for rendering templates outside of the standard Spark route context.
      *
      * @param templateName The path to the template relative to the resources root
      * @param model        A map of variables to expose during template rendering
@@ -99,41 +96,22 @@ public class PebbleTemplateEngine extends TemplateEngine
      */
     public String render(String templateName, Map<String, Object> model)
     {
-        Map<String, Object> merged = new HashMap(TemplateManager.getGlobals());
-        if (model != null) {
-            merged.putAll(model);
-        }
-
         try {
-            String html = TemplateManager.get().render("view/" + templateName, merged);
-            return injectLiveComponentsScript(html);
-        } catch (Exception exception) {
-            Request req = (Request) merged.get("request");
-            Response res = (Response) merged.get("response");
-            return ErrorHandler.handle(exception, req, res);
+            var template = engine.getTemplate(templateName);
+            var writer = new StringWriter();
+            template.evaluate(writer, model);
+            String html = writer.toString();
+            return html.replace("</body>", getScriptTag() + "</body>");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
-    /**
-     * Merges global template variables with the provided model.
-     * Model values take precedence over globals in case of key conflicts.
-     *
-     * @param model The route-specific model
-     * @return A new map containing globals + model
-     */
-    private Map<String, Object> mergeWithGlobals(Map<String, Object> model)
-    {
-        Map<String, Object> merged = new HashMap<>(TemplateManager.getGlobals());
-        merged.putAll(model);
-        return merged;
-    }
 
-    private String injectLiveComponentsScript(String html)
+    private String getScriptTag()
     {
-        if (html == null || !html.contains("</body>")) return html;
         String env = System.getenv("ENVIRONMENT");
         String version = "production".equalsIgnoreCase(env) ? "1.0.0" : String.valueOf(System.currentTimeMillis());
-        String script = "<script src=\"/obsidian/livecomponents.js?v=" + version + "\"></script>\n";
-        return html.replace("</body>", script + "</body>");
+        return "<script src=\"/obsidian/livecomponents.js?v=" + version + "\"></script>\n";
     }
 }
