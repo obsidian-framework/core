@@ -196,8 +196,8 @@ public class Obsidian
         loadContainer();
         loadStorage();
         loadServiceProvider();
-        startWebServer();
         loadLiveComponents();
+        startWebServer();
         loadCache();
     }
 
