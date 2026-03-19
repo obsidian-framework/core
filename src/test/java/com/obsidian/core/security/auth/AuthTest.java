@@ -30,15 +30,14 @@ class AuthTest
     @BeforeEach
     void setUp() throws Exception {
         // Reset Auth static state
-        setStaticField("userService", null);
-        setStaticField("tokenResolver", null);
+        setStaticField(Auth.class, "userService", null);
 
         // Reset rate limiter
         resetRateLimiter();
 
         // Setup fake UserDetailsService
         userService = mock(UserDetailsService.class);
-        setStaticField("userService", userService);
+        setStaticField(Auth.class, "userService", userService);
 
         // Setup mock session with attribute storage
         sessionAttrs = new HashMap<>();
@@ -65,8 +64,8 @@ class AuthTest
                 .when(req).attribute(anyString());
     }
 
-    private void setStaticField(String name, Object value) throws Exception {
-        Field f = Auth.class.getDeclaredField(name);
+    private void setStaticField(Class<?> clazz, String name, Object value) throws Exception {
+        Field f = clazz.getDeclaredField(name);
         f.setAccessible(true);
         f.set(null, value);
     }
@@ -80,7 +79,7 @@ class AuthTest
     }
 
     private UserDetails fakeUser(Object id, String username, String password, String role) {
-        String hashed = Auth.hashPassword(password);
+        String hashed = AuthPassword.hash(password);
         UserDetails user = mock(UserDetails.class);
         when(user.getId()).thenReturn(id);
         when(user.getUsername()).thenReturn(username);
@@ -159,7 +158,6 @@ class AuthTest
 
     @Test
     void isLogged_sessionWithoutLogged_returnsFalse() {
-        // Session exists but "logged" not set
         assertFalse(Auth.isLogged(req));
     }
 
@@ -204,7 +202,6 @@ class AuthTest
 
     @Test
     void user_noUserId_returnsNull() {
-        // Session exists but no user_id
         assertNull(Auth.user(req));
     }
 
@@ -217,7 +214,6 @@ class AuthTest
         Auth.user(req);
         Auth.user(req);
 
-        // loadById should only be called once — second call uses cached attribute
         verify(userService, times(1)).loadById(42);
     }
 
@@ -286,31 +282,6 @@ class AuthTest
         Auth.getRedirectAfterLogin(req, "/home");
 
         verify(session).removeAttribute("_redirect_after_login");
-    }
-
-    // ──────────────────────────────────────────────
-    // Token auth
-    // ──────────────────────────────────────────────
-
-    @Test
-    void userFromToken_noHeader_returnsNull() {
-        when(req.headers("Authorization")).thenReturn(null);
-
-        assertNull(Auth.userFromToken(req));
-    }
-
-    @Test
-    void userFromToken_invalidPrefix_returnsNull() {
-        when(req.headers("Authorization")).thenReturn("Basic abc123");
-
-        assertNull(Auth.userFromToken(req));
-    }
-
-    @Test
-    void isTokenAuthenticated_noToken_returnsFalse() {
-        when(req.headers("Authorization")).thenReturn(null);
-
-        assertFalse(Auth.isTokenAuthenticated(req));
     }
 
     // ──────────────────────────────────────────────

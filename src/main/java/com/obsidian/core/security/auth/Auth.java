@@ -2,28 +2,26 @@ package com.obsidian.core.security.auth;
 
 import com.obsidian.core.core.Obsidian;
 import com.obsidian.core.di.Container;
-import com.obsidian.core.security.token.TokenResolver;
-import com.obsidian.core.security.token.TokenResolverImpl;
 import com.obsidian.core.security.user.UserDetails;
 import com.obsidian.core.security.user.UserDetailsService;
 import com.obsidian.core.security.user.UserDetailsServiceImpl;
 import com.obsidian.core.security.SessionKeys;
-import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import spark.Request;
 import spark.Response;
 import spark.Session;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Parameter;
 import java.util.Set;
 
 import static spark.Spark.halt;
 
 /**
- * Static authentication utility.
- * Provides login, logout, password hashing, and user resolution helpers.
+ * Session-based authentication facade.
+ * Provides login, logout, and user resolution helpers.
+ *
+ * <p>Password utilities are in {@link AuthPassword}.
+ * Token (Bearer) authentication is in {@link TokenAuth}.</p>
  */
 public final class Auth
 {
@@ -32,24 +30,16 @@ public final class Auth
     /** Request attribute key used to cache the session-authenticated user */
     static final String CURRENT_USER_ATTR = "_current_user";
 
-    /** Request attribute key used to cache the token-authenticated user */
-    private static final String TOKEN_USER_ATTR = "_token_user";
-
     /** Session attribute key used to store the redirect URL after login */
     private static final String REDIRECT_AFTER_LOGIN_ATTR = "_redirect_after_login";
 
     /** Login page path — redirected to when authentication is required */
     private static final String LOGIN_PATH = "/login";
 
-    /** Authorization header Bearer prefix */
-    private static final String BEARER_PREFIX = "Bearer ";
-
     /** Singleton UserDetailsService instance */
     private static UserDetailsService userService;
 
-    /** Singleton TokenResolver instance — null if app does not provide one */
-    private static TokenResolver tokenResolver;
-
+    private Auth() {}
 
     /**
      * Gets or initializes UserDetailsService.
@@ -96,7 +86,7 @@ public final class Auth
             return false;
         }
 
-        if (checkPassword(password, user.getPassword())) {
+        if (AuthPassword.check(password, user.getPassword())) {
             LoginRateLimiter.recordSuccess(ip, username);
 
             Session oldSession = req.session(false);
@@ -222,9 +212,11 @@ public final class Auth
      *
      * @param password Plain text password
      * @return BCrypt hashed password
+     * @deprecated Use {@link AuthPassword#hash(String)} directly
      */
+    @Deprecated
     public static String hashPassword(String password) {
-        return BCrypt.hashpw(password, BCrypt.gensalt());
+        return AuthPassword.hash(password);
     }
 
     /**
@@ -233,97 +225,11 @@ public final class Auth
      * @param password Plain text password
      * @param hash BCrypt hash
      * @return true if password matches hash, false otherwise
+     * @deprecated Use {@link AuthPassword#check(String, String)} directly
      */
+    @Deprecated
     public static boolean checkPassword(String password, String hash) {
-        return BCrypt.checkpw(password, hash);
-    }
-
-    /**
-     * Gets or initializes TokenResolver.
-     * Auto-detects implementation annotated with {@link TokenResolverImpl}.
-     * Returns null if the application provides no implementation.
-     *
-     * @return TokenResolver instance or null
-     */
-    public static TokenResolver getTokenResolver()
-    {
-        if (tokenResolver == null) {
-            try {
-                tokenResolver = Container.resolve(TokenResolver.class);
-            } catch (Exception e) {
-                tokenResolver = autoDetectTokenResolver();
-            }
-        }
-        return tokenResolver;
-    }
-
-    /**
-     * Resolves the authenticated user from the {@code Authorization: Bearer <token>} header.
-     * Result is cached as a request attribute to avoid redundant resolver calls.
-     *
-     * @param req HTTP request
-     * @param <T> UserDetails type
-     * @return User details or null if token is missing, invalid, or resolver not configured
-     */
-    @SuppressWarnings("unchecked")
-    public static <T extends UserDetails> T userFromToken(Request req)
-    {
-        T cached = (T) req.attribute(TOKEN_USER_ATTR);
-        if (cached != null) return cached;
-
-        String header = req.headers("Authorization");
-        if (header == null || !header.startsWith(BEARER_PREFIX)) return null;
-
-        String token = header.substring(BEARER_PREFIX.length()).trim();
-        TokenResolver resolver = getTokenResolver();
-        if (resolver == null) return null;
-
-        T user = (T) resolver.resolve(token);
-        if (user != null) req.attribute(TOKEN_USER_ATTR, user);
-        return user;
-    }
-
-    /**
-     * Checks if the request carries a valid Bearer token.
-     *
-     * @param req HTTP request
-     * @return true if a valid token is present, false otherwise
-     */
-    public static boolean isTokenAuthenticated(Request req) {
-        return userFromToken(req) != null;
-    }
-
-    /**
-     * Requires valid Bearer token authentication or halts with 401 Unauthorized.
-     *
-     * @param req HTTP request
-     * @param res HTTP response
-     */
-    public static void requireToken(Request req, Response res)
-    {
-        if (!isTokenAuthenticated(req)) {
-            res.type("application/json");
-            res.status(401);
-            halt(401, "{\"error\":\"Unauthorized\"}");
-        }
-    }
-
-    /**
-     * Requires Bearer token and specific role or halts with 403 Forbidden.
-     *
-     * @param req HTTP request
-     * @param res HTTP response
-     * @param role Required role
-     */
-    public static void requireTokenRole(Request req, Response res, String role)
-    {
-        requireToken(req, res);
-        UserDetails u = userFromToken(req);
-        if (u == null || !role.equals(u.getRole())) {
-            res.type("application/json");
-            res.status(403);
-            halt(403, "{\"error\":\"Forbidden\"}");
-        }
+        return AuthPassword.check(password, hash);
     }
 
     /**
@@ -332,32 +238,10 @@ public final class Auth
      * @return UserDetailsService instance
      * @throws RuntimeException if no implementation found or instantiation fails
      */
-    /**
-     * Auto-detects UserDetailsService and TokenResolver in a single Reflections scan.
-     * Populates {@link #tokenResolver} as a side effect to avoid a second scan later.
-     *
-     * @return UserDetailsService instance
-     * @throws RuntimeException if no implementation found or instantiation fails
-     */
     private static UserDetailsService autoDetectUserDetailsService()
     {
         try {
             org.reflections.Reflections reflections = new org.reflections.Reflections(Obsidian.getBasePackage());
-
-            // Detect TokenResolver while we have the Reflections instance
-            if (tokenResolver == null) {
-                Set<Class<?>> tokenAnnotated = reflections.getTypesAnnotatedWith(TokenResolverImpl.class);
-                if (!tokenAnnotated.isEmpty()) {
-                    Class<?> implClass = tokenAnnotated.iterator().next();
-                    if (TokenResolver.class.isAssignableFrom(implClass)) {
-                        try {
-                            tokenResolver = instantiate(implClass, TokenResolver.class);
-                        } catch (Exception e) {
-                            logger.warn("Failed to instantiate TokenResolver: {}", implClass.getName(), e);
-                        }
-                    }
-                }
-            }
 
             Set<Class<?>> annotated = reflections.getTypesAnnotatedWith(UserDetailsServiceImpl.class);
             if (annotated.isEmpty()) {
@@ -369,63 +253,9 @@ public final class Auth
                 throw new RuntimeException(implClass.getName() + " does not implement UserDetailsService");
             }
 
-            return instantiate(implClass, UserDetailsService.class);
+            return Container.instantiate(implClass, UserDetailsService.class);
         } catch (Exception e) {
             throw new RuntimeException("Failed to auto-detect UserDetailsService: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Auto-detects TokenResolver implementation via {@link TokenResolverImpl} annotation.
-     * Only runs a new scan if not already populated by {@link #autoDetectUserDetailsService()}.
-     *
-     * @return TokenResolver instance or null
-     */
-    private static TokenResolver autoDetectTokenResolver()
-    {
-        try {
-            org.reflections.Reflections reflections = new org.reflections.Reflections(Obsidian.getBasePackage());
-            Set<Class<?>> annotated = reflections.getTypesAnnotatedWith(TokenResolverImpl.class);
-
-            if (annotated.isEmpty()) return null;
-
-            Class<?> implClass = annotated.iterator().next();
-            if (!TokenResolver.class.isAssignableFrom(implClass)) return null;
-
-            return instantiate(implClass, TokenResolver.class);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    /**
-     * Instantiates a class using no-arg constructor or DI-resolved constructor.
-     *
-     * @param implClass Class to instantiate
-     * @param targetType Expected type
-     * @param <T> Target type
-     * @return Instance of targetType
-     * @throws Exception if instantiation fails
-     */
-    @SuppressWarnings("unchecked")
-    private static <T> T instantiate(Class<?> implClass, Class<T> targetType) throws Exception
-    {
-        try {
-            T instance = (T) implClass.getDeclaredConstructor().newInstance();
-            Container.injectFields(instance);
-            return instance;
-        } catch (Exception e) {
-            Constructor<?>[] constructors = implClass.getConstructors();
-            if (constructors.length > 0) {
-                Constructor<?> constructor = constructors[0];
-                Parameter[] params = constructor.getParameters();
-                Object[] args = new Object[params.length];
-                for (int i = 0; i < params.length; i++) {
-                    args[i] = Container.resolve(params[i].getType());
-                }
-                return (T) constructor.newInstance(args);
-            }
-            throw e;
         }
     }
 }

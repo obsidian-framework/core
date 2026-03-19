@@ -4,6 +4,7 @@ import com.obsidian.core.error.ErrorHandler;
 import com.obsidian.core.http.RequestContext;
 import com.obsidian.core.http.ResponseContext;
 import com.obsidian.core.security.auth.Auth;
+import com.obsidian.core.security.auth.AuthPassword;
 import com.obsidian.core.security.csrf.CsrfProtection;
 import com.obsidian.core.security.user.UserDetails;
 import com.obsidian.core.template.TemplateManager;
@@ -11,16 +12,15 @@ import spark.Request;
 import spark.Response;
 import spark.Session;
 
-
 import java.util.HashMap;
 import java.util.Map;
 
 import static spark.Spark.halt;
 
 /**
-* Base controller providing template rendering, flash messages, and CSRF helpers.
-* Authentication methods delegate to {@link Auth} and are kept here for convenience.
-*/
+ * Base controller providing template rendering, flash messages, and CSRF helpers.
+ * Authentication methods delegate to {@link Auth} and are kept here for convenience.
+ */
 public class BaseController
 {
     /**
@@ -94,7 +94,7 @@ public class BaseController
      * @return BCrypt hashed password
      */
     protected static String hashPassword(String password) {
-        return Auth.hashPassword(password);
+        return AuthPassword.hash(password);
     }
 
     /**
@@ -105,7 +105,7 @@ public class BaseController
      * @return true if password matches hash, false otherwise
      */
     protected static boolean checkPassword(String password, String hash) {
-        return Auth.checkPassword(password, hash);
+        return AuthPassword.check(password, hash);
     }
 
     /**
