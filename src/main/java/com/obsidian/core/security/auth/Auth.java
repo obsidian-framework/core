@@ -3,6 +3,8 @@ package com.obsidian.core.security.auth;
 import com.obsidian.core.di.Container;
 import com.obsidian.core.di.ReflectionsProvider;
 import com.obsidian.core.core.Obsidian;
+import com.obsidian.core.http.RequestContext;
+import com.obsidian.core.http.ResponseContext;
 import com.obsidian.core.security.user.UserDetails;
 import com.obsidian.core.security.user.UserDetailsService;
 import com.obsidian.core.security.user.UserDetailsServiceImpl;
@@ -68,13 +70,12 @@ public final class Auth
      *
      * @param username Username
      * @param password Plain text password
-     * @param req HTTP request
      * @return true if login successful, false if credentials invalid
      * @throws LoginLockedException if the IP or username is currently locked out
      */
-    public static boolean login(String username, String password, Request req)
+    public static boolean login(String username, String password)
     {
-        String ip = req.ip();
+        String ip =  RequestContext.get().ip();
 
         if (!LoginRateLimiter.isAllowed(ip, username)) {
             long remaining = LoginRateLimiter.getRemainingLockoutSeconds(ip);
@@ -90,14 +91,14 @@ public final class Auth
         if (AuthPassword.check(password, user.getPassword())) {
             LoginRateLimiter.recordSuccess(ip, username);
 
-            Session oldSession = req.session(false);
+            Session oldSession = RequestContext.get().session(false);
             String redirectUrl = oldSession != null
                     ? (String) oldSession.attribute(REDIRECT_AFTER_LOGIN_ATTR)
                     : null;
 
             if (oldSession != null) oldSession.invalidate();
 
-            Session newSession = req.session(true);
+            Session newSession = RequestContext.get().session(true);
             newSession.attribute(SessionKeys.LOGGED, true);
             newSession.attribute(SessionKeys.USER_ID, user.getId());
             newSession.attribute(SessionKeys.USERNAME, user.getUsername());
@@ -118,13 +119,12 @@ public final class Auth
      * Returns the URL the user was trying to access before being redirected to login,
      * then clears it from session. Falls back to the provided default URL.
      *
-     * @param req HTTP request
      * @param defaultUrl Fallback URL if no redirect was stored
      * @return URL to redirect to after login
      */
-    public static String getRedirectAfterLogin(Request req, String defaultUrl)
+    public static String getRedirectAfterLogin(String defaultUrl)
     {
-        Session session = req.session(false);
+        Session session =  RequestContext.get().session(false);
         if (session == null) return defaultUrl;
 
         String url = session.attribute(REDIRECT_AFTER_LOGIN_ATTR);
@@ -144,12 +144,11 @@ public final class Auth
     /**
      * Checks if user is logged in.
      *
-     * @param req HTTP request
      * @return true if authenticated, false otherwise
      */
-    public static boolean isLogged(Request req)
+    public static boolean isLogged()
     {
-        Session session = req.session(false);
+        Session session = RequestContext.get().session(false);
         if (session == null) return false;
         return Boolean.TRUE.equals(session.attribute(SessionKeys.LOGGED));
     }
@@ -158,52 +157,47 @@ public final class Auth
      * Gets currently logged in user.
      * Result is cached as a request attribute to avoid redundant DB calls.
      *
-     * @param req HTTP request
      * @param <T> UserDetails type
      * @return User details or null if not logged in
      */
     @SuppressWarnings("unchecked")
-    public static <T extends UserDetails> T user(Request req)
+    public static <T extends UserDetails> T user()
     {
-        T cached = (T) req.attribute(CURRENT_USER_ATTR);
+        T cached = (T) RequestContext.get().attribute(CURRENT_USER_ATTR);
         if (cached != null) return cached;
 
-        Session session = req.session(false);
+        Session session = RequestContext.get().session(false);
         if (session == null) return null;
 
         Object userId = session.attribute(SessionKeys.USER_ID);
         if (userId == null) return null;
 
         T user = (T) getUserService().loadById(userId);
-        if (user != null) req.attribute(CURRENT_USER_ATTR, user);
+        if (user != null) RequestContext.get().attribute(CURRENT_USER_ATTR, user);
         return user;
     }
 
     /**
-     * Checks if logged in user has specific role.
+     * Checks if logged-in user has specific role.
      *
-     * @param req HTTP request
      * @param role Role name to check
      * @return true if user has role, false otherwise
      */
-    public static boolean hasRole(Request req, String role)
+    public static boolean hasRole(String role)
     {
-        UserDetails u = user(req);
+        UserDetails u = user();
         return u != null && role.equals(u.getRole());
     }
 
     /**
      * Requires user to be logged in or redirects to login page.
      * Stores the originally requested URL in session for post-login redirect.
-     *
-     * @param req HTTP request
-     * @param res HTTP response
      */
-    public static void requireLogin(Request req, Response res)
+    public static void requireLogin()
     {
-        if (!isLogged(req)) {
-            req.session(true).attribute(REDIRECT_AFTER_LOGIN_ATTR, req.pathInfo());
-            res.redirect(LOGIN_PATH);
+        if (!isLogged()) {
+            RequestContext.get().session(true).attribute(REDIRECT_AFTER_LOGIN_ATTR, RequestContext.get().pathInfo());
+            ResponseContext.get().redirect(LOGIN_PATH);
             halt();
         }
     }

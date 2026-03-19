@@ -1,8 +1,10 @@
 package com.obsidian.core.security.auth;
 
+import com.obsidian.core.http.RequestContext;
 import com.obsidian.core.security.SessionKeys;
 import com.obsidian.core.security.user.UserDetails;
 import com.obsidian.core.security.user.UserDetailsService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import spark.Request;
@@ -62,6 +64,14 @@ class AuthTest
                 .when(req).attribute(anyString(), any());
         doAnswer(inv -> requestAttrs.get(inv.<String>getArgument(0)))
                 .when(req).attribute(anyString());
+
+        // Wire mock request into RequestContext so Auth methods can access it
+        RequestContext.set(req);
+    }
+
+    @AfterEach
+    void tearDown() {
+        RequestContext.clear();
     }
 
     private void setStaticField(Class<?> clazz, String name, Object value) throws Exception {
@@ -98,7 +108,7 @@ class AuthTest
         UserDetails user = fakeUser(1, "admin", "secret", "ADMIN");
         when(userService.loadByUsername("admin")).thenReturn(user);
 
-        assertTrue(Auth.login("admin", "secret", req));
+        assertTrue(Auth.login("admin", "secret"));
     }
 
     @Test
@@ -106,14 +116,14 @@ class AuthTest
         UserDetails user = fakeUser(1, "admin", "secret", "ADMIN");
         when(userService.loadByUsername("admin")).thenReturn(user);
 
-        assertFalse(Auth.login("admin", "wrong", req));
+        assertFalse(Auth.login("admin", "wrong"));
     }
 
     @Test
     void login_unknownUser_returnsFalse() {
         when(userService.loadByUsername("unknown")).thenReturn(null);
 
-        assertFalse(Auth.login("unknown", "whatever", req));
+        assertFalse(Auth.login("unknown", "whatever"));
     }
 
     @Test
@@ -122,7 +132,7 @@ class AuthTest
         when(user.isEnabled()).thenReturn(false);
         when(userService.loadByUsername("disabled")).thenReturn(user);
 
-        assertFalse(Auth.login("disabled", "secret", req));
+        assertFalse(Auth.login("disabled", "secret"));
     }
 
     @Test
@@ -130,7 +140,7 @@ class AuthTest
         UserDetails user = fakeUser(1, "admin", "secret", "ADMIN");
         when(userService.loadByUsername("admin")).thenReturn(user);
 
-        Auth.login("admin", "secret", req);
+        Auth.login("admin", "secret");
 
         assertEquals(true, sessionAttrs.get(SessionKeys.LOGGED));
         assertEquals(1, sessionAttrs.get(SessionKeys.USER_ID));
@@ -146,19 +156,19 @@ class AuthTest
     void isLogged_noSession_returnsFalse() {
         when(req.session(false)).thenReturn(null);
 
-        assertFalse(Auth.isLogged(req));
+        assertFalse(Auth.isLogged());
     }
 
     @Test
     void isLogged_sessionWithLogged_returnsTrue() {
         sessionAttrs.put(SessionKeys.LOGGED, true);
 
-        assertTrue(Auth.isLogged(req));
+        assertTrue(Auth.isLogged());
     }
 
     @Test
     void isLogged_sessionWithoutLogged_returnsFalse() {
-        assertFalse(Auth.isLogged(req));
+        assertFalse(Auth.isLogged());
     }
 
     // ──────────────────────────────────────────────
@@ -187,7 +197,7 @@ class AuthTest
         sessionAttrs.put(SessionKeys.USER_ID, 42);
         when(userService.loadById(42)).thenReturn(user);
 
-        UserDetails result = Auth.user(req);
+        UserDetails result = Auth.user();
 
         assertNotNull(result);
         assertEquals("bob", result.getUsername());
@@ -197,12 +207,12 @@ class AuthTest
     void user_noSession_returnsNull() {
         when(req.session(false)).thenReturn(null);
 
-        assertNull(Auth.user(req));
+        assertNull(Auth.user());
     }
 
     @Test
     void user_noUserId_returnsNull() {
-        assertNull(Auth.user(req));
+        assertNull(Auth.user());
     }
 
     @Test
@@ -211,8 +221,8 @@ class AuthTest
         sessionAttrs.put(SessionKeys.USER_ID, 42);
         when(userService.loadById(42)).thenReturn(user);
 
-        Auth.user(req);
-        Auth.user(req);
+        Auth.user();
+        Auth.user();
 
         verify(userService, times(1)).loadById(42);
     }
@@ -227,7 +237,7 @@ class AuthTest
         sessionAttrs.put(SessionKeys.USER_ID, 1);
         when(userService.loadById(1)).thenReturn(user);
 
-        assertTrue(Auth.hasRole(req, "ADMIN"));
+        assertTrue(Auth.hasRole("ADMIN"));
     }
 
     @Test
@@ -236,14 +246,14 @@ class AuthTest
         sessionAttrs.put(SessionKeys.USER_ID, 1);
         when(userService.loadById(1)).thenReturn(user);
 
-        assertFalse(Auth.hasRole(req, "ADMIN"));
+        assertFalse(Auth.hasRole("ADMIN"));
     }
 
     @Test
     void hasRole_notLoggedIn_returnsFalse() {
         when(req.session(false)).thenReturn(null);
 
-        assertFalse(Auth.hasRole(req, "ADMIN"));
+        assertFalse(Auth.hasRole("ADMIN"));
     }
 
     // ──────────────────────────────────────────────
@@ -254,14 +264,14 @@ class AuthTest
     void getRedirectAfterLogin_storedUrl_returnsIt() {
         sessionAttrs.put("_redirect_after_login", "/dashboard");
 
-        String url = Auth.getRedirectAfterLogin(req, "/home");
+        String url = Auth.getRedirectAfterLogin("/home");
 
         assertEquals("/dashboard", url);
     }
 
     @Test
     void getRedirectAfterLogin_noUrl_returnsDefault() {
-        String url = Auth.getRedirectAfterLogin(req, "/home");
+        String url = Auth.getRedirectAfterLogin("/home");
 
         assertEquals("/home", url);
     }
@@ -270,7 +280,7 @@ class AuthTest
     void getRedirectAfterLogin_noSession_returnsDefault() {
         when(req.session(false)).thenReturn(null);
 
-        String url = Auth.getRedirectAfterLogin(req, "/home");
+        String url = Auth.getRedirectAfterLogin("/home");
 
         assertEquals("/home", url);
     }
@@ -279,7 +289,7 @@ class AuthTest
     void getRedirectAfterLogin_clearsUrlAfterRetrieving() {
         sessionAttrs.put("_redirect_after_login", "/dashboard");
 
-        Auth.getRedirectAfterLogin(req, "/home");
+        Auth.getRedirectAfterLogin("/home");
 
         verify(session).removeAttribute("_redirect_after_login");
     }
@@ -293,10 +303,10 @@ class AuthTest
         when(userService.loadByUsername("admin")).thenReturn(null);
 
         for (int i = 0; i < 5; i++) {
-            Auth.login("admin", "wrong", req);
+            Auth.login("admin", "wrong");
         }
 
         assertThrows(LoginLockedException.class,
-                () -> Auth.login("admin", "wrong", req));
+                () -> Auth.login("admin", "wrong"));
     }
 }

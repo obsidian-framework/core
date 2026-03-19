@@ -1,7 +1,9 @@
 package com.obsidian.core.security.auth;
 
+import com.obsidian.core.http.RequestContext;
 import com.obsidian.core.security.token.TokenResolver;
 import com.obsidian.core.security.user.UserDetails;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import spark.Request;
@@ -32,11 +34,17 @@ class TokenAuthTest
         // Setup mock request with attribute storage
         requestAttrs = new HashMap<>();
         req = mock(Request.class);
-        doAnswer(inv -> requestAttrs.put(inv.getArgument(0), inv.getArgument(1)))
-                .when(req).attribute(anyString(), any());
-        doAnswer(inv -> requestAttrs.get(inv.<String>getArgument(0)))
-                .when(req).attribute(anyString());
+        doAnswer(inv -> requestAttrs.put(inv.getArgument(0), inv.getArgument(1))).when(req).attribute(anyString(), any());
+        doAnswer(inv -> requestAttrs.get(inv.<String>getArgument(0))).when(req).attribute(anyString());
+
+        RequestContext.set(req);
     }
+
+    @AfterEach
+    void tearDown() {
+        RequestContext.clear();
+    }
+
 
     // ──────────────────────────────────────────────
     // userFromToken
@@ -46,14 +54,14 @@ class TokenAuthTest
     void userFromToken_noHeader_returnsNull() {
         when(req.headers("Authorization")).thenReturn(null);
 
-        assertNull(TokenAuth.userFromToken(req));
+        assertNull(TokenAuth.userFromToken());
     }
 
     @Test
     void userFromToken_invalidPrefix_returnsNull() {
         when(req.headers("Authorization")).thenReturn("Basic abc123");
 
-        assertNull(TokenAuth.userFromToken(req));
+        assertNull(TokenAuth.userFromToken());
     }
 
     @Test
@@ -61,7 +69,7 @@ class TokenAuthTest
         when(req.headers("Authorization")).thenReturn("Bearer ");
         when(tokenResolver.resolve("")).thenReturn(null);
 
-        assertNull(TokenAuth.userFromToken(req));
+        assertNull(TokenAuth.userFromToken());
     }
 
     @Test
@@ -70,7 +78,7 @@ class TokenAuthTest
         when(req.headers("Authorization")).thenReturn("Bearer valid-token-123");
         when(tokenResolver.resolve("valid-token-123")).thenReturn(user);
 
-        UserDetails result = TokenAuth.userFromToken(req);
+        UserDetails result = TokenAuth.userFromToken();
 
         assertNotNull(result);
         assertSame(user, result);
@@ -82,8 +90,8 @@ class TokenAuthTest
         when(req.headers("Authorization")).thenReturn("Bearer cached-token");
         when(tokenResolver.resolve("cached-token")).thenReturn(user);
 
-        TokenAuth.userFromToken(req);
-        TokenAuth.userFromToken(req);
+        TokenAuth.userFromToken();
+        TokenAuth.userFromToken();
 
         // resolve should only be called once — second call uses cached attribute
         verify(tokenResolver, times(1)).resolve("cached-token");
@@ -97,14 +105,14 @@ class TokenAuthTest
     void isAuthenticated_noToken_returnsFalse() {
         when(req.headers("Authorization")).thenReturn(null);
 
-        assertFalse(TokenAuth.isAuthenticated(req));
+        assertFalse(TokenAuth.isAuthenticated());
     }
 
     @Test
     void isAuthenticated_invalidToken_returnsFalse() {
         when(req.headers("Authorization")).thenReturn("Basic abc123");
 
-        assertFalse(TokenAuth.isAuthenticated(req));
+        assertFalse(TokenAuth.isAuthenticated());
     }
 
     @Test
@@ -113,6 +121,6 @@ class TokenAuthTest
         when(req.headers("Authorization")).thenReturn("Bearer good-token");
         when(tokenResolver.resolve("good-token")).thenReturn(user);
 
-        assertTrue(TokenAuth.isAuthenticated(req));
+        assertTrue(TokenAuth.isAuthenticated());
     }
 }
