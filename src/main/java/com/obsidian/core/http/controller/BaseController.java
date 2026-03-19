@@ -37,20 +37,17 @@ public class BaseController
 
     /**
      * Logs out user by invalidating session.
-     *
-     * @param session HTTP session
      */
-    protected static void logout(Session session) {
-        Auth.logout(session);
+    protected static void logout() {
+        Auth.logout();
     }
 
     /**
      * Checks if user is logged in.
      *
-     * @param req HTTP request
      * @return true if authenticated, false otherwise
      */
-    public static boolean isLogged(Request req) {
+    public static boolean isLogged() {
         return Auth.isLogged();
     }
 
@@ -58,32 +55,27 @@ public class BaseController
      * Gets currently logged in user.
      * Result is cached per request — no redundant DB calls.
      *
-     * @param req HTTP request
      * @param <T> UserDetails type
      * @return User details or null if not logged in
      */
-    public static <T extends UserDetails> T getLoggedUser(Request req) {
+    public static <T extends UserDetails> T getLoggedUser() {
         return Auth.user();
     }
 
     /**
      * Checks if logged in user has specific role.
      *
-     * @param req HTTP request
      * @param role Role name
      * @return true if user has role, false otherwise
      */
-    protected static boolean hasRole(Request req, String role) {
+    protected static boolean hasRole(String role) {
         return Auth.hasRole(role);
     }
 
     /**
      * Requires user to be logged in or redirects to login page.
-     *
-     * @param req HTTP request
-     * @param res HTTP response
      */
-    protected static void requireLogin(Request req, Response res) {
+    protected static void requireLogin() {
         Auth.requireLogin();
     }
 

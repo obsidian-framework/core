@@ -68,8 +68,8 @@ public class WebServer
 
             setGlobal("request", req);
             setGlobal("response", res);
-            setGlobal("isLogged", isLogged(req));
-            if (isLogged(req)) setGlobal("loggedUser", getLoggedUser(req));
+            setGlobal("isLogged", isLogged());
+            if (isLogged()) setGlobal("loggedUser", getLoggedUser());
             Map<String, String> flashes = collectFlashes(req);
             setGlobal("flashes", flashes);
 
