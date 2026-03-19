@@ -191,6 +191,51 @@ public class Container
     }
 
     /**
+     * Instantiates a class using no-arg constructor or DI-resolved constructor.
+     * Unlike {@link #resolve(Class)}, does not require @Service/@Repository annotations
+     * and does not register the instance as a singleton.
+     *
+     * @param implClass Class to instantiate
+     * @param targetType Expected return type
+     * @param <T> Target type
+     * @return New instance with injected fields
+     * @throws RuntimeException if instantiation fails
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T instantiate(Class<?> implClass, Class<T> targetType)
+    {
+        try {
+            T instance = (T) implClass.getDeclaredConstructor().newInstance();
+            injectFields(instance);
+            return instance;
+        } catch (NoSuchMethodException e) {
+            // No no-arg constructor, try resolving constructor params
+        } catch (Exception e) {
+            // Fall through to constructor resolution
+        }
+
+        try {
+            Constructor<?>[] constructors = implClass.getConstructors();
+            if (constructors.length == 0) {
+                throw new RuntimeException("No public constructor found for " + implClass.getName());
+            }
+
+            Constructor<?> constructor = constructors[0];
+            Class<?>[] paramTypes = constructor.getParameterTypes();
+            Object[] args = new Object[paramTypes.length];
+            for (int i = 0; i < paramTypes.length; i++) {
+                args[i] = resolve(paramTypes[i]);
+            }
+
+            T instance = (T) constructor.newInstance(args);
+            injectFields(instance);
+            return instance;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to instantiate " + implClass.getName(), e);
+        }
+    }
+
+    /**
      * Clears all singletons and bindings.
      * Useful for testing or reinitialization.
      */

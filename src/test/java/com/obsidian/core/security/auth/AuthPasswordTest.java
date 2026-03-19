@@ -7,57 +7,57 @@ import static org.junit.jupiter.api.Assertions.*;
 class AuthPasswordTest
 {
     @Test
-    void hashPassword_producesValidBcryptHash() {
-        String hash = Auth.hashPassword("secret123");
+    void hash_producesValidBcryptHash() {
+        String hash = AuthPassword.hash("secret123");
 
         assertNotNull(hash);
         assertTrue(hash.startsWith("$2a$"), "Should be a BCrypt hash");
     }
 
     @Test
-    void hashPassword_differentCallsProduceDifferentHashes() {
-        String hash1 = Auth.hashPassword("same");
-        String hash2 = Auth.hashPassword("same");
+    void hash_differentCallsProduceDifferentHashes() {
+        String hash1 = AuthPassword.hash("same");
+        String hash2 = AuthPassword.hash("same");
 
         assertNotEquals(hash1, hash2, "BCrypt salts should differ");
     }
 
     @Test
-    void checkPassword_correctPassword_returnsTrue() {
-        String hash = Auth.hashPassword("myPassword");
+    void check_correctPassword_returnsTrue() {
+        String hash = AuthPassword.hash("myPassword");
 
-        assertTrue(Auth.checkPassword("myPassword", hash));
+        assertTrue(AuthPassword.check("myPassword", hash));
     }
 
     @Test
-    void checkPassword_wrongPassword_returnsFalse() {
-        String hash = Auth.hashPassword("myPassword");
+    void check_wrongPassword_returnsFalse() {
+        String hash = AuthPassword.hash("myPassword");
 
-        assertFalse(Auth.checkPassword("wrongPassword", hash));
+        assertFalse(AuthPassword.check("wrongPassword", hash));
     }
 
     @Test
-    void checkPassword_emptyPassword_returnsFalse() {
-        String hash = Auth.hashPassword("myPassword");
+    void check_emptyPassword_returnsFalse() {
+        String hash = AuthPassword.hash("myPassword");
 
-        assertFalse(Auth.checkPassword("", hash));
+        assertFalse(AuthPassword.check("", hash));
     }
 
     @Test
-    void hashPassword_handlesUnicodeCharacters() {
-        String hash = Auth.hashPassword("motdepàssé€");
+    void hash_handlesUnicodeCharacters() {
+        String hash = AuthPassword.hash("motdepàssé€");
 
         assertNotNull(hash);
-        assertTrue(Auth.checkPassword("motdepàssé€", hash));
+        assertTrue(AuthPassword.check("motdepàssé€", hash));
     }
 
     @Test
-    void hashPassword_handlesLongPassword() {
+    void hash_handlesLongPassword() {
         // BCrypt tronque à 72 bytes — vérifie que ça ne crashe pas
         String longPassword = "a".repeat(200);
-        String hash = Auth.hashPassword(longPassword);
+        String hash = AuthPassword.hash(longPassword);
 
         assertNotNull(hash);
-        assertTrue(Auth.checkPassword(longPassword, hash));
+        assertTrue(AuthPassword.check(longPassword, hash));
     }
 }

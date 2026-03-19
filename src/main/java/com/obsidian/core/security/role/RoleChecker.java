@@ -3,6 +3,7 @@ package com.obsidian.core.security.role;
 import com.obsidian.core.core.EnvKeys;
 import com.obsidian.core.core.Obsidian;
 import com.obsidian.core.security.auth.Auth;
+import com.obsidian.core.security.auth.TokenAuth;
 import com.obsidian.core.security.user.UserDetails;
 import spark.Request;
 import spark.Response;
@@ -81,12 +82,12 @@ public class RoleChecker
         String path = req.matchedPath();
 
         if (tokenRequiredPaths.contains(path)) {
-            Auth.requireToken(req, res);
+            TokenAuth.requireToken(req, res);
             return;
         }
 
         if (tokenPathToRole.containsKey(path)) {
-            Auth.requireTokenRole(req, res, tokenPathToRole.get(path));
+            TokenAuth.requireTokenRole(req, res, tokenPathToRole.get(path));
             return;
         }
 
