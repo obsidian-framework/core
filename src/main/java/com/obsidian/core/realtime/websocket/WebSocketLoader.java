@@ -1,8 +1,8 @@
 package com.obsidian.core.realtime.websocket;
 
 import com.obsidian.core.core.Obsidian;
+import com.obsidian.core.di.ReflectionsProvider;
 import com.obsidian.core.routing.methods.WebSocket;
-import org.reflections.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,8 +27,7 @@ public class WebSocketLoader
     {
         logger.info("Scanning for WebSocket handlers in package:" + Obsidian.getBasePackage());
 
-        Reflections reflections = new Reflections(Obsidian.getBasePackage());
-        Set<Class<?>> webSocketClasses = reflections.getTypesAnnotatedWith(WebSocket.class);
+        Set<Class<?>> webSocketClasses = ReflectionsProvider.getTypesAnnotatedWith(WebSocket.class);
 
         logger.info("Found {} WebSocket handler(s)", webSocketClasses.size());
 

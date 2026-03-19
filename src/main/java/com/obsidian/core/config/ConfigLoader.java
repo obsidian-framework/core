@@ -1,8 +1,7 @@
 package com.obsidian.core.config;
 
 import com.obsidian.core.config.annotations.Config;
-import com.obsidian.core.core.Obsidian;
-import org.reflections.Reflections;
+import com.obsidian.core.di.ReflectionsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,8 +27,7 @@ public class ConfigLoader
     {
         logger.info("Loading application configurations...");
         try {
-            Reflections reflections = new Reflections(Obsidian.getBasePackage());
-            Set<Class<?>> configClasses = reflections.getTypesAnnotatedWith(Config.class);
+            Set<Class<?>> configClasses = ReflectionsProvider.getTypesAnnotatedWith(Config.class);
 
             List<ConfigEntry> configs = new ArrayList<>();
 
