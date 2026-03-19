@@ -2,6 +2,8 @@ package com.obsidian.core.template;
 
 import com.obsidian.core.core.EnvKeys;
 import com.obsidian.core.core.Obsidian;
+import com.obsidian.core.livecomponents.pebble.ComponentTag;
+import com.obsidian.core.livecomponents.pebble.ComponentTagExtension;
 import com.obsidian.core.livereload.LiveReloadScriptExtension;
 import com.obsidian.core.routing.pebble.RouteExtension;
 import com.obsidian.core.security.csrf.pebble.CsrfExtension;
@@ -38,6 +40,7 @@ public class PebbleTemplateEngine extends TemplateEngine
     {
         boolean isDev = Obsidian.loadConfigAndEnv().get(EnvKeys.ENVIRONMENT).equalsIgnoreCase("DEV");
 
+        System.out.println("Building PebbleEngine");
         PebbleEngine.Builder builder = new PebbleEngine.Builder()
                 .extension(new RouteExtension())
                 .extension(new StripTagsFilter())
@@ -48,6 +51,7 @@ public class PebbleTemplateEngine extends TemplateEngine
                 .extension(new FlowScriptExtension())
                 .extension(new MarkdownFilter())
                 .extension(new MarkdownTag())
+                .extension(new ComponentTagExtension())
                 .cacheActive(!isDev);
 
         if (isDev) {
@@ -60,6 +64,8 @@ public class PebbleTemplateEngine extends TemplateEngine
         }
 
         engine = builder.build();
+
+        System.out.println("PebbleEngine built with extensions");
     }
 
     /**
