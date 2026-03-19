@@ -33,7 +33,7 @@ To quickly bootstrap a new project, use the official skeleton:
 ```bash
 git clone https://github.com/obsidian-framework/obsidian my-app
 cd my-app
-mvn compile exec:java
+mvn clean package exec:java
 ```
 
 → App runs on `http://localhost:8888`
