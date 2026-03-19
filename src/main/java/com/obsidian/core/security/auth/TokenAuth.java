@@ -2,13 +2,13 @@ package com.obsidian.core.security.auth;
 
 import com.obsidian.core.di.Container;
 import com.obsidian.core.di.ReflectionsProvider;
+import com.obsidian.core.http.RequestContext;
+import com.obsidian.core.http.ResponseContext;
 import com.obsidian.core.security.token.TokenResolver;
 import com.obsidian.core.security.token.TokenResolverImpl;
 import com.obsidian.core.security.user.UserDetails;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import spark.Request;
-import spark.Response;
 
 import java.util.Set;
 
@@ -57,17 +57,16 @@ public final class TokenAuth
      * Resolves the authenticated user from the {@code Authorization: Bearer <token>} header.
      * Result is cached as a request attribute to avoid redundant resolver calls.
      *
-     * @param req HTTP request
      * @param <T> UserDetails type
      * @return User details or null if token is missing, invalid, or resolver not configured
      */
     @SuppressWarnings("unchecked")
-    public static <T extends UserDetails> T userFromToken(Request req)
+    public static <T extends UserDetails> T userFromToken()
     {
-        T cached = (T) req.attribute(TOKEN_USER_ATTR);
+        T cached = (T) RequestContext.get().attribute(TOKEN_USER_ATTR);
         if (cached != null) return cached;
 
-        String header = req.headers("Authorization");
+        String header = RequestContext.get().headers("Authorization");
         if (header == null || !header.startsWith(BEARER_PREFIX)) return null;
 
         String token = header.substring(BEARER_PREFIX.length()).trim();
@@ -75,31 +74,27 @@ public final class TokenAuth
         if (resolver == null) return null;
 
         T user = (T) resolver.resolve(token);
-        if (user != null) req.attribute(TOKEN_USER_ATTR, user);
+        if (user != null) RequestContext.get().attribute(TOKEN_USER_ATTR, user);
         return user;
     }
 
     /**
      * Checks if the request carries a valid Bearer token.
      *
-     * @param req HTTP request
      * @return true if a valid token is present, false otherwise
      */
-    public static boolean isAuthenticated(Request req) {
-        return userFromToken(req) != null;
+    public static boolean isAuthenticated() {
+        return userFromToken() != null;
     }
 
     /**
      * Requires valid Bearer token authentication or halts with 401 Unauthorized.
-     *
-     * @param req HTTP request
-     * @param res HTTP response
      */
-    public static void requireToken(Request req, Response res)
+    public static void requireToken()
     {
-        if (!isAuthenticated(req)) {
-            res.type("application/json");
-            res.status(401);
+        if (!isAuthenticated()) {
+            ResponseContext.get().type("application/json");
+            ResponseContext.get().status(401);
             halt(401, "{\"error\":\"Unauthorized\"}");
         }
     }
@@ -107,17 +102,15 @@ public final class TokenAuth
     /**
      * Requires Bearer token and specific role or halts with 403 Forbidden.
      *
-     * @param req HTTP request
-     * @param res HTTP response
      * @param role Required role
      */
-    public static void requireTokenRole(Request req, Response res, String role)
+    public static void requireTokenRole(String role)
     {
-        requireToken(req, res);
-        UserDetails u = userFromToken(req);
+        requireToken();
+        UserDetails u = userFromToken();
         if (u == null || !role.equals(u.getRole())) {
-            res.type("application/json");
-            res.status(403);
+            ResponseContext.get().type("application/json");
+            ResponseContext.get().status(403);
             halt(403, "{\"error\":\"Forbidden\"}");
         }
     }

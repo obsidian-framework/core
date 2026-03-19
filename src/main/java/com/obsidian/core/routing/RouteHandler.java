@@ -152,7 +152,7 @@ public class RouteHandler
             } else if (paramType == Response.class) {
                 args[i] = res;
             } else if (parameters[i].isAnnotationPresent(CurrentUser.class)) {
-                args[i] = Auth.user(req);
+                args[i] = Auth.user();
             } else {
                 args[i] = Container.resolve(paramType);
             }

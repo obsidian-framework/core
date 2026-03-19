@@ -82,25 +82,25 @@ public class RoleChecker
         String path = req.matchedPath();
 
         if (tokenRequiredPaths.contains(path)) {
-            TokenAuth.requireToken(req, res);
+            TokenAuth.requireToken();
             return;
         }
 
         if (tokenPathToRole.containsKey(path)) {
-            TokenAuth.requireTokenRole(req, res, tokenPathToRole.get(path));
+            TokenAuth.requireTokenRole(tokenPathToRole.get(path));
             return;
         }
 
         if (loginRequiredPaths.contains(path)) {
-            Auth.requireLogin(req, res);
+            Auth.requireLogin();
         }
 
         String requiredRole = pathToRole.get(path);
         if (requiredRole == null) return;
 
-        Auth.requireLogin(req, res);
+        Auth.requireLogin();
 
-        UserDetails user = Auth.user(req);
+        UserDetails user = Auth.user();
         String userRole = user.getRole();
         if (userRole == null || !userRole.equals(requiredRole)) {
             res.redirect(Obsidian.loadConfigAndEnv().get(EnvKeys.SITE_URL));

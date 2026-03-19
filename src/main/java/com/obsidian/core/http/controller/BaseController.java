@@ -32,7 +32,7 @@ public class BaseController
      * @return true if login successful, false otherwise
      */
     protected static boolean login(String username, String password, Request request) {
-        return Auth.login(username, password, request);
+        return Auth.login(username, password);
     }
 
     /**
@@ -51,7 +51,7 @@ public class BaseController
      * @return true if authenticated, false otherwise
      */
     public static boolean isLogged(Request req) {
-        return Auth.isLogged(req);
+        return Auth.isLogged();
     }
 
     /**
@@ -63,7 +63,7 @@ public class BaseController
      * @return User details or null if not logged in
      */
     public static <T extends UserDetails> T getLoggedUser(Request req) {
-        return Auth.user(req);
+        return Auth.user();
     }
 
     /**
@@ -74,7 +74,7 @@ public class BaseController
      * @return true if user has role, false otherwise
      */
     protected static boolean hasRole(Request req, String role) {
-        return Auth.hasRole(req, role);
+        return Auth.hasRole(role);
     }
 
     /**
@@ -84,7 +84,7 @@ public class BaseController
      * @param res HTTP response
      */
     protected static void requireLogin(Request req, Response res) {
-        Auth.requireLogin(req, res);
+        Auth.requireLogin();
     }
 
     /**
