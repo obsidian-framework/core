@@ -2,7 +2,7 @@ package com.obsidian.core.livecomponents.pebble;
 
 import com.obsidian.core.livecomponents.core.ComponentManager;
 import com.obsidian.core.core.Obsidian;
-import com.obsidian.core.livecomponents.http.RequestContext;
+import com.obsidian.core.http.RequestContext;
 import com.obsidian.core.livecomponents.session.SessionContext;
 import io.pebbletemplates.pebble.extension.AbstractExtension;
 import io.pebbletemplates.pebble.extension.Function;

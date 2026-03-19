@@ -1,4 +1,4 @@
-package com.obsidian.core.livecomponents.http;
+package com.obsidian.core.http;
 
 import spark.Request;
 

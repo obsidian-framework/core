@@ -1,7 +1,8 @@
 package com.obsidian.core.livecomponents.session;
 
 import com.obsidian.core.http.middleware.Middleware;
-import com.obsidian.core.livecomponents.http.RequestContext;
+import com.obsidian.core.http.RequestContext;
+import com.obsidian.core.http.ResponseContext;
 import spark.Request;
 import spark.Response;
 
@@ -25,9 +26,9 @@ public class SessionMiddleware implements Middleware
         try {
             SessionContext.set(req.session(true));
             RequestContext.set(req);
+            ResponseContext.set(res);
         } catch (Exception e) {
-            SessionContext.clear();
-            RequestContext.clear();
+            clear();
         }
     }
 
@@ -40,5 +41,6 @@ public class SessionMiddleware implements Middleware
     {
         SessionContext.clear();
         RequestContext.clear();
+        ResponseContext.clear();
     }
 }

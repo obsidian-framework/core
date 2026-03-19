@@ -1,6 +1,8 @@
 package com.obsidian.core.http.controller;
 
 import com.obsidian.core.error.ErrorHandler;
+import com.obsidian.core.http.RequestContext;
+import com.obsidian.core.http.ResponseContext;
 import com.obsidian.core.security.auth.Auth;
 import com.obsidian.core.security.csrf.CsrfProtection;
 import com.obsidian.core.security.user.UserDetails;
@@ -8,6 +10,7 @@ import com.obsidian.core.template.TemplateManager;
 import spark.Request;
 import spark.Response;
 import spark.Session;
+
 
 import java.util.HashMap;
 import java.util.Map;
@@ -148,19 +151,60 @@ public class BaseController
     /**
      * Sets flash message and redirects.
      *
-     * @param req HTTP request
-     * @param res HTTP response
      * @param type Message type
      * @param message Message text
      * @param location Redirect location
      * @return null (never reached due to halt)
      */
-    protected static Object redirectWithFlash(Request req, Response res, String type, String message, String location)
-    {
-        setFlash(req, type, message);
-        res.redirect(location);
+    protected static Object redirectWithFlash(String type, String message, String location) {
+        setFlash(RequestContext.get(), type, message);
+        ResponseContext.get().redirect(location);
         halt();
         return null;
+    }
+
+    /**
+     * Sets a success flash message and redirects.
+     *
+     * @param message Success message text
+     * @param location Redirect location
+     * @return null (never reached due to halt)
+     */
+    protected static Object redirectWithSuccess(String message, String location) {
+        return redirectWithFlash("success", message, location);
+    }
+
+    /**
+     * Sets an error flash message and redirects.
+     *
+     * @param message Error message text
+     * @param location Redirect location
+     * @return null (never reached due to halt)
+     */
+    protected static Object redirectWithError(String message, String location) {
+        return redirectWithFlash("error", message, location);
+    }
+
+    /**
+     * Sets a warning flash message and redirects.
+     *
+     * @param message Warning message text
+     * @param location Redirect location
+     * @return null (never reached due to halt)
+     */
+    protected static Object redirectWithWarning(String message, String location) {
+        return redirectWithFlash("warning", message, location);
+    }
+
+    /**
+     * Sets an info flash message and redirects.
+     *
+     * @param message Info message text
+     * @param location Redirect location
+     * @return null (never reached due to halt)
+     */
+    protected static Object redirectWithInfo(String message, String location) {
+        return redirectWithFlash("info", message, location);
     }
 
     /**
