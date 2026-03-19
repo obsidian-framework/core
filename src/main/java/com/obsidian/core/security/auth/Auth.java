@@ -5,6 +5,7 @@ import com.obsidian.core.di.ReflectionsProvider;
 import com.obsidian.core.core.Obsidian;
 import com.obsidian.core.http.RequestContext;
 import com.obsidian.core.http.ResponseContext;
+import com.obsidian.core.livecomponents.session.SessionContext;
 import com.obsidian.core.security.user.UserDetails;
 import com.obsidian.core.security.user.UserDetailsService;
 import com.obsidian.core.security.user.UserDetailsServiceImpl;
@@ -134,11 +135,9 @@ public final class Auth
 
     /**
      * Logs out user by invalidating session.
-     *
-     * @param session HTTP session
      */
-    public static void logout(Session session) {
-        if (session != null) session.invalidate();
+    public static void logout() {
+        if (SessionContext.get() != null) SessionContext.get().invalidate();
     }
 
     /**

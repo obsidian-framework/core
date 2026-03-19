@@ -1,6 +1,7 @@
 package com.obsidian.core.security.auth;
 
 import com.obsidian.core.http.RequestContext;
+import com.obsidian.core.livecomponents.session.SessionContext;
 import com.obsidian.core.security.SessionKeys;
 import com.obsidian.core.security.user.UserDetails;
 import com.obsidian.core.security.user.UserDetailsService;
@@ -72,6 +73,7 @@ class AuthTest
     @AfterEach
     void tearDown() {
         RequestContext.clear();
+        SessionContext.clear();
     }
 
     private void setStaticField(Class<?> clazz, String name, Object value) throws Exception {
@@ -177,14 +179,9 @@ class AuthTest
 
     @Test
     void logout_invalidatesSession() {
-        Auth.logout(session);
-
+        SessionContext.set(session);
+        Auth.logout();
         verify(session).invalidate();
-    }
-
-    @Test
-    void logout_nullSession_doesNotThrow() {
-        assertDoesNotThrow(() -> Auth.logout(null));
     }
 
     // ──────────────────────────────────────────────
