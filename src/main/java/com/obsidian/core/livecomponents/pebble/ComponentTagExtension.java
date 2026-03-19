@@ -12,7 +12,6 @@ public class ComponentTagExtension extends AbstractExtension
 {
     @Override
     public List<TokenParser> getTokenParsers() {
-        System.out.println("ComponentTagExtension.getTokenParsers() called");
         return List.of(new ComponentTag());
     }
 }
