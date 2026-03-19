@@ -1,7 +1,8 @@
 package com.obsidian.core.security.auth;
 
-import com.obsidian.core.core.Obsidian;
 import com.obsidian.core.di.Container;
+import com.obsidian.core.di.ReflectionsProvider;
+import com.obsidian.core.core.Obsidian;
 import com.obsidian.core.security.user.UserDetails;
 import com.obsidian.core.security.user.UserDetailsService;
 import com.obsidian.core.security.user.UserDetailsServiceImpl;
@@ -241,9 +242,7 @@ public final class Auth
     private static UserDetailsService autoDetectUserDetailsService()
     {
         try {
-            org.reflections.Reflections reflections = new org.reflections.Reflections(Obsidian.getBasePackage());
-
-            Set<Class<?>> annotated = reflections.getTypesAnnotatedWith(UserDetailsServiceImpl.class);
+            Set<Class<?>> annotated = ReflectionsProvider.getTypesAnnotatedWith(UserDetailsServiceImpl.class);
             if (annotated.isEmpty()) {
                 throw new RuntimeException("No @UserDetailsServiceImpl found in " + Obsidian.getBasePackage());
             }

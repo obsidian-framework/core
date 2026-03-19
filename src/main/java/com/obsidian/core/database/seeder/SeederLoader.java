@@ -1,9 +1,8 @@
 package com.obsidian.core.database.seeder;
 
-import com.obsidian.core.core.Obsidian;
 import com.obsidian.core.database.seeder.annotations.Seeder;
 import com.obsidian.core.di.Container;
-import org.reflections.Reflections;
+import com.obsidian.core.di.ReflectionsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,8 +29,7 @@ public class SeederLoader
     {
         logger.info("Loading seeders...");
         try {
-            Reflections reflections = new Reflections(Obsidian.getBasePackage());
-            Set<Class<?>> seederClasses = reflections.getTypesAnnotatedWith(Seeder.class);
+            Set<Class<?>> seederClasses = ReflectionsProvider.getTypesAnnotatedWith(Seeder.class);
 
             List<SeederEntry> seeders = new ArrayList<>();
 

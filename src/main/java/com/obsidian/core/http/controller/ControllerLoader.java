@@ -1,14 +1,13 @@
 package com.obsidian.core.http.controller;
 
-import com.obsidian.core.core.Obsidian;
 import com.obsidian.core.di.Container;
+import com.obsidian.core.di.ReflectionsProvider;
 import com.obsidian.core.http.controller.annotations.Controller;
 import com.obsidian.core.http.controller.annotations.GlobalAdvice;
 import com.obsidian.core.http.middleware.MiddlewareManager;
 import com.obsidian.core.security.role.RoleChecker;
 import com.obsidian.core.routing.RouteLoader;
 import com.obsidian.core.realtime.sse.SseLoader;
-import org.reflections.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import spark.Request;
@@ -23,9 +22,9 @@ import java.util.stream.Collectors;
 import static spark.Spark.before;
 
 /**
-* Controller discovery and registration system.
-* Scans for @Controller and @GlobalAdvice annotated classes and registers their routes.
-*/
+ * Controller discovery and registration system.
+ * Scans for @Controller and @GlobalAdvice annotated classes and registers their routes.
+ */
 public class ControllerLoader
 {
     /** Logger instance */
@@ -53,8 +52,7 @@ public class ControllerLoader
      */
     private static List<Object> discoverControllers()
     {
-        Reflections reflections = new Reflections(Obsidian.getBasePackage());
-        Set<Class<?>> controllerClasses = reflections.getTypesAnnotatedWith(Controller.class);
+        Set<Class<?>> controllerClasses = ReflectionsProvider.getTypesAnnotatedWith(Controller.class);
 
         return controllerClasses.stream()
                 .map(ControllerLoader::instantiateController)
@@ -73,8 +71,7 @@ public class ControllerLoader
     {
         try {
             MiddlewareManager.executeBefore(new Class[0], req, res);
-            Reflections reflections = new Reflections(Obsidian.getBasePackage());
-            Set<Class<?>> adviceClasses = reflections.getTypesAnnotatedWith(GlobalAdvice.class);
+            Set<Class<?>> adviceClasses = ReflectionsProvider.getTypesAnnotatedWith(GlobalAdvice.class);
 
             for (Class<?> adviceClass : adviceClasses) {
                 try {
