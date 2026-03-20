@@ -2,6 +2,7 @@ package com.obsidian.core.database.orm.model;
 
 import com.obsidian.core.database.orm.model.cast.AttributeCaster;
 
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -10,7 +11,8 @@ import java.util.*;
  * Package-private and abstract — only {@link Model} is public.
  * Fluent methods return void here; Model redeclares them returning Model.
  */
-abstract class ModelAttributes {
+abstract class ModelAttributes
+{
 
     final Map<String, Object> attributes = new LinkedHashMap<>();
     final Map<String, Object> original   = new LinkedHashMap<>();
@@ -39,11 +41,15 @@ abstract class ModelAttributes {
         return Integer.parseInt(val.toString());
     }
 
-    public Long getLong(String key) {
-        Object val = get(key);
-        if (val == null) return null;
-        if (val instanceof Number) return ((Number) val).longValue();
-        return Long.parseLong(val.toString());
+    public long getLong(String key) {
+        Object value = attributes.get(key);
+        if (value == null) return 0L;
+        if (value instanceof Long l)      return l;
+        if (value instanceof Integer i)   return i.longValue();
+        if (value instanceof Timestamp ts) return ts.getTime();
+        if (value instanceof java.sql.Date d) return d.getTime();
+        if (value instanceof java.util.Date d) return d.getTime();
+        return Long.parseLong(value.toString());
     }
 
     public Double getDouble(String key) {
