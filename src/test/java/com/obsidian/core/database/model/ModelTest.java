@@ -1,6 +1,7 @@
-package com.obsidian.core.database;
+package com.obsidian.core.database.model;
 
 import com.obsidian.core.database.DB;
+import com.obsidian.core.database.TestHelper;
 import com.obsidian.core.database.orm.model.Model;
 import com.obsidian.core.database.orm.model.ModelCollection;
 import com.obsidian.core.database.orm.model.ModelNotFoundException;

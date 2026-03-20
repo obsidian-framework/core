@@ -1,5 +1,6 @@
-package com.obsidian.core.database;
+package com.obsidian.core.database.model;
 
+import com.obsidian.core.database.TestHelper;
 import com.obsidian.core.database.orm.model.Model;
 import com.obsidian.core.database.orm.query.QueryBuilder;
 import com.obsidian.core.database.orm.query.QueryLog;

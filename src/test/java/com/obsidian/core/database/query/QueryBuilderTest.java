@@ -1,6 +1,6 @@
-package com.obsidian.core.database;
+package com.obsidian.core.database.query;
 
-import com.obsidian.core.database.DB;
+import com.obsidian.core.database.TestHelper;
 import com.obsidian.core.database.orm.query.QueryBuilder;
 import com.obsidian.core.database.orm.query.QueryLog;
 import org.junit.jupiter.api.*;

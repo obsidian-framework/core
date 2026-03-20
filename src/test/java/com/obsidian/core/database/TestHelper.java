@@ -1,7 +1,5 @@
 package com.obsidian.core.database;
 
-import com.obsidian.core.database.DB;
-import com.obsidian.core.database.DatabaseType;
 import com.obsidian.core.database.orm.query.grammar.GrammarFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

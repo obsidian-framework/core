@@ -1,14 +1,12 @@
-package com.obsidian.core.database;
+package com.obsidian.core.database.model;
 
 import com.obsidian.core.database.orm.model.Model;
 import com.obsidian.core.database.orm.model.Table;
 import com.obsidian.core.database.orm.model.relation.*;
 import com.obsidian.core.database.orm.query.QueryBuilder;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 // ═══════════════════════════════════════════════════════════
 //  USER (soft deletes, casts, fillable, scopes)

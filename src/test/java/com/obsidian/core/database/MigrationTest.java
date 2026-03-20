@@ -1,7 +1,5 @@
 package com.obsidian.core.database;
 
-import com.obsidian.core.database.DB;
-import com.obsidian.core.database.Migration;
 import org.junit.jupiter.api.*;
 
 import java.util.*;
@@ -12,9 +10,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for Migration — Blueprint, createTable, dropTable.
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class MigrationTest {
+class MigrationTest
+{
 
-    @BeforeEach void setUp() { TestHelper.setup(); }
+    @BeforeEach void setUp()    { TestHelper.setup(); }
     @AfterEach  void tearDown() { TestHelper.teardown(); }
 
     @Test @Order(1)
@@ -34,13 +33,11 @@ class MigrationTest {
             }
             @Override public void down() { dropTable("test_table"); }
         };
-        migration.type = DatabaseType.SQLITE;
+        migration.type   = DatabaseType.SQLITE;
         migration.logger = org.slf4j.LoggerFactory.getLogger(MigrationTest.class);
 
-        // Execute migration
         migration.up();
 
-        // Verify table exists by inserting data
         DB.exec("INSERT INTO test_table (name, code, description, price) VALUES (?, ?, ?, ?)",
                 "Test", "TST", "A test", 9.99);
 
@@ -48,12 +45,9 @@ class MigrationTest {
         assertNotNull(row);
         assertEquals("TST", row.get("code"));
 
-        // Rollback
         migration.down();
 
-        // Table should be gone
-        assertThrows(RuntimeException.class, () ->
-                DB.findAll("SELECT * FROM test_table"));
+        assertThrows(RuntimeException.class, () -> DB.findAll("SELECT * FROM test_table"));
     }
 
     @Test @Order(2)
@@ -68,7 +62,7 @@ class MigrationTest {
             }
             @Override public void down() { dropTable("fk_test"); }
         };
-        migration.type = DatabaseType.SQLITE;
+        migration.type   = DatabaseType.SQLITE;
         migration.logger = org.slf4j.LoggerFactory.getLogger(MigrationTest.class);
 
         migration.up();
@@ -94,7 +88,7 @@ class MigrationTest {
             }
             @Override public void down() { dropTable("soft_test"); }
         };
-        migration.type = DatabaseType.SQLITE;
+        migration.type   = DatabaseType.SQLITE;
         migration.logger = org.slf4j.LoggerFactory.getLogger(MigrationTest.class);
 
         migration.up();
@@ -118,7 +112,7 @@ class MigrationTest {
             }
             @Override public void down() { dropTable("json_test"); }
         };
-        migration.type = DatabaseType.SQLITE;
+        migration.type   = DatabaseType.SQLITE;
         migration.logger = org.slf4j.LoggerFactory.getLogger(MigrationTest.class);
 
         migration.up();
@@ -137,7 +131,7 @@ class MigrationTest {
             @Override public void up() {}
             @Override public void down() {}
         };
-        migration.type = DatabaseType.SQLITE;
+        migration.type   = DatabaseType.SQLITE;
         migration.logger = org.slf4j.LoggerFactory.getLogger(MigrationTest.class);
 
         assertTrue(migration.tableExists("users"));

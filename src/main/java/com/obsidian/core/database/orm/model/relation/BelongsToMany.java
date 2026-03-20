@@ -8,72 +8,62 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * BelongsToMany relation (many-to-many through pivot table).
+ * Many-to-many relation through a pivot table.
  *
- *   // In User model:
- *   public BelongsToMany<Role> roles() {
- *       return belongsToMany(Role.class, "role_user", "user_id", "role_id");
- *   }
- *
- *   // Usage:
- *   List<Role> roles = user.roles().get();
- *   user.roles().attach(roleId);
- *   user.roles().detach(roleId);
- *   user.roles().sync(List.of(1, 2, 3));
+ * @param <T> related model type
  */
 public class BelongsToMany<T extends Model> implements Relation<T> {
 
-    private final Model parent;
+    private final Model  parent;
     private final Class<T> relatedClass;
     private final String pivotTable;
     private final String foreignPivotKey;
     private final String relatedPivotKey;
-
-    // Optional pivot columns to retrieve
     private final List<String> pivotColumns = new ArrayList<>();
 
     /**
-     * Creates a new BelongsToMany relation.
+     * Creates a BelongsToMany relation.
      *
-     * @param parent          The parent model instance
-     * @param relatedClass    The related model class
-     * @param pivotTable      The pivot (join) table name
-     * @param foreignPivotKey The column on the pivot table referencing the parent model
-     * @param relatedPivotKey The column on the pivot table referencing the related model
+     * @param parent          parent model instance
+     * @param relatedClass    related model class
+     * @param pivotTable      pivot table name
+     * @param foreignPivotKey pivot column referencing the parent
+     * @param relatedPivotKey pivot column referencing the related model
      */
     public BelongsToMany(Model parent, Class<T> relatedClass, String pivotTable,
                          String foreignPivotKey, String relatedPivotKey) {
-        this.parent = parent;
-        this.relatedClass = relatedClass;
-        this.pivotTable = pivotTable;
-        this.foreignPivotKey = foreignPivotKey;
-        this.relatedPivotKey = relatedPivotKey;
+        this.parent           = parent;
+        this.relatedClass     = relatedClass;
+        this.pivotTable       = pivotTable;
+        this.foreignPivotKey  = foreignPivotKey;
+        this.relatedPivotKey  = relatedPivotKey;
     }
 
     /**
-     * Specify additional pivot columns to retrieve.
+     * Includes extra pivot columns in SELECT results.
+     *
+     * @param columns pivot column names to retrieve
+     * @return this relation
      */
     public BelongsToMany<T> withPivot(String... columns) {
         pivotColumns.addAll(Arrays.asList(columns));
         return this;
     }
 
+    // ─── READ ────────────────────────────────────────────────
+
     @Override
     public List<T> get() {
-        T instance = Model.newInstance(relatedClass);
-        String relatedTable = instance.table();
-        String pk = instance.primaryKey();
+        T instance      = Model.newInstance(relatedClass);
+        String relTable = instance.table();
+        String pk       = instance.primaryKey();
 
-        // Validate every identifier component individually before interpolating.
-        // The resulting "table.col AS alias" expressions are raw SQL and must go
-        // through selectRaw — they are not plain identifiers and would be (correctly)
-        // rejected by requireIdentifier after the bypass removal.
         SqlIdentifier.requireIdentifier(pivotTable);
         SqlIdentifier.requireIdentifier(foreignPivotKey);
         SqlIdentifier.requireIdentifier(relatedPivotKey);
 
         var qb = Model.query(relatedClass)
-                .select(relatedTable + ".*")
+                .select(relTable + ".*")
                 .selectRaw(pivotTable + "." + foreignPivotKey + " AS pivot_" + foreignPivotKey)
                 .selectRaw(pivotTable + "." + relatedPivotKey + " AS pivot_" + relatedPivotKey);
 
@@ -83,7 +73,7 @@ public class BelongsToMany<T extends Model> implements Relation<T> {
         }
 
         return qb
-                .join(pivotTable, relatedTable + "." + pk, "=", pivotTable + "." + relatedPivotKey)
+                .join(pivotTable, relTable + "." + pk, "=", pivotTable + "." + relatedPivotKey)
                 .where(pivotTable + "." + foreignPivotKey, parent.getId())
                 .get();
     }
@@ -94,38 +84,56 @@ public class BelongsToMany<T extends Model> implements Relation<T> {
         return results.isEmpty() ? null : results.get(0);
     }
 
-    // ─── PIVOT OPERATIONS ────────────────────────────────────
+    // ─── ATTACH ──────────────────────────────────────────────
 
     /**
-     * Attach a related model by ID.
+     * Attaches a single related ID.
+     *
+     * @param relatedId related model ID
      */
     public void attach(Object relatedId) {
         attach(relatedId, Collections.emptyMap());
     }
 
     /**
-     * Attach with extra pivot data.
+     * Attaches a single related ID with extra pivot data.
+     *
+     * @param relatedId related model ID
+     * @param pivotData extra columns to set on the pivot row
      */
     public void attach(Object relatedId, Map<String, Object> pivotData) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put(foreignPivotKey, parent.getId());
         row.put(relatedPivotKey, relatedId);
         row.putAll(pivotData);
-
         new QueryBuilder(pivotTable).insert(row);
     }
 
     /**
-     * Attach multiple IDs.
+     * Attaches multiple related IDs in a single JDBC batch.
+     *
+     * @param relatedIds IDs to attach
      */
     public void attachMany(List<Object> relatedIds) {
+        if (relatedIds == null || relatedIds.isEmpty()) return;
+        if (relatedIds.size() == 1) { attach(relatedIds.get(0)); return; }
+
+        List<Map<String, Object>> rows = new ArrayList<>(relatedIds.size());
         for (Object id : relatedIds) {
-            attach(id);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put(foreignPivotKey, parent.getId());
+            row.put(relatedPivotKey, id);
+            rows.add(row);
         }
+        new QueryBuilder(pivotTable).insertAll(rows);
     }
 
+    // ─── DETACH ──────────────────────────────────────────────
+
     /**
-     * Detach a related model by ID.
+     * Detaches a single related ID.
+     *
+     * @param relatedId related model ID
      */
     public void detach(Object relatedId) {
         new QueryBuilder(pivotTable)
@@ -135,67 +143,84 @@ public class BelongsToMany<T extends Model> implements Relation<T> {
     }
 
     /**
-     * Detach multiple IDs.
+     * Detaches multiple related IDs in a single DELETE ... WHERE ... IN (...).
+     *
+     * @param relatedIds IDs to detach
      */
     public void detachMany(List<Object> relatedIds) {
-        for (Object id : relatedIds) {
-            detach(id);
-        }
+        if (relatedIds == null || relatedIds.isEmpty()) return;
+        if (relatedIds.size() == 1) { detach(relatedIds.get(0)); return; }
+
+        new QueryBuilder(pivotTable)
+                .where(foreignPivotKey, parent.getId())
+                .whereIn(relatedPivotKey, relatedIds)
+                .delete();
     }
 
-    /**
-     * Detach all related models.
-     */
+    /** Detaches all related IDs for this parent. */
     public void detachAll() {
         new QueryBuilder(pivotTable)
                 .where(foreignPivotKey, parent.getId())
                 .delete();
     }
 
+    // ─── SYNC ────────────────────────────────────────────────
+
     /**
-     * Sync: replace all pivot entries with given IDs.
-     * Detaches IDs not in the list, attaches new ones.
+     * Replaces all pivot entries with the given IDs.
+     *
+     * @param ids complete desired set of related IDs
      */
     public void sync(List<Object> ids) {
-        // Get current pivot entries
-        List<Object> currentIds = new QueryBuilder(pivotTable)
-                .where(foreignPivotKey, parent.getId())
-                .pluck(relatedPivotKey);
+        List<Object> current   = currentRelatedIds();
+        Set<String>  currentSet = toStringSet(current);
+        Set<String>  targetSet  = toStringSet(ids);
 
-        // Detach removed
-        for (Object current : currentIds) {
-            if (!ids.contains(current)) {
-                detach(current);
-            }
-        }
+        List<Object> toDetach = current.stream()
+                .filter(id -> !targetSet.contains(id.toString()))
+                .collect(Collectors.toList());
 
-        // Attach new
-        for (Object id : ids) {
-            if (!currentIds.contains(id)) {
-                attach(id);
-            }
-        }
+        List<Object> toAttach = ids.stream()
+                .filter(id -> !currentSet.contains(id.toString()))
+                .collect(Collectors.toList());
+
+        if (!toDetach.isEmpty()) detachMany(toDetach);
+        if (!toAttach.isEmpty()) attachMany(toAttach);
     }
 
+    // ─── TOGGLE ──────────────────────────────────────────────
+
     /**
-     * Toggle: attach if not present, detach if present.
+     * For each ID: attaches if absent, detaches if present.
+     *
+     * @param ids IDs to toggle
      */
     public void toggle(List<Object> ids) {
-        List<Object> currentIds = new QueryBuilder(pivotTable)
-                .where(foreignPivotKey, parent.getId())
-                .pluck(relatedPivotKey);
+        if (ids == null || ids.isEmpty()) return;
+
+        List<Object> current    = currentRelatedIds();
+        Set<String>  currentSet = toStringSet(current);
+
+        List<Object> toAttach = new ArrayList<>();
+        List<Object> toDetach = new ArrayList<>();
 
         for (Object id : ids) {
-            if (currentIds.contains(id)) {
-                detach(id);
-            } else {
-                attach(id);
-            }
+            if (currentSet.contains(id.toString())) toDetach.add(id);
+            else                                    toAttach.add(id);
         }
+
+        if (!toDetach.isEmpty()) detachMany(toDetach);
+        if (!toAttach.isEmpty()) attachMany(toAttach);
     }
 
+    // ─── UPDATE PIVOT ────────────────────────────────────────
+
     /**
-     * Update pivot data for a specific related ID.
+     * Updates pivot data for a specific related ID.
+     *
+     * @param relatedId related model ID
+     * @param pivotData column-to-value map for the pivot row
+     * @return number of affected rows
      */
     public int updatePivot(Object relatedId, Map<String, Object> pivotData) {
         return new QueryBuilder(pivotTable)
@@ -209,77 +234,69 @@ public class BelongsToMany<T extends Model> implements Relation<T> {
     @Override
     public void eagerLoad(List<? extends Model> parents, String relationName) {
         List<Object> parentIds = parents.stream()
-                .map(Model::getId)
-                .filter(Objects::nonNull)
-                .distinct()
+                .map(Model::getId).filter(Objects::nonNull).distinct()
                 .collect(Collectors.toList());
 
         if (parentIds.isEmpty()) return;
 
-        // 1. Load all pivot rows for these parents
         List<Map<String, Object>> pivotRows = new QueryBuilder(pivotTable)
-                .whereIn(foreignPivotKey, parentIds)
-                .get();
+                .whereIn(foreignPivotKey, parentIds).get();
 
-        // 2. Collect all related IDs
         List<Object> relatedIds = pivotRows.stream()
-                .map(r -> r.get(relatedPivotKey))
-                .filter(Objects::nonNull)
-                .distinct()
+                .map(r -> r.get(relatedPivotKey)).filter(Objects::nonNull).distinct()
                 .collect(Collectors.toList());
 
         if (relatedIds.isEmpty()) {
-            for (Model p : parents) {
-                p.setRelation(relationName, Collections.emptyList());
-            }
+            for (Model p : parents) p.setRelation(relationName, Collections.emptyList());
             return;
         }
 
-        // 3. Load all related models in one query
         T instance = Model.newInstance(relatedClass);
         List<T> allRelated = Model.query(relatedClass)
-                .whereIn(instance.primaryKey(), relatedIds)
-                .get();
+                .whereIn(instance.primaryKey(), relatedIds).get();
 
-        // 4. Build lookup: related ID -> model
         Map<Object, T> relatedLookup = new LinkedHashMap<>();
-        for (T m : allRelated) {
-            relatedLookup.put(m.getId(), m);
-        }
+        for (T m : allRelated) relatedLookup.put(m.getId(), m);
 
-        // 5. Group by parent ID
         Map<Object, List<T>> grouped = new LinkedHashMap<>();
         for (Map<String, Object> pivot : pivotRows) {
-            Object parentId = pivot.get(foreignPivotKey);
+            Object parentId  = pivot.get(foreignPivotKey);
             Object relatedId = pivot.get(relatedPivotKey);
             T related = relatedLookup.get(relatedId);
-            if (related != null) {
-                grouped.computeIfAbsent(parentId, k -> new ArrayList<>()).add(related);
-            }
+            if (related != null) grouped.computeIfAbsent(parentId, k -> new ArrayList<>()).add(related);
         }
 
-        // 6. Assign to each parent
         for (Model p : parents) {
             p.setRelation(relationName, grouped.getOrDefault(p.getId(), Collections.emptyList()));
         }
     }
 
-    /**
-     * Returns the pivot table.
-     *
-     * @return The pivot table
-     */
+    // ─── ACCESSORS ───────────────────────────────────────────
+
+    /** @return pivot table name */
     public String getPivotTable()      { return pivotTable; }
-    /**
-     * Returns the foreign pivot key.
-     *
-     * @return The foreign pivot key
-     */
+    /** @return pivot column referencing the parent */
     public String getForeignPivotKey() { return foreignPivotKey; }
-    /**
-     * Returns the related pivot key.
-     *
-     * @return The related pivot key
-     */
+    /** @return pivot column referencing the related model */
     public String getRelatedPivotKey() { return relatedPivotKey; }
+
+    // ─── HELPERS ─────────────────────────────────────────────
+
+    private List<Object> currentRelatedIds() {
+        return new QueryBuilder(pivotTable)
+                .where(foreignPivotKey, parent.getId())
+                .pluck(relatedPivotKey);
+    }
+
+    /**
+     * Converts a list of IDs to a Set of strings for O(1) membership checks.
+     *
+     * @param ids list of IDs (may be Long or Integer)
+     * @return set of string representations
+     */
+    private static Set<String> toStringSet(List<Object> ids) {
+        Set<String> set = new HashSet<>(ids.size() * 2);
+        for (Object id : ids) set.add(id.toString());
+        return set;
+    }
 }
