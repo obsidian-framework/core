@@ -8,8 +8,8 @@ import java.util.*;
 /**
  * Query log for debugging and profiling.
  */
-public class QueryLog {
-
+public class QueryLog
+{
     private static final Logger logger = LoggerFactory.getLogger(QueryLog.class);
 
     /** Maximum entries retained in memory (~2 MB worst-case at ~200 bytes/entry). */

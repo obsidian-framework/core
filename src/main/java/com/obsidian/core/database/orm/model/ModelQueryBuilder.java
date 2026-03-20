@@ -19,7 +19,8 @@ import java.util.function.Consumer;
  *       .orderBy("name")
  *       .get();
  */
-public class ModelQueryBuilder<T extends Model> {
+public class ModelQueryBuilder<T extends Model>
+{
 
     private final Class<T> modelClass;
     private final QueryBuilder queryBuilder;
@@ -436,16 +437,27 @@ public class ModelQueryBuilder<T extends Model> {
 
     /**
      * Execute query and return hydrated models.
+     *
+     * <p>Results are cached when the model class carries {@link Cacheable}.
+     * Eager-loaded relations are cached as part of the result.</p>
      */
+    @SuppressWarnings("unchecked")
     public List<T> get() {
+        if (!ModelCache.isEnabled(modelClass)) {
+            return executeGet();
+        }
+
+        String key = ModelCache.queryKey(modelClass,
+                queryBuilder.toSql(), queryBuilder.getBindings());
+        return (List<T>) ModelCache.rememberList(modelClass, key, this::executeGet);
+    }
+
+    private List<T> executeGet() {
         List<Map<String, Object>> rows = queryBuilder.get();
         List<T> models = Model.hydrateList(modelClass, rows);
-
-        // Eager load relations
         if (!eagerLoads.isEmpty() && !models.isEmpty()) {
             eagerLoadRelations(models);
         }
-
         return models;
     }
 

@@ -22,6 +22,14 @@ public class Cache
     }
 
     /**
+     * Returns true if a cache driver has been configured.
+     */
+    public static boolean isAvailable()
+    {
+        return driver != null;
+    }
+
+    /**
      * Stores a value in the cache with a TTL.
      *
      * @param key The cache key
@@ -87,6 +95,16 @@ public class Cache
     public static void forget(String key)
     {
         driver.forget(key);
+    }
+
+    /**
+     * Removes all keys that start with the given prefix.
+     *
+     * @param prefix The key prefix to match
+     */
+    public static void forgetByPrefix(String prefix)
+    {
+        driver.forgetByPrefix(prefix);
     }
 
     /**

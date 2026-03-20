@@ -6,8 +6,8 @@ import java.util.regex.Pattern;
 /**
  * Guards against SQL injection through identifier and operator validation.
  */
-public final class SqlIdentifier {
-
+public final class SqlIdentifier
+{
     /** Comparison operators safe to interpolate verbatim into SQL. */
     private static final Set<String> ALLOWED_OPERATORS = Set.of(
             "=", "!=", "<>", "<", ">", "<=", ">=",
@@ -17,12 +17,6 @@ public final class SqlIdentifier {
 
     /**
      * Strict identifier pattern — no bypass for spaces, parentheses, or keywords.
-     * Accepted forms:
-     * <ul>
-     *   <li>{@code column} or {@code table.column} — plain qualified name</li>
-     *   <li>{@code table.*} — table-qualified wildcard (JOIN selects)</li>
-     *   <li>{@code *} — unqualified wildcard (SELECT *)</li>
-     * </ul>
      */
     private static final Pattern IDENTIFIER_PATTERN =
             Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_.]*(?:\\.\\*)?$");
