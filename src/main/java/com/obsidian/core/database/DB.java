@@ -56,6 +56,9 @@ public class DB
      */
     private static final ThreadLocal<Connection> threadConnection = new ThreadLocal<>();
 
+    /** Static logger for use in static methods */
+    private static final Logger staticLogger = org.slf4j.LoggerFactory.getLogger(DB.class);
+
     /** Logger instance */
     private final Logger logger;
 
@@ -412,7 +415,8 @@ public class DB
             bindParams(stmt, params);
             stmt.executeUpdate();
         } catch (SQLException e) {
-            throw new RuntimeException("SQL exec failed: " + sql, e);
+            staticLogger.error("exec failed: {}", sql, e);
+            throw new RuntimeException("Database exec failed", e);
         }
     }
 
@@ -428,7 +432,8 @@ public class DB
                 return resultSetToList(rs);
             }
         } catch (SQLException e) {
-            throw new RuntimeException("SQL query failed: " + sql, e);
+            staticLogger.error("findAll failed: {}", sql, e);
+            throw new RuntimeException("Database query failed", e);
         }
     }
 
@@ -446,7 +451,8 @@ public class DB
                 return null;
             }
         } catch (SQLException e) {
-            throw new RuntimeException("SQL firstCell failed: " + sql, e);
+            staticLogger.error("firstCell failed: {}", sql, e);
+            throw new RuntimeException("Database query failed", e);
         }
     }
 
@@ -462,7 +468,8 @@ public class DB
                 return rows.isEmpty() ? null : rows.get(0);
             }
         } catch (SQLException e) {
-            throw new RuntimeException("SQL firstRow failed: " + sql, e);
+            staticLogger.error("firstRow failed: {}", sql, e);
+            throw new RuntimeException("Database query failed", e);
         }
     }
 
@@ -481,7 +488,8 @@ public class DB
                 return null;
             }
         } catch (SQLException e) {
-            throw new RuntimeException("SQL insert failed: " + sql, e);
+            staticLogger.error("insertAndGetKey failed: {}", sql, e);
+            throw new RuntimeException("Database insert failed", e);
         }
     }
 
@@ -527,7 +535,8 @@ public class DB
 
     // ─── INTERNAL HELPERS ────────────────────────────────────
 
-    private static void bindParams(PreparedStatement stmt, Object... params) throws SQLException {
+    private static void bindParams(PreparedStatement stmt, Object... params) throws SQLException
+    {
         for (int i = 0; i < params.length; i++) {
             Object value = params[i];
             if (value == null) {

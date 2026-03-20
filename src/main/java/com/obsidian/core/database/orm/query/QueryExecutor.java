@@ -2,6 +2,8 @@ package com.obsidian.core.database.orm.query;
 
 import com.obsidian.core.database.DB;
 import com.obsidian.core.database.DatabaseType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.util.*;
@@ -14,6 +16,8 @@ import java.util.function.Consumer;
  * hydration, batch insert, chunked streaming, and QueryLog recording.</p>
  */
 class QueryExecutor {
+
+    private static final Logger logger = LoggerFactory.getLogger(QueryExecutor.class);
 
     private final int queryTimeoutSeconds;
 
@@ -48,7 +52,8 @@ class QueryExecutor {
             }
         } catch (SQLException e) {
             QueryLog.record(sql, params, System.currentTimeMillis() - start);
-            throw new RuntimeException("Query failed: " + sql, e);
+            logger.error("Query failed: {}", sql, e);
+            throw new RuntimeException("Database query failed", e);
         }
     }
 
@@ -75,7 +80,8 @@ class QueryExecutor {
             }
         } catch (SQLException e) {
             QueryLog.record(sql, params, System.currentTimeMillis() - start);
-            throw new RuntimeException("Insert failed: " + sql, e);
+            logger.error("Insert failed: {}", sql, e);
+            throw new RuntimeException("Database insert failed", e);
         }
     }
 
@@ -105,7 +111,8 @@ class QueryExecutor {
         } catch (SQLException e) {
             QueryLog.record(sql, List.of("[batch x" + rows.size() + "]"),
                     System.currentTimeMillis() - start);
-            throw new RuntimeException("Batch insert failed on table: " + table, e);
+            logger.error("Batch insert failed on table: {}", table, e);
+            throw new RuntimeException("Database batch insert failed", e);
         }
     }
 
@@ -129,7 +136,8 @@ class QueryExecutor {
             return result;
         } catch (SQLException e) {
             QueryLog.record(sql, params, System.currentTimeMillis() - start);
-            throw new RuntimeException("Update/Delete failed: " + sql, e);
+            logger.error("Update/Delete failed: {}", sql, e);
+            throw new RuntimeException("Database update failed", e);
         }
     }
 
@@ -180,7 +188,8 @@ class QueryExecutor {
             QueryLog.record(sql, params, System.currentTimeMillis() - start);
         } catch (SQLException e) {
             QueryLog.record(sql, params, System.currentTimeMillis() - start);
-            throw new RuntimeException("Chunk query failed: " + sql, e);
+            logger.error("Chunk query failed: {}", sql, e);
+            throw new RuntimeException("Database chunk query failed", e);
         }
     }
 
@@ -221,11 +230,11 @@ class QueryExecutor {
      * @return list of rows
      */
     List<Map<String, Object>> resultSetToList(ResultSet rs) throws SQLException {
-        List<Map<String, Object>> results = new ArrayList<>();
+        List<Map<String, Object>> results = new ArrayList<>(64);
         ResultSetMetaData meta = rs.getMetaData();
         int colCount = meta.getColumnCount();
         while (rs.next()) {
-            Map<String, Object> row = new LinkedHashMap<>();
+            Map<String, Object> row = new LinkedHashMap<>(colCount * 2);
             for (int i = 1; i <= colCount; i++) {
                 row.put(meta.getColumnLabel(i), rs.getObject(i));
             }

@@ -2,6 +2,7 @@ package com.obsidian.core.database.orm.query;
 
 import com.obsidian.core.database.orm.query.clause.*;
 import com.obsidian.core.database.orm.query.grammar.*;
+import com.obsidian.core.database.DB;
 
 import java.sql.PreparedStatement;
 import java.util.*;
@@ -14,14 +15,15 @@ import java.util.stream.Collectors;
  * @see QueryExecutor
  * @see QueryAggregates
  */
-public class QueryBuilder {
-
+public class QueryBuilder
+{
     private final String table;
     private final Grammar grammar;
     private final QueryExecutor executor;
 
     private final List<String>       columns    = new ArrayList<>();
-    private boolean                  isDistinct = false;
+    private boolean                  isDistinct    = false;
+    private boolean                  requiresWhere = false;
     private final List<WhereClause>  wheres     = new ArrayList<>();
     private final List<JoinClause>   joins      = new ArrayList<>();
     private final List<OrderClause>  orders     = new ArrayList<>();
@@ -76,7 +78,7 @@ public class QueryBuilder {
     /**
      * Adds a raw expression to the SELECT clause.
      *
-     * @param expression raw SQL expression — caller must ensure safety
+     * @param expression raw SQL expression — must be a trusted, hardcoded string
      * @return this builder
      */
     public QueryBuilder selectRaw(String expression) {
@@ -194,6 +196,11 @@ public class QueryBuilder {
      */
     public QueryBuilder whereIn(String column, List<?> values) {
         SqlIdentifier.requireIdentifier(column);
+        if (values == null || values.isEmpty()) {
+            // IN () is invalid SQL on all databases — empty set is never matched
+            wheres.add(WhereClause.raw("1 = 0", "AND"));
+            return this;
+        }
         wheres.add(WhereClause.in(column, values, "AND"));
         bindings.addAll(values);
         return this;
@@ -208,6 +215,10 @@ public class QueryBuilder {
      */
     public QueryBuilder whereNotIn(String column, List<?> values) {
         SqlIdentifier.requireIdentifier(column);
+        if (values == null || values.isEmpty()) {
+            // NOT IN () is always true — empty exclusion set is a no-op
+            return this;
+        }
         wheres.add(WhereClause.notIn(column, values, "AND"));
         bindings.addAll(values);
         return this;
@@ -243,8 +254,8 @@ public class QueryBuilder {
     /**
      * Adds a raw WHERE clause.
      *
-     * @param sql    raw SQL string — caller must ensure safety
-     * @param params values to bind to placeholders
+     * @param sql    raw SQL fragment — column names and operators only, values via params
+     * @param params values to bind to {@code ?} placeholders
      * @return this builder
      */
     public QueryBuilder whereRaw(String sql, Object... params) {
@@ -444,6 +455,16 @@ public class QueryBuilder {
     }
 
     /**
+     * Requires at least one WHERE clause before {@link #update} or {@link #delete} may run.
+     *
+     * @return this builder
+     */
+    public QueryBuilder requireWhere() {
+        this.requiresWhere = true;
+        return this;
+    }
+
+    /**
      * Applies LIMIT and OFFSET for the given page.
      *
      * @param page    page number starting at 1
@@ -451,6 +472,8 @@ public class QueryBuilder {
      * @return this builder
      */
     public QueryBuilder forPage(int page, int perPage) {
+        if (page < 1)    throw new IllegalArgumentException("forPage: page must be >= 1, got: " + page);
+        if (perPage < 1) throw new IllegalArgumentException("forPage: perPage must be >= 1, got: " + perPage);
         return limit(perPage).offset((page - 1) * perPage);
     }
 
@@ -580,7 +603,9 @@ public class QueryBuilder {
     }
 
     /**
-     * Inserts multiple rows in a single JDBC batch.
+     /**
+     * Inserts multiple rows in a single JDBC batch, wrapped in a transaction.
+     * If any row fails, the entire batch is rolled back.
      *
      * @param rows rows to insert — all must share the same key set
      */
@@ -601,7 +626,10 @@ public class QueryBuilder {
 
         InsertResult first = grammar.compileInsert(table, rows.get(0));
         List<String> batchColumns = new ArrayList<>(rows.get(0).keySet());
-        executor.executeBatch(table, first.getSql(), batchColumns, rows);
+        DB.withTransaction(() -> {
+            executor.executeBatch(table, first.getSql(), batchColumns, rows);
+            return null;
+        });
     }
 
     // ─── UPDATE / DELETE ─────────────────────────────────────
@@ -613,6 +641,11 @@ public class QueryBuilder {
      * @return number of affected rows
      */
     public int update(Map<String, Object> values) {
+        if (values == null || values.isEmpty()) return 0;
+        if (requiresWhere && wheres.isEmpty())
+            throw new IllegalStateException(
+                    "update() called on table '" + table + "' without a WHERE clause. " +
+                            "Add a condition or remove requireWhere().");
         UpdateResult result = grammar.compileUpdate(table, values, wheres, bindings);
         return executor.executeUpdate(result.getSql(), result.getBindings());
     }
@@ -623,6 +656,10 @@ public class QueryBuilder {
      * @return number of affected rows
      */
     public int delete() {
+        if (requiresWhere && wheres.isEmpty())
+            throw new IllegalStateException(
+                    "delete() called on table '" + table + "' without a WHERE clause. " +
+                            "Add a condition or remove requireWhere().");
         DeleteResult result = grammar.compileDelete(table, wheres, bindings);
         return executor.executeUpdate(result.getSql(), result.getBindings());
     }
@@ -643,18 +680,17 @@ public class QueryBuilder {
     }
 
     /** @param column column name */
-    public int increment(String column)             { return increment(column, 1); }
+    public int increment(String column) { return increment(column, 1); }
     /** @param column column name @param amount decrement amount */
     public int decrement(String column, int amount) { return increment(column, -amount); }
     /** @param column column name */
-    public int decrement(String column)             { return decrement(column, 1); }
-
-    // ─── STREAMING ───────────────────────────────────────────
+    public int decrement(String column) { return decrement(column, 1); }
 
     /**
      * Streams rows without loading the full result set into memory.
+     * Wrap with {@code DB.withTransaction(() -> { ... })}.
      *
-     * @param fetchSize rows per round-trip (Integer.MIN_VALUE for MySQL streaming)
+     * @param fetchSize rows per round-trip ({@code Integer.MIN_VALUE} for MySQL streaming)
      * @param consumer  called once per row — do not retain the map reference across calls
      */
     public void chunk(int fetchSize, Consumer<Map<String, Object>> consumer) {
@@ -670,13 +706,11 @@ public class QueryBuilder {
         chunk(1000, consumer);
     }
 
-    // ─── RAW ─────────────────────────────────────────────────
-
     /**
      * Executes a raw SELECT query.
      *
-     * @param sql    raw SQL — caller must ensure safety
-     * @param params values to bind to placeholders
+     * @param sql    raw SQL — must be a trusted, hardcoded string
+     * @param params values to bind to {@code ?} placeholders
      * @return list of rows
      */
     public static List<Map<String, Object>> raw(String sql, Object... params) {
@@ -686,8 +720,12 @@ public class QueryBuilder {
     /**
      * Executes a raw UPDATE/DELETE/DDL statement.
      *
-     * @param sql    raw SQL — caller must ensure safety
-     * @param params values to bind to placeholders
+     * <p><b>SQL injection warning</b>: {@code sql} is executed as-is. Never interpolate
+     * user input into the SQL string — always use {@code ?} placeholders and pass values
+     * via {@code params}.
+     *
+     * @param sql    raw SQL — must be a trusted, hardcoded string
+     * @param params values to bind to {@code ?} placeholders
      * @return number of affected rows
      */
     public static int rawUpdate(String sql, Object... params) {

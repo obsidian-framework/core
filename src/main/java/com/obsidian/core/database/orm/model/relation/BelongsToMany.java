@@ -12,8 +12,8 @@ import java.util.stream.Collectors;
  *
  * @param <T> related model type
  */
-public class BelongsToMany<T extends Model> implements Relation<T> {
-
+public class BelongsToMany<T extends Model> implements Relation<T>
+{
     private final Model  parent;
     private final Class<T> relatedClass;
     private final String pivotTable;
@@ -239,31 +239,43 @@ public class BelongsToMany<T extends Model> implements Relation<T> {
 
         if (parentIds.isEmpty()) return;
 
-        List<Map<String, Object>> pivotRows = new QueryBuilder(pivotTable)
-                .whereIn(foreignPivotKey, parentIds).get();
+        T instance      = Model.newInstance(relatedClass);
+        String relTable = instance.table();
+        String pk       = instance.primaryKey();
 
-        List<Object> relatedIds = pivotRows.stream()
-                .map(r -> r.get(relatedPivotKey)).filter(Objects::nonNull).distinct()
-                .collect(Collectors.toList());
+        SqlIdentifier.requireIdentifier(pivotTable);
+        SqlIdentifier.requireIdentifier(foreignPivotKey);
+        SqlIdentifier.requireIdentifier(relatedPivotKey);
 
-        if (relatedIds.isEmpty()) {
+        // Single JOIN query instead of two separate queries
+        var qb = Model.query(relatedClass)
+                .select(relTable + ".*")
+                .selectRaw(pivotTable + "." + foreignPivotKey + " AS pivot_" + foreignPivotKey)
+                .selectRaw(pivotTable + "." + relatedPivotKey + " AS pivot_" + relatedPivotKey);
+
+        for (String col : pivotColumns) {
+            SqlIdentifier.requireIdentifier(col);
+            qb.selectRaw(pivotTable + "." + col + " AS pivot_" + col);
+        }
+
+        List<T> rows = qb
+                .join(pivotTable, relTable + "." + pk, "=", pivotTable + "." + relatedPivotKey)
+                .whereIn(pivotTable + "." + foreignPivotKey, parentIds)
+                .get();
+
+        if (rows.isEmpty()) {
             for (Model p : parents) p.setRelation(relationName, Collections.emptyList());
             return;
         }
 
-        T instance = Model.newInstance(relatedClass);
-        List<T> allRelated = Model.query(relatedClass)
-                .whereIn(instance.primaryKey(), relatedIds).get();
-
-        Map<Object, T> relatedLookup = new LinkedHashMap<>();
-        for (T m : allRelated) relatedLookup.put(m.getId(), m);
-
+        // Group by parent ID using the pivot foreign key aliased onto each row
+        String pivotFkAlias = "pivot_" + foreignPivotKey;
         Map<Object, List<T>> grouped = new LinkedHashMap<>();
-        for (Map<String, Object> pivot : pivotRows) {
-            Object parentId  = pivot.get(foreignPivotKey);
-            Object relatedId = pivot.get(relatedPivotKey);
-            T related = relatedLookup.get(relatedId);
-            if (related != null) grouped.computeIfAbsent(parentId, k -> new ArrayList<>()).add(related);
+        for (T row : rows) {
+            Object parentId = row.get(pivotFkAlias);
+            if (parentId != null) {
+                grouped.computeIfAbsent(parentId, k -> new ArrayList<>()).add(row);
+            }
         }
 
         for (Model p : parents) {

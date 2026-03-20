@@ -126,6 +126,32 @@ public class RedisCacheDriver implements CacheDriver
     }
 
     /**
+     * Removes all keys that start with the given prefix using SCAN.
+     *
+     * <p>Uses SCAN instead of KEYS to avoid blocking the Redis server on large keyspaces.</p>
+     *
+     * @param prefix The key prefix to match
+     */
+    @Override
+    public void forgetByPrefix(String prefix)
+    {
+        try (Jedis jedis = pool.getResource()) {
+            String cursor = "0";
+            String pattern = prefix + "*";
+            do {
+                redis.clients.jedis.params.ScanParams params =
+                        new redis.clients.jedis.params.ScanParams().match(pattern).count(100);
+                redis.clients.jedis.resps.ScanResult<String> result = jedis.scan(cursor, params);
+                cursor = result.getCursor();
+                List<String> keys = result.getResult();
+                if (!keys.isEmpty()) {
+                    jedis.del(keys.toArray(new String[0]));
+                }
+            } while (!cursor.equals("0"));
+        }
+    }
+
+    /**
      * Serializes a value to a string for storage in Redis.
      *
      * @param value The value to serialize

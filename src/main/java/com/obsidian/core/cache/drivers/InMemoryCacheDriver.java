@@ -97,4 +97,15 @@ public class InMemoryCacheDriver implements CacheDriver
     {
         store.remove(key);
     }
+
+    /**
+     * Removes all keys that start with the given prefix.
+     *
+     * @param prefix The key prefix to match
+     */
+    @Override
+    public void forgetByPrefix(String prefix)
+    {
+        store.keySet().removeIf(key -> key.startsWith(prefix));
+    }
 }

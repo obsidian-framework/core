@@ -55,4 +55,11 @@ public interface CacheDriver
      * @param key The cache key to remove
      */
     void forget(String key);
+
+    /**
+     * Removes all keys that start with the given prefix.
+     *
+     * @param prefix The key prefix to match
+     */
+    void forgetByPrefix(String prefix);
 }

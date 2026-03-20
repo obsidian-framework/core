@@ -22,16 +22,42 @@ abstract class ModelPersistence extends ModelAttributes {
 
     // ─── PUBLIC API ──────────────────────────────────────────
 
+    /**
+     * Persists the model — inserts if new, updates if existing.
+     *
+     * <p>Fires {@code saving}/{@code saved} observer callbacks.
+     * Flushes the model's cache entries on success.</p>
+     *
+     * @return {@code true} if the operation succeeded, {@code false} if an observer vetoed it
+     */
     public boolean save() {
         ModelObserver obs = meta().observer;
         if (obs != null && !obs.saving(self())) return false;
         boolean result = exists ? performUpdate() : performInsert();
-        if (result && obs != null) obs.saved(self());
+        if (result) {
+            if (obs != null) obs.saved(self());
+            ModelCache.flush(self().getClass());
+        }
         return result;
     }
 
+    /**
+     * Alias for {@link #save()}.
+     *
+     * @return {@code true} if the operation succeeded
+     */
     public boolean saveIt() { return save(); }
 
+    /**
+     * Deletes the model.
+     *
+     * <p>If soft deletes are enabled, sets {@code deleted_at} instead of removing the row.
+     * Fires {@code deleting}/{@code deleted} observer callbacks.
+     * Flushes the model's cache entries on success.</p>
+     *
+     * @return {@code true} if deleted, {@code false} if the model does not exist in the DB
+     *         or an observer vetoed the operation
+     */
     public boolean delete() {
         if (!exists) return false;
         ModelMetadata m = meta();
@@ -52,9 +78,19 @@ abstract class ModelPersistence extends ModelAttributes {
         }
 
         if (obs != null) obs.deleted(self());
+        ModelCache.flush(self().getClass());
         return true;
     }
 
+    /**
+     * Restores a soft-deleted model by clearing {@code deleted_at}.
+     *
+     * <p>No-op if the model does not use soft deletes.
+     * Fires {@code restoring}/{@code restored} observer callbacks.</p>
+     *
+     * @return {@code true} if restored, {@code false} if soft deletes are not enabled
+     *         or an observer vetoed the operation
+     */
     public boolean restore() {
         ModelMetadata m = meta();
         if (!m.softDeletes) return false;
@@ -71,6 +107,11 @@ abstract class ModelPersistence extends ModelAttributes {
         return true;
     }
 
+    /**
+     * Permanently deletes the model, bypassing soft deletes.
+     *
+     * @return {@code true} always
+     */
     public boolean forceDelete() {
         ModelMetadata m = meta();
         new QueryBuilder(m.table).where(m.primaryKey, getId()).delete();
@@ -78,6 +119,9 @@ abstract class ModelPersistence extends ModelAttributes {
         return true;
     }
 
+    /**
+     * Reloads the model's attributes from the database.
+     */
     void _refresh() {
         ModelMetadata m = meta();
         Map<String, Object> row = new QueryBuilder(m.table)
@@ -89,6 +133,9 @@ abstract class ModelPersistence extends ModelAttributes {
         }
     }
 
+    /**
+     * Returns {@code true} if this model instance exists in the database.
+     */
     public boolean exists() { return exists; }
 
     // ─── INTERNAL ────────────────────────────────────────────
