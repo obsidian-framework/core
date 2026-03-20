@@ -1,11 +1,17 @@
 /**
+ * Morphdom - Fast DOM diffing/patching (CDN inline)
+ * @see https://github.com/patrick-steele-idem/morphdom
+ */
+!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?module.exports=t():"function"==typeof define&&define.amd?define(t):(e="undefined"!=typeof globalThis?globalThis:e||self).morphdom=t()}(this,(function(){"use strict";var e,t,n,o,r,i="http://www.w3.org/1999/xhtml",a=typeof document>"u"?void 0:document,l=!!a&&"content"in a.createElement("template"),s=!!a&&a.createRange&&"createContextualFragment"in a.createRange();function c(e){var t=a.createElement("template");return t.innerHTML=e,t.content.childNodes[0]}function u(e){return(l?c:s?function(e){return n||(n=a.createRange()).selectNode(a.body),n.createContextualFragment(e).childNodes[0]}:function(e){return(o||(o=a.createElement("body"))).innerHTML=e,o.childNodes[0]})(e)}function d(e,t){var n,o,r=e.nodeName,i=t.nodeName;return r===i||(n=r.charCodeAt(0),o=i.charCodeAt(0),n<=90&&o>=97?r===i.toUpperCase():o<=90&&n>=97&&i===r.toUpperCase())}function f(e,t,n){e[n]!==t[n]&&(e[n]=t[n],e[n]?e.setAttribute(n,""):e.removeAttribute(n))}var p={OPTION:function(e,t){var n=e.parentNode;if(n){var o=n.nodeName.toUpperCase();"OPTGROUP"===o&&(o=(n=n.parentNode)&&n.nodeName.toUpperCase()),"SELECT"!==o||n.hasAttribute("multiple")||(e.hasAttribute("selected")&&!t.selected&&(e.setAttribute("selected","selected"),e.removeAttribute("selected")),n.selectedIndex=-1)}f(e,t,"selected")},INPUT:function(e,t){f(e,t,"checked"),f(e,t,"disabled"),e.value!==t.value&&(e.value=t.value),t.hasAttribute("value")||e.removeAttribute("value")},TEXTAREA:function(e,t){var n=t.value;e.value!==n&&(e.value=n);var o=e.firstChild;if(o){var r=o.nodeValue;if(r==n||!n&&r==e.placeholder)return;o.nodeValue=n}},SELECT:function(e,t){if(!t.hasAttribute("multiple")){for(var n,o,r=-1,i=0,a=e.firstChild;a;)if("OPTGROUP"===(o=a.nodeName&&a.nodeName.toUpperCase()))a=(n=a).firstChild;else{if("OPTION"===o){if(a.hasAttribute("selected")){r=i;break}i++}!(a=a.nextSibling)&&n&&(a=n.nextSibling,n=null)}e.selectedIndex=r}}};function m(){}function h(e){if(e)return e.getAttribute&&e.getAttribute("id")||e.id}var g=(e=function(e){return function(t,n,o){var a,l,s=o||{};if("string"==typeof n)if("#document"===t.nodeName||"HTML"===t.nodeName||"BODY"===t.nodeName){var c=n;(n=a.createElement("html")).innerHTML=c}else n=u(n);else 11===n.nodeType&&(n=n.firstElementChild);var c=s.getNodeKey||h,d=s.onBeforeNodeAdded||m,f=s.onNodeAdded||m,g=s.onBeforeElUpdated||m,v=s.onElUpdated||m,b=s.onBeforeNodeDiscarded||m,y=s.onNodeDiscarded||m,w=s.onBeforeElChildrenUpdated||m,k=!1!==s.childrenOnly,E=Object.create(null),C=[];function x(e){C.push(e)}function S(e,t){if(1===e.nodeType)for(var n=e.firstChild;n;){var o=void 0;t&&(o=c(n))?x(o):(y(n),n.firstChild&&S(n,t)),n=n.nextSibling}}function A(e,t,n){!1!==b(e)&&(t&&t.removeChild(e),y(e),S(e,n))}function N(e){f(e);for(var t=e.firstChild;t;){var n=t.nextSibling,o=c(t);if(o){var r=E[o];r&&d(t,r)?(t.parentNode.replaceChild(r,t),T(r,t)):N(t)}else N(t);t=n}}function T(t,n,o){var r,a=c(n);if(a&&delete E[a],!o){if(!1===g(t,n))return;if(t.actualize&&(t=t.actualize(t.ownerDocument||a)),e(t,n),v(t),!1===w(t,n))return}"TEXTAREA"!==t.nodeName?function(e,t,n,o,r){var a,l,s,u,f,m=t.firstChild,h=e.firstChild;e:for(;m;){for(u=m.nextSibling,a=c(m);h;){if(s=h.nextSibling,m.isSameNode&&m.isSameNode(h)){m=u,h=s;continue e}var g=c(h),v=l,b=m.nodeType,y=void 0;if(b===h.nodeType&&(1===b?(a?a!==g&&((f=E[a])?s===f?y=!1:(e.insertBefore(f,h),g?x(g):A(h,e,!0),h=f):y=!1):g&&(y=!1),(y=!1!==y&&d(h,m))&&T(h,m)):3!==b&&8!==b||(y=!0,h.nodeValue!==m.nodeValue&&(h.nodeValue=m.nodeValue))),y){m=u,h=s;continue e}g?x(g):A(h,e,!0),h=s}if(a&&(f=E[a])&&d(f,m))e.appendChild(f),T(f,m);else{var w=r(m);!1!==w&&(w&&(m=w),m.actualize&&(m=m.actualize(e.ownerDocument||i)),e.appendChild(m),N(m))}m=u,h=s}!function(e,t,n){for(;t;){var o=t.nextSibling;(n=c(t))?x(n):A(t,e,!0),t=o}}(e,h,0);var k=p[e.nodeName];k&&k(e,o)}(t,n,0,0,d):p.TEXTAREA(t,n)}(l=t).nodeType;return function(e){for(var t=e.firstChild;t;){var n=c(t);n&&(E[n]=t),t=t.nextSibling}}(l),function(e,t,n){1===t.nodeType&&(n=n||a,e===a?e=i:"string"==typeof e&&(e=n.createElement(e)),T(e,t,k));return e}(t,n,s.document||a)}}.call(t={},function(e,t){var n,o,r,i,a=t.attributes;if(11!==t.nodeType&&11!==e.nodeType){for(var l=a.length-1;l>=0;l--)o=(n=a[l]).name,r=n.namespaceURI,i=n.value,r?(o=n.localName||o,e.getAttributeNS(r,o)!==i&&("xmlns"===n.prefix&&(o=n.name),e.setAttributeNS(r,o,i))):e.getAttribute(o)!==i&&e.setAttribute(o,i);for(var s=e.attributes,c=s.length-1;c>=0;c--)o=(n=s[c]).name,(r=n.namespaceURI)?(o=n.localName||o,t.hasAttributeNS(r,o)||e.removeAttributeNS(r,o)):t.hasAttribute(o)||e.removeAttribute(o)}}),t.exports);return g}));
+
+/**
  * Obsidian LiveComponents - Client-side reactive component system
  *
  * Manages server-side reactive components with automatic DOM updates,
  * real-time validation, and seamless state synchronization.
  *
  * @class ObsidianComponents
- * @version 1.0.0
+ * @version 1.1.0 — Now powered by morphdom for surgical DOM patching.
  *
  * Features:
  * - live:click - Click event handling with server actions
@@ -78,9 +84,6 @@ class ObsidianComponents {
         document.querySelectorAll('[live\\:lazy]').forEach(placeholder => {
             const componentName = placeholder.getAttribute('live:lazy');
             const propsAttr = placeholder.getAttribute('live:props');
-
-            // Keep existing innerHTML as skeleton — if empty, nothing is shown
-            const skeleton = placeholder.innerHTML.trim();
 
             let url = `/obsidian/components/mount?component=${encodeURIComponent(componentName)}`;
             if (propsAttr) {
@@ -164,22 +167,23 @@ class ObsidianComponents {
      * @param {string} componentId - Component identifier
      */
     attachModelBindings(element, componentId) {
-        // Find all inputs with live:model
         const modelInputs = element.querySelectorAll('[live\\:model]');
 
         modelInputs.forEach(input => {
+            // Skip inputs that already have bindings attached
+            if (input._liveModelBound) return;
+            input._liveModelBound = true;
+
             const fieldName = input.getAttribute('live:model');
             const debounceTime = parseInt(input.getAttribute('live:debounce')) || 300;
             const updateOnBlur = input.hasAttribute('live:blur');
             const updateOnEnter = input.hasAttribute('live:enter');
 
             if (updateOnBlur) {
-                // Update only on blur
                 input.addEventListener('blur', () => {
                     this.updateModel(componentId, fieldName, input.value);
                 });
             } else if (updateOnEnter) {
-                // Update only on Enter key
                 input.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
@@ -187,7 +191,6 @@ class ObsidianComponents {
                     }
                 });
             } else {
-                // Update on input with debounce (default)
                 const debouncedUpdate = this.debounce((value) => {
                     this.updateModel(componentId, fieldName, value);
                 }, debounceTime);
@@ -204,24 +207,22 @@ class ObsidianComponents {
      * Prevents default form submission and calls server action.
      * Clears validation errors before submission.
      *
-     * Usage: <form live:submit="submitForm">
-     *
      * @param {Element} element - Component root element
      * @param {string} componentId - Component identifier
      */
     attachSubmit(element, componentId) {
-        // Find forms with live:submit
         const forms = element.querySelectorAll('[live\\:submit]');
 
         forms.forEach(form => {
+            // Skip forms that already have bindings attached
+            if (form._liveSubmitBound) return;
+            form._liveSubmitBound = true;
+
             const action = form.getAttribute('live:submit');
 
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
-
-                // Clear previous validation errors
                 this.clearValidationErrors(element);
-
                 this.call(componentId, action);
             });
         });
@@ -229,7 +230,6 @@ class ObsidianComponents {
 
     /**
      * Updates a model field value on the server.
-     * Called automatically by live:model bindings.
      *
      * @param {string} componentId - Component identifier
      * @param {string} fieldName - Field name to update
@@ -241,7 +241,6 @@ class ObsidianComponents {
 
     /**
      * Creates a debounced function that delays execution.
-     * Used for live:model inputs to avoid excessive server calls.
      *
      * @param {Function} func - Function to debounce
      * @param {number} wait - Delay in milliseconds
@@ -275,7 +274,6 @@ class ObsidianComponents {
         const pollAttr = element.getAttribute('live:poll');
         if (!pollAttr) return;
 
-        // Parse interval: "5000" or "5s" or "5m"
         let interval = parseInt(pollAttr);
         if (pollAttr.endsWith('s')) {
             interval = parseInt(pollAttr) * 1000;
@@ -283,7 +281,6 @@ class ObsidianComponents {
             interval = parseInt(pollAttr) * 60000;
         }
 
-        // Get optional action name (live:poll.5s="refreshStats")
         let action = null;
         for (let attr of element.attributes) {
             if (attr.name.startsWith('live:poll.') && !attr.name.includes('live:poll.class')) {
@@ -294,20 +291,16 @@ class ObsidianComponents {
 
         const component = this.components.get(componentId);
         if (component) {
-            // Clear existing interval if any
             if (component.pollInterval) {
                 clearInterval(component.pollInterval);
             }
 
-            // Set new polling interval
             component.pollInterval = setInterval(() => {
                 if (!document.contains(element)) {
-                    // Component removed from DOM, stop polling
                     clearInterval(component.pollInterval);
                     return;
                 }
 
-                // Call action or just refresh
                 if (action) {
                     this.call(componentId, action);
                 } else {
@@ -319,9 +312,6 @@ class ObsidianComponents {
 
     /**
      * Calls initialization action when component mounts.
-     * Used with [live:init] attribute.
-     *
-     * Usage: <div live:init="loadData">
      *
      * @param {Element} element - Component root element
      * @param {string} componentId - Component identifier
@@ -329,7 +319,6 @@ class ObsidianComponents {
     attachInit(element, componentId) {
         const initAction = element.getAttribute('live:init');
         if (initAction) {
-            // Call init action after a short delay to ensure component is mounted
             setTimeout(() => {
                 this.call(componentId, initAction);
             }, 100);
@@ -341,10 +330,8 @@ class ObsidianComponents {
      * Manages loading state, state synchronization, and validation errors.
      *
      * @param {string} componentId - Component identifier
-     * @param {string} action - Action method name (e.g., "submit", "delete(42)")
+     * @param {string} action - Action method name
      * @param {Object} customParams - Optional custom parameters
-     * @param {string} customParams.field - Field name for model updates
-     * @param {*} customParams.value - Field value for model updates
      * @returns {Promise<void>}
      */
     async call(componentId, action, customParams = {}) {
@@ -354,18 +341,13 @@ class ObsidianComponents {
         try {
             component.loading = true;
             this.showLoading(component.element);
-
-            // Clear validation errors before call
             this.clearValidationErrors(component.element);
 
             const state = this.captureState(component.element);
-
-            // Parse action name and parameters from string like "vote('Functional')"
             const parsed = this.parseAction(action);
 
-            // Merge parsed params with custom params (for __updateModel)
             const finalParams = customParams.field ?
-                [customParams.value] : // For __updateModel, pass value directly
+                [customParams.value] :
                 parsed.params;
 
             const response = await fetch('/obsidian/components', {
@@ -389,7 +371,6 @@ class ObsidianComponents {
             const data = await response.json();
 
             if (data.success) {
-                // Redirect — navigate and stop processing
                 if (data.redirect) {
                     window.location.href = data.redirect;
                     return;
@@ -397,7 +378,6 @@ class ObsidianComponents {
 
                 this.updateComponent(componentId, data.html);
 
-                // Dispatch client-side event after re-render
                 if (data.event) {
                     const event = new CustomEvent(data.event, {
                         bubbles: true,
@@ -406,7 +386,6 @@ class ObsidianComponents {
                     document.dispatchEvent(event);
                 }
 
-                // Check if component has validation errors in new state
                 if (data.state && data.state.errors) {
                     this.displayValidationErrors(component.element, data.state.errors);
                 }
@@ -428,7 +407,6 @@ class ObsidianComponents {
 
     /**
      * Captures current state from component inputs.
-     * Collects values from all inputs, textareas, and selects.
      *
      * @param {Element} element - Component root element
      * @returns {Object} State object with field values
@@ -436,8 +414,7 @@ class ObsidianComponents {
     captureState(element) {
         const state = {};
         const inputs = element.querySelectorAll('input, textarea, select');
-        inputs.forEach(input =>
-        {
+        inputs.forEach(input => {
             const key = input.getAttribute('name') || input.getAttribute('live:model');
             if (!key) return;
 
@@ -456,12 +433,13 @@ class ObsidianComponents {
     }
 
     /**
-     * Updates component DOM with new HTML from server.
-     * Replaces element and re-attaches event listeners.
-     * Preserves focus and cursor position to avoid jarring UX.
+     * Updates component DOM using morphdom for surgical patching.
+     * Only mutates the nodes that actually changed — preserves focus,
+     * cursor position, scroll state, CSS animations, and event listeners
+     * on unchanged nodes automatically.
      *
      * @param {string} componentId - Component identifier
-     * @param {string} html - New HTML content
+     * @param {string} html - New HTML content from server
      */
     updateComponent(componentId, html) {
         const component = this.components.get(componentId);
@@ -473,102 +451,71 @@ class ObsidianComponents {
             return;
         }
 
-        if (!component.element.parentNode) {
-            console.warn('Component element has no parent:', componentId);
-            this.components.delete(componentId);
-            return;
-        }
-
-        const currentHTML = component.element.outerHTML.trim();
-        const newHTML = html.trim();
-
-        if (currentHTML === newHTML) {
-            console.log('HTML identical, skipping DOM update');
-            return;
-        }
-
-        const activeElement = document.activeElement;
-        const hadFocus = component.element.contains(activeElement);
-        const focusedName = hadFocus ? activeElement.getAttribute('name') : null;
-        const focusedModel = hadFocus ? activeElement.getAttribute('live:model') : null;
-        const cursorPosition = hadFocus && activeElement.setSelectionRange
-            ? activeElement.selectionStart
-            : null;
-        const inputValue = hadFocus ? activeElement.value : null;
-
-        try {
-            const parent = component.element.parentNode;
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-            const newElement = tempDiv.firstElementChild;
-
-            parent.replaceChild(newElement, component.element);
-
-            this.components.set(componentId, {
-                element: newElement,
-                loading: false,
-                pollInterval: component.pollInterval
-            });
-
-            if (hadFocus && (focusedName || focusedModel)) {
-                const selector = focusedName
-                    ? `[name="${focusedName}"]`
-                    : `[live\\:model="${focusedModel}"]`;
-                const inputToFocus = newElement.querySelector(selector);
-
-                if (inputToFocus) {
-                    requestAnimationFrame(() => {
-                        if (inputValue !== null) {
-                            inputToFocus.value = inputValue;
-                        }
-                        inputToFocus.focus();
-                        if (cursorPosition !== null && inputToFocus.setSelectionRange) {
-                            inputToFocus.setSelectionRange(cursorPosition, cursorPosition);
-                        }
-                    });
+        // morphdom patches the existing element in-place
+        const updatedElement = morphdom(component.element, html, {
+            /**
+             * Called before an existing element is updated.
+             * Skips update on the currently focused input to preserve
+             * user typing (value, cursor, selection).
+             */
+            onBeforeElUpdated(fromEl, toEl) {
+                // Don't touch the actively focused input
+                if (fromEl === document.activeElement
+                    && (fromEl.tagName === 'INPUT' || fromEl.tagName === 'TEXTAREA' || fromEl.tagName === 'SELECT')) {
+                    return false;
                 }
-            }
+                return true;
+            },
 
-            this.attachModelBindings(newElement, componentId);
-            this.attachSubmit(newElement, componentId);
-        } catch (error) {
-            console.error('Failed to update component:', componentId, error);
-        }
+            /**
+             * Called when a new element is added to the DOM.
+             * Used to attach live:model and live:submit bindings
+             * on freshly created nodes.
+             */
+            onNodeAdded: (node) => {
+                if (node.nodeType !== 1) return node;
+
+                // Attach bindings on new nodes that have live: attributes
+                if (node.hasAttribute && node.hasAttribute('live:model') && !node._liveModelBound) {
+                    this.attachModelBindings(node.parentElement || component.element, componentId);
+                }
+                if (node.hasAttribute && node.hasAttribute('live:submit') && !node._liveSubmitBound) {
+                    this.attachSubmit(node.parentElement || component.element, componentId);
+                }
+
+                return node;
+            }
+        });
+
+        // Update the reference — morphdom may return the same or a new root
+        this.components.set(componentId, {
+            element: updatedElement,
+            loading: false,
+            pollInterval: component.pollInterval
+        });
     }
 
     /**
      * Displays validation errors from server response.
-     * Adds error classes to inputs and shows error messages.
-     *
-     * Error display:
-     * - Adds 'is-invalid' and 'border-red-500' classes to inputs
-     * - Creates error message spans with class 'error-message'
-     * - Automatically clears on next action
      *
      * @param {Element} element - Component root element
      * @param {Object} errors - Validation errors map (field -> message)
      */
     displayValidationErrors(element, errors) {
-        // errors is a Map<String, String> from server
         if (!errors || typeof errors !== 'object') return;
 
         Object.entries(errors).forEach(([field, message]) => {
-            // Find input by name or live:model attribute
             const input = element.querySelector(`[name="${field}"], [live\\:model="${field}"]`);
 
             if (input) {
-                // Add error class to input
                 input.classList.add('is-invalid', 'border-red-500');
 
-                // Find or create error message element
                 let errorElement = input.parentElement.querySelector('.error-message, .validation-error');
 
                 if (!errorElement) {
                     errorElement = document.createElement('span');
                     errorElement.className = 'error-message validation-error text-red-500 text-sm mt-1';
                     errorElement.setAttribute('data-validation-error', field);
-
-                    // Insert after input
                     input.parentElement.insertBefore(errorElement, input.nextSibling);
                 }
 
@@ -580,17 +527,14 @@ class ObsidianComponents {
 
     /**
      * Clears all validation errors from component.
-     * Removes error classes and error message elements.
      *
      * @param {Element} element - Component root element
      */
     clearValidationErrors(element) {
-        // Remove error classes from inputs
         element.querySelectorAll('.is-invalid, .border-red-500').forEach(input => {
             input.classList.remove('is-invalid', 'border-red-500');
         });
 
-        // Remove error messages
         element.querySelectorAll('[data-validation-error]').forEach(error => {
             error.remove();
         });
@@ -599,27 +543,16 @@ class ObsidianComponents {
     /**
      * Shows loading indicators in component.
      *
-     * Supports multiple indicator types:
-     * - [live:loading] - Default: shows element
-     * - [live:loading.class="spinner"] - Adds specific classes
-     * - [live:loading.add="opacity-50"] - Adds classes during loading
-     * - [live:loading.remove="hidden"] - Removes classes during loading
-     *
-     * Also disables all buttons with [live:click] during loading.
-     *
      * @param {Element} element - Component root element
      */
     showLoading(element) {
-        // Show loading indicators (display style)
         const loadingIndicators = element.querySelectorAll('[live\\:loading]');
         loadingIndicators.forEach(indicator => {
-            // Check if it has .class modifier
             const classList = indicator.getAttribute('live:loading.class');
             const addClasses = indicator.getAttribute('live:loading.add');
             const removeClasses = indicator.getAttribute('live:loading.remove');
 
             if (classList) {
-                // Add specific classes
                 classList.split(' ').forEach(cls => indicator.classList.add(cls));
             } else if (addClasses || removeClasses) {
                 if (addClasses) {
@@ -629,12 +562,10 @@ class ObsidianComponents {
                     removeClasses.split(' ').forEach(cls => indicator.classList.remove(cls));
                 }
             } else {
-                // Default: show by changing display
                 indicator.style.display = '';
             }
         });
 
-        // Disable buttons
         const buttons = element.querySelectorAll('button[live\\:click], [live\\:click]');
         buttons.forEach(btn => {
             btn.disabled = true;
@@ -645,13 +576,10 @@ class ObsidianComponents {
 
     /**
      * Hides loading indicators in component.
-     * Reverses changes made by showLoading().
-     * Re-enables all buttons.
      *
      * @param {Element} element - Component root element
      */
     hideLoading(element) {
-        // Hide loading indicators
         const loadingIndicators = element.querySelectorAll('[live\\:loading]');
         loadingIndicators.forEach(indicator => {
             const classList = indicator.getAttribute('live:loading.class');
@@ -659,7 +587,6 @@ class ObsidianComponents {
             const removeClasses = indicator.getAttribute('live:loading.remove');
 
             if (classList) {
-                // Remove specific classes
                 classList.split(' ').forEach(cls => indicator.classList.remove(cls));
             } else if (addClasses || removeClasses) {
                 if (addClasses) {
@@ -669,12 +596,10 @@ class ObsidianComponents {
                     removeClasses.split(' ').forEach(cls => indicator.classList.add(cls));
                 }
             } else {
-                // Default: hide by changing display
                 indicator.style.display = 'none';
             }
         });
 
-        // Re-enable buttons
         const buttons = element.querySelectorAll('button[live\\:click], [live\\:click]');
         buttons.forEach(btn => {
             btn.disabled = false;
@@ -685,7 +610,6 @@ class ObsidianComponents {
 
     /**
      * Shows error message in component.
-     * Creates a temporary error banner that auto-dismisses after 5 seconds.
      *
      * @param {Element} element - Component root element
      * @param {string} message - Error message to display
@@ -700,10 +624,6 @@ class ObsidianComponents {
 
     /**
      * Retrieves CSRF token from meta tag or cookies.
-     * Checks in order:
-     * 1. <meta name="csrf-token"> tag
-     * 2. CSRF-TOKEN cookie
-     * 3. _csrf cookie
      *
      * @returns {string|null} CSRF token or null if not found
      */
@@ -724,21 +644,13 @@ class ObsidianComponents {
     /**
      * Parses action string with method call syntax.
      *
-     * Supported formats:
-     * - "increment" → { name: "increment", params: [] }
-     * - "delete(42)" → { name: "delete", params: [42] }
-     * - "vote('Functional')" → { name: "vote", params: ["Functional"] }
-     * - "update('name', 'John')" → { name: "update", params: ["name", "John"] }
-     *
      * @param {string} actionString - Action string to parse
-     * @returns {{name: string, params: Array}} Parsed action with name and parameters
+     * @returns {{name: string, params: Array}} Parsed action
      */
     parseAction(actionString) {
-        // Parse "vote('Functional')" or "deleteTodo(42)" or "update('name', 'John')"
         const match = actionString.match(/^(\w+)\((.*)\)$/);
 
         if (!match) {
-            // Simple action without params: "increment"
             return { name: actionString, params: [] };
         }
 
@@ -746,11 +658,9 @@ class ObsidianComponents {
         const paramsString = match[2];
 
         if (!paramsString.trim()) {
-            // Empty params: "reset()"
             return { name, params: [] };
         }
 
-        // Parse parameters
         const params = [];
         let current = '';
         let inString = false;
@@ -788,29 +698,20 @@ class ObsidianComponents {
     /**
      * Parses a parameter value to appropriate JavaScript type.
      *
-     * Type detection:
-     * - 'true' → boolean true
-     * - 'false' → boolean false
-     * - 'null' → null
-     * - Numeric string → Number
-     * - Other → String (as-is)
-     *
      * @param {string} value - Value string to parse
-     * @returns {*} Parsed value with appropriate type
+     * @returns {*} Parsed value
      */
     parseValue(value) {
-        // Parse different types: 'string', 42, true, false, null
         if (value === 'true') return true;
         if (value === 'false') return false;
         if (value === 'null') return null;
         if (!isNaN(value) && value !== '') return Number(value);
-        return value; // String
+        return value;
     }
 }
 
 /**
  * Initializes ObsidianComponents when DOM is ready.
- * Creates global instance accessible via window.ObsidianComponents.
  */
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
