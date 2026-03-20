@@ -1,7 +1,7 @@
 package com.obsidian.core.http.middleware.builtin;
 
+import com.obsidian.core.database.DB;
 import com.obsidian.core.http.middleware.Middleware;
-import org.javalite.activejdbc.Base;
 import spark.Request;
 import spark.Response;
 
@@ -25,8 +25,8 @@ public class DatabaseCloseMiddleware implements Middleware
     @Override
     public void handle(Request req, Response res)
     {
-        if (Base.hasConnection()) {
-            Base.close();
+        if (DB.hasConnection()) {
+            DB.closeConnection();
         }
     }
 }
