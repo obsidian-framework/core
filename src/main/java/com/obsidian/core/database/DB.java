@@ -18,8 +18,9 @@ import java.util.concurrent.Callable;
  * <ul>
  *   <li>The singleton field is {@code volatile} to guarantee safe publication
  *       in multi-threaded environments without a full lock on every read.</li>
- *   <li>MySQL connections require SSL by default. Set
- *       {@code OBSIDIAN_DB_DISABLE_SSL=true} (env) only in local dev/test.</li>
+ *   <li>MySQL/PostgreSQL connections require SSL by default. Set
+ *       {@code OBSIDIAN_DB_DISABLE_SSL=true} (env or system property) only in
+ *       local dev/test. System property takes priority over env variable.</li>
  *   <li>Credentials are never written to the log.</li>
  * </ul>
  *
@@ -217,10 +218,14 @@ public class DB
      * Builds a JDBC URL for the given database type.
      *
      * <p>SSL is enabled for both MySQL and PostgreSQL by default.
-     * Disable only for local dev/test by setting {@code OBSIDIAN_DB_DISABLE_SSL=true}.</p>
+     * Disable only for local dev/test by setting {@code OBSIDIAN_DB_DISABLE_SSL=true}
+     * as an environment variable OR as a JVM system property ({@code -DOBSIDIAN_DB_DISABLE_SSL=true}).
+     * System property takes priority — this allows {@code exec-maven-plugin} to pass the flag
+     * via {@code <systemProperties>} without relying on OS-level env injection, which does not
+     * work when Maven runs in-process.</p>
      */
     private String buildJdbcUrl(DatabaseType type, String host, int port, String database) {
-        boolean disableSsl = "true".equalsIgnoreCase(System.getenv("OBSIDIAN_DB_DISABLE_SSL"));
+        boolean disableSsl = isSslDisabled();
         return switch (type) {
             case MYSQL -> {
                 if (disableSsl) {
@@ -248,6 +253,20 @@ public class DB
             }
             default -> throw new IllegalArgumentException("Unsupported database type: " + type);
         };
+    }
+
+    /**
+     * Returns true if SSL should be disabled.
+     *
+     * <p>Checks system property first (set via {@code -D} or {@code exec-maven-plugin}
+     * {@code <systemProperties>}), then falls back to the OS environment variable.
+     * System property wins because {@code exec:java} runs in-process and cannot inject
+     * environment variables after JVM startup.</p>
+     */
+    private boolean isSslDisabled() {
+        String sysProp = System.getProperty("OBSIDIAN_DB_DISABLE_SSL");
+        if (sysProp != null) return "true".equalsIgnoreCase(sysProp);
+        return "true".equalsIgnoreCase(System.getenv("OBSIDIAN_DB_DISABLE_SSL"));
     }
 
     // ─── CONNECTION MANAGEMENT ───────────────────────────────
