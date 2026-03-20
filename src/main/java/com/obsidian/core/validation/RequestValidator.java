@@ -1,5 +1,7 @@
 package com.obsidian.core.validation;
 
+import com.obsidian.core.database.orm.query.QueryBuilder;
+import com.obsidian.core.database.orm.query.SqlIdentifier;
 import spark.Request;
 
 import java.util.HashMap;
@@ -280,21 +282,28 @@ public class RequestValidator {
         return true;
     }
 
-    private boolean validateUnique(String field, String value, String params)
-    {
+    private boolean validateUnique(String field, String value, String params) {
         if (value == null) return true;
         try {
             String[] parts = params.split(",");
-            String table = parts[0];
-            String column = parts.length > 1 ? parts[1] : field;
+            String table = parts[0].trim();
+            String column = parts.length > 1 ? parts[1].trim() : field;
 
-            long count = org.javalite.activejdbc.Base.count(table, column + " = ?", value);
+            // Valider les identifiants avant interpolation DDL
+            SqlIdentifier.requireIdentifier(table);
+            SqlIdentifier.requireIdentifier(column);
+
+            long count = new QueryBuilder(table)
+                    .where(column, value)
+                    .count();
 
             if (count > 0) {
                 errors.add(field, "The " + field + " has already been taken");
                 return false;
             }
 
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Unique validation config invalid: " + e.getMessage(), e);
         } catch (Exception e) {
             throw new RuntimeException("Unique validation failed", e);
         }

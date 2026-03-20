@@ -15,16 +15,20 @@ public enum DatabaseType
         this.value = value;
     }
 
+    /**
+     * Value.
+     *
+     * @return The string value
+     */
     public String value() {
         return value;
     }
 
     /**
-     * Resolves a DatabaseType from a string value.
-     * Defaults to SQLITE if null, empty, or unrecognized.
+     * From String.
      *
-     * @param value The string value (case-insensitive)
-     * @return The matching DatabaseType
+     * @param value The value to compare against
+     * @return This instance for method chaining
      */
     public static DatabaseType fromString(String value) {
         if (value == null || value.isBlank()) return SQLITE;

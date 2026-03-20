@@ -29,11 +29,16 @@ public class SeederLoader
     {
         logger.info("Loading seeders...");
         try {
+            String basePackage = com.obsidian.core.core.Obsidian.getBasePackage();
             Set<Class<?>> seederClasses = ReflectionsProvider.getTypesAnnotatedWith(Seeder.class);
 
             List<SeederEntry> seeders = new ArrayList<>();
 
             for (Class<?> seederClass : seederClasses) {
+                if (!seederClass.getName().startsWith(basePackage)) {
+                    logger.debug("Skipping seeder outside base package: {}", seederClass.getName());
+                    continue;
+                }
                 Seeder annotation = seederClass.getAnnotation(Seeder.class);
                 seeders.add(new SeederEntry(seederClass, annotation.priority()));
             }

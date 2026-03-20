@@ -82,6 +82,16 @@ public class WebServer
         init();
         after((req, res) -> SessionMiddleware.clear());
 
+        after((req, res) -> SessionMiddleware.clear());
+
+        afterAfter((req, res) -> {
+            try {
+                MiddlewareManager.executeAfter(new Class[0], req, res);
+            } catch (Exception e) {
+                logger.error("After middleware error: {}", e.getMessage());
+            }
+        });
+
         logger.info("Web server started on port {}", Obsidian.getWebPort());
     }
 }

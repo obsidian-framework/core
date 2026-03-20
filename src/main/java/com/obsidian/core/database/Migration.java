@@ -1,6 +1,6 @@
 package com.obsidian.core.database;
 
-import org.javalite.activejdbc.Base;
+import com.obsidian.core.database.orm.query.SqlIdentifier;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
@@ -8,317 +8,140 @@ import java.util.List;
 
 /**
  * Base class for database migrations.
- * Provides schema modification methods with multi-database support.
+ *
+ * @see Blueprint
  */
 public abstract class Migration
 {
-    /** Database type */
+
+    /** Database type — set by MigrationManager before calling up() / down(). */
     protected DatabaseType type;
 
-    /** Logger instance */
+    /** Logger — set by MigrationManager before calling up() / down(). */
     protected Logger logger;
 
-    /**
-     * Executes migration (creates/modifies schema).
-     */
+    /** Applies the migration. */
     public abstract void up();
 
-    /**
-     * Reverts migration (rolls back changes).
-     */
+    /** Reverts the migration. */
     public abstract void down();
 
+    // ─── DDL ─────────────────────────────────────────────────
+
     /**
-     * Creates a new table with specified columns.
+     * Creates a table using a Blueprint callback.
      *
-     * @param tableName Name of table to create
-     * @param builder Callback to define table structure
+     * @param tableName table name — must be a valid SQL identifier
+     * @param builder   callback that receives a Blueprint to define columns
      */
-    protected void createTable(String tableName, TableBuilder builder)
-    {
-        StringBuilder sql = new StringBuilder();
-        sql.append("CREATE TABLE IF NOT EXISTS ").append(tableName).append(" (");
+    protected void createTable(String tableName, TableBuilder builder) {
+        SqlIdentifier.requireIdentifier(tableName);
 
-        List<String> columns = new ArrayList<>();
-        builder.build(new Blueprint(columns, type));
+        List<String> columns     = new ArrayList<>();
+        List<String> constraints = new ArrayList<>();
+        builder.build(new Blueprint(columns, constraints, type));
 
-        sql.append(String.join(", ", columns));
-        sql.append(")");
+        List<String> allParts = new ArrayList<>(columns);
+        allParts.addAll(constraints);
 
-        Base.exec(sql.toString());
-        logger.info("Table created: " + tableName);
+        DB.exec("CREATE TABLE IF NOT EXISTS " + tableName +
+                " (" + String.join(", ", allParts) + ")");
+        logger.info("Table created: {}", tableName);
     }
 
     /**
      * Drops a table if it exists.
      *
-     * @param tableName Name of table to drop
+     * @param tableName table name — must be a valid SQL identifier
      */
     protected void dropTable(String tableName) {
-        Base.exec("DROP TABLE IF EXISTS " + tableName);
-        logger.info("Table dropped: " + tableName);
+        SqlIdentifier.requireIdentifier(tableName);
+        DB.exec("DROP TABLE IF EXISTS " + tableName);
+        logger.info("Table dropped: {}", tableName);
     }
 
     /**
-     * Adds a column to existing table.
+     * Adds a column to an existing table.
      *
-     * @param tableName Table name
-     * @param columnName Column name
-     * @param definition Column definition (type and constraints)
+     * @param tableName  table name
+     * @param columnName column name
+     * @param definition raw column type definition e.g. "VARCHAR(255) NOT NULL"
      */
     protected void addColumn(String tableName, String columnName, String definition) {
-        Base.exec(String.format("ALTER TABLE %s ADD COLUMN %s %s", tableName, columnName, definition));
-        logger.info("Column added: " + tableName + "." + columnName);
+        SqlIdentifier.requireIdentifier(tableName);
+        SqlIdentifier.requireIdentifier(columnName);
+        DB.exec("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + definition);
+        logger.info("Column added: {}.{}", tableName, columnName);
     }
 
     /**
-     * Drops a column from table.
-     * Note: Not supported in SQLite.
+     * Drops a column from a table.
      *
-     * @param tableName Table name
-     * @param columnName Column name
+     * @param tableName  table name
+     * @param columnName column name
      */
     protected void dropColumn(String tableName, String columnName) {
         if (type == DatabaseType.SQLITE) {
-            logger.warn("SQLite does not support DROP COLUMN - migration skipped");
+            logger.warn("SQLite does not support DROP COLUMN — skipped for column: {}", columnName);
             return;
         }
-        Base.exec(String.format("ALTER TABLE %s DROP COLUMN %s", tableName, columnName));
-        logger.info("Column dropped: " + tableName + "." + columnName);
+        SqlIdentifier.requireIdentifier(tableName);
+        SqlIdentifier.requireIdentifier(columnName);
+        DB.exec("ALTER TABLE " + tableName + " DROP COLUMN " + columnName);
+        logger.info("Column dropped: {}.{}", tableName, columnName);
     }
 
     /**
-     * Checks if a table exists in database.
+     * Renames a table.
      *
-     * @param tableName Table name to check
-     * @return true if table exists, false otherwise
+     * @param from current table name
+     * @param to   new table name
      */
-    protected boolean tableExists(String tableName)
-    {
-        String checkSQL = switch (type) {
-            case MYSQL -> "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?";
+    protected void renameTable(String from, String to) {
+        SqlIdentifier.requireIdentifier(from);
+        SqlIdentifier.requireIdentifier(to);
+        DB.exec("ALTER TABLE " + from + " RENAME TO " + to);
+        logger.info("Table renamed: {} -> {}", from, to);
+    }
+
+    /**
+     * Returns true if the given table exists.
+     *
+     * @param tableName table name to check
+     * @return true if the table exists
+     */
+    protected boolean tableExists(String tableName) {
+        String sql = switch (type) {
+            case MYSQL      -> "SELECT COUNT(*) FROM information_schema.tables " +
+                    "WHERE table_schema = DATABASE() AND table_name = ?";
             case POSTGRESQL -> "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?";
-            default -> "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?";
+            default         -> "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?";
         };
-
-        Object result = Base.firstCell(checkSQL, tableName);
+        Object result = DB.firstCell(sql, tableName);
         if (result == null) return false;
-
-        long count = result instanceof Long ? (Long) result : Long.parseLong(result.toString());
+        long count = result instanceof Long l ? l : Long.parseLong(result.toString());
         return count > 0;
     }
 
     /**
-     * Functional interface for table building.
+     * Executes raw SQL with bound parameters.
+     *
+     * @param sql    raw SQL — caller must ensure safety
+     * @param params values bound via PreparedStatement
      */
-    @FunctionalInterface
-    public interface TableBuilder {
-        void build(Blueprint blueprint);
+    protected void raw(String sql, Object... params) {
+        DB.exec(sql, params);
     }
 
-    /**
-     * Schema builder for defining table columns.
-     * Provides fluent API for column definitions with database-specific syntax.
-     */
-    public static class Blueprint {
-        private final List<String> columns;
-        private final DatabaseType dbType;
+    // ─── FUNCTIONAL INTERFACE ────────────────────────────────
 
-        public Blueprint(List<String> columns, DatabaseType dbType) {
-            this.columns = columns;
-            this.dbType = dbType;
-        }
-
+    @FunctionalInterface
+    public interface TableBuilder {
         /**
-         * Adds auto-incrementing primary key named "id".
-         */
-        public Blueprint id() {
-            return id("id");
-        }
-
-        /**
-         * Adds auto-incrementing primary key with custom name.
+         * Defines columns on the given blueprint.
          *
-         * @param name Column name
+         * @param blueprint blueprint to configure
          */
-        public Blueprint id(String name) {
-            String column = switch (dbType) {
-                case MYSQL -> name + " INT AUTO_INCREMENT PRIMARY KEY";
-                case POSTGRESQL -> name + " SERIAL PRIMARY KEY";
-                default -> name + " INTEGER PRIMARY KEY AUTOINCREMENT";
-            };
-            columns.add(column);
-            return this;
-        }
-
-        /**
-         * Adds VARCHAR/TEXT column with default length 255.
-         *
-         * @param name Column name
-         */
-        public Blueprint string(String name) {
-            return string(name, 255);
-        }
-
-        /**
-         * Adds VARCHAR/TEXT column with custom length.
-         *
-         * @param name Column name
-         * @param length Maximum length
-         */
-        public Blueprint string(String name, int length) {
-            String type = dbType == DatabaseType.SQLITE ? "TEXT" : "VARCHAR(" + length + ")";
-            columns.add(name + " " + type);
-            return this;
-        }
-
-        /**
-         * Adds TEXT column.
-         *
-         * @param name Column name
-         */
-        public Blueprint text(String name) {
-            columns.add(name + " TEXT");
-            return this;
-        }
-
-        /**
-         * Adds INTEGER column.
-         *
-         * @param name Column name
-         */
-        public Blueprint integer(String name) {
-            String type = dbType == DatabaseType.POSTGRESQL ? "INTEGER" : "INT";
-            columns.add(name + " " + type);
-            return this;
-        }
-
-        /**
-         * Adds BIGINT column.
-         *
-         * @param name Column name
-         */
-        public Blueprint bigInteger(String name) {
-            columns.add(name + " BIGINT");
-            return this;
-        }
-
-        /**
-         * Adds DECIMAL column.
-         *
-         * @param name Column name
-         * @param precision Total digits
-         * @param scale Decimal places
-         */
-        public Blueprint decimal(String name, int precision, int scale) {
-            columns.add(name + " DECIMAL(" + precision + "," + scale + ")");
-            return this;
-        }
-
-        /**
-         * Adds BOOLEAN column.
-         *
-         * @param name Column name
-         */
-        public Blueprint bool(String name) {
-            String type = dbType == DatabaseType.SQLITE ? "INTEGER" : "BOOLEAN";
-            columns.add(name + " " + type);
-            return this;
-        }
-
-        /**
-         * Adds DATE column.
-         *
-         * @param name Column name
-         */
-        public Blueprint date(String name) {
-            columns.add(name + " DATE");
-            return this;
-        }
-
-        /**
-         * Adds DATETIME/TIMESTAMP column.
-         *
-         * @param name Column name
-         */
-        public Blueprint dateTime(String name) {
-            String type = switch (dbType) {
-                case POSTGRESQL -> "TIMESTAMP";
-                case MYSQL -> "DATETIME";
-                default -> "TEXT";
-            };
-            columns.add(name + " " + type);
-            return this;
-        }
-
-        /**
-         * Adds TIMESTAMP column.
-         *
-         * @param name Column name
-         */
-        public Blueprint timestamp(String name) {
-            columns.add(name + " TIMESTAMP");
-            return this;
-        }
-
-        /**
-         * Adds created_at and updated_at timestamp columns.
-         */
-        public Blueprint timestamps()
-        {
-            if (dbType == DatabaseType.MYSQL) {
-                columns.add("created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
-                columns.add("updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
-            } else if (dbType == DatabaseType.POSTGRESQL) {
-                columns.add("created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
-                columns.add("updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
-            } else {
-                columns.add("created_at TEXT DEFAULT CURRENT_TIMESTAMP");
-                columns.add("updated_at TEXT DEFAULT CURRENT_TIMESTAMP");
-            }
-            return this;
-        }
-
-        /**
-         * Adds NOT NULL constraint to last column.
-         */
-        public Blueprint notNull() {
-            if (!columns.isEmpty()) {
-                int lastIndex = columns.size() - 1;
-                columns.set(lastIndex, columns.get(lastIndex) + " NOT NULL");
-            }
-            return this;
-        }
-
-        /**
-         * Adds UNIQUE constraint to last column.
-         */
-        public Blueprint unique() {
-            if (!columns.isEmpty()) {
-                int lastIndex = columns.size() - 1;
-                columns.set(lastIndex, columns.get(lastIndex) + " UNIQUE");
-            }
-            return this;
-        }
-
-        /**
-         * Adds DEFAULT value to last column.
-         *
-         * @param value Default value
-         */
-        public Blueprint defaultValue(String value) {
-            if (!columns.isEmpty()) {
-                int lastIndex = columns.size() - 1;
-                columns.set(lastIndex, columns.get(lastIndex) + " DEFAULT " + value);
-            }
-            return this;
-        }
-
-        /**
-         * Marks last column as nullable (no-op, columns are nullable by default).
-         */
-        public Blueprint nullable() {
-            return this;
-        }
+        void build(Blueprint blueprint);
     }
 }

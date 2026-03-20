@@ -13,13 +13,11 @@ import org.slf4j.LoggerFactory;
  */
 public class DatabaseLoader
 {
-    /** Logger instance */
     public final static Logger logger = LoggerFactory.getLogger(DatabaseLoader.class);
 
     /**
-     * Loads and initializes database connection from environment configuration.
+     * Load Database.
      *
-     * @throws IllegalArgumentException if database type is not supported
      */
     public static void loadDatabase()
     {
@@ -38,29 +36,52 @@ public class DatabaseLoader
                 DB.initSQLite(dbPath, logger);
                 break;
             case MYSQL:
-                String mysqlHost = env.get(EnvKeys.DB_HOST);
-                String mysqlPort = env.get(EnvKeys.DB_PORT);
                 DB.initMySQL(
-                        mysqlHost != null ? mysqlHost : "localhost",
-                        Integer.parseInt(mysqlPort != null ? mysqlPort : "3306"),
-                        env.get(EnvKeys.DB_NAME),
-                        env.get(EnvKeys.DB_USER),
-                        env.get(EnvKeys.DB_PASSWORD),
+                        resolveHost(env, "localhost"),
+                        resolvePort(env, 3306),
+                        requireEnv(env, EnvKeys.DB_NAME, "DB_NAME"),
+                        requireEnv(env, EnvKeys.DB_USER, "DB_USER"),
+                        requireEnv(env, EnvKeys.DB_PASSWORD, "DB_PASSWORD"),
                         logger
                 );
                 break;
             case POSTGRESQL:
-                String pgHost = env.get(EnvKeys.DB_HOST);
-                String pgPort = env.get(EnvKeys.DB_PORT);
                 DB.initPostgreSQL(
-                        pgHost != null ? pgHost : "localhost",
-                        Integer.parseInt(pgPort != null ? pgPort : "5432"),
-                        env.get(EnvKeys.DB_NAME),
-                        env.get(EnvKeys.DB_USER),
-                        env.get(EnvKeys.DB_PASSWORD),
+                        resolveHost(env, "localhost"),
+                        resolvePort(env, 5432),
+                        requireEnv(env, EnvKeys.DB_NAME, "DB_NAME"),
+                        requireEnv(env, EnvKeys.DB_USER, "DB_USER"),
+                        requireEnv(env, EnvKeys.DB_PASSWORD, "DB_PASSWORD"),
                         logger
                 );
                 break;
         }
+    }
+
+    private static String resolveHost(EnvLoader env, String defaultHost) {
+        String host = env.get(EnvKeys.DB_HOST);
+        return (host != null && !host.isEmpty()) ? host : defaultHost;
+    }
+
+    private static int resolvePort(EnvLoader env, int defaultPort) {
+        String port = env.get(EnvKeys.DB_PORT);
+        if (port == null || port.isEmpty()) return defaultPort;
+        try {
+            return Integer.parseInt(port.trim());
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid DB_PORT value '{}', using default {}", port, defaultPort);
+            return defaultPort;
+        }
+    }
+
+    private static String requireEnv(EnvLoader env, String key, String label) {
+        String value = env.get(key);
+        if (value == null || value.isEmpty()) {
+            throw new IllegalStateException(
+                    "Missing required environment variable: " + label + ". " +
+                            "Set it in your .env file or environment before starting the application."
+            );
+        }
+        return value;
     }
 }

@@ -2,7 +2,6 @@ package com.obsidian.core.http.middleware.builtin;
 
 import com.obsidian.core.database.DB;
 import com.obsidian.core.http.middleware.Middleware;
-import org.javalite.activejdbc.Base;
 import spark.Request;
 import spark.Response;
 
@@ -27,7 +26,7 @@ public class DatabaseMiddleware implements Middleware
     @Override
     public void handle(Request req, Response res) throws Exception
     {
-        if (!Base.hasConnection()) {
+        if (!DB.hasConnection()) {
             DB.getInstance().connect();
         }
     }

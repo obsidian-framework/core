@@ -32,6 +32,11 @@
       <version>5.2.0</version>
     </dependency>
     <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.17.0</version>
+    </dependency>
+    <dependency>
       <groupId>com.vladsch.flexmark</groupId>
       <artifactId>flexmark-all</artifactId>
       <version>0.64.8</version>
@@ -91,15 +96,11 @@
       <artifactId>pebble</artifactId>
       <version>4.1.1</version>
     </dependency>
-    <dependency>
-      <groupId>org.javalite</groupId>
-      <artifactId>activejdbc</artifactId>
-      <version>3.5-j11</version>
-    </dependency>
+    <!-- ActiveJDBC REMOVED — replaced by Obsidian ORM -->
     <dependency>
       <groupId>org.xerial</groupId>
       <artifactId>sqlite-jdbc</artifactId>
-      <version>3.50.2.0</version>  <!-- was 3.41.2.1 -->
+      <version>3.50.2.0</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -131,19 +132,7 @@
           <target>${java.version}</target>
         </configuration>
       </plugin>
-      <plugin>
-        <groupId>org.javalite</groupId>
-        <artifactId>activejdbc-instrumentation</artifactId>
-        <version>3.5-j11</version>
-        <executions>
-          <execution>
-            <phase>process-classes</phase>
-            <goals>
-              <goal>instrument</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
+      <!-- ActiveJDBC instrumentation plugin REMOVED -->
     </plugins>
   </build>
 </project>
