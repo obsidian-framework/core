@@ -154,18 +154,33 @@ public class Obsidian
     public void registerMotd()
     {
         EnvLoader env = EnvLoader.getInstance();
-        final String RESET = "\u001B[0m";
-        final String CYAN = "\u001B[36m";
-        final String GREEN = "\u001B[32m";
-        System.out.println(CYAN + "+--------------------------------------+" + RESET);
-        System.out.println(CYAN + "|               Obsidian               |" + RESET);
-        System.out.println(CYAN + "+--------------------------------------+" + RESET);
-        System.out.println(GREEN + "| Version           : 1.1.0            |" + RESET);
-        System.out.println(GREEN + "| Environment       : " + env.get(EnvKeys.ENVIRONMENT) + "              |" + RESET);
-        System.out.println(GREEN + "| Web Port          : " + env.get(EnvKeys.PORT_WEB)+ "             |" + RESET);
-        System.out.println(CYAN + "+--------------------------------------+" + RESET);
-        System.out.println(CYAN + "|           Loading modules...         |" + RESET);
-        System.out.println(CYAN + "+--------------------------------------+" + RESET);
+
+        final String RESET  = "\u001B[0m";
+        final String BOLD   = "\u001B[1m";
+        final String PURPLE = "\u001B[35m";
+        final String CYAN   = "\u001B[36m";
+        final String GRAY   = "\u001B[90m";
+        final String WHITE  = "\u001B[97m";
+
+        String[] banner = {
+                "  ██████  ██████  ███████ ██ ██████  ██  █████  ███    ██ ",
+                " ██    ██ ██   ██ ██      ██ ██   ██ ██ ██   ██ ████   ██ ",
+                " ██    ██ ██████  ███████ ██ ██   ██ ██ ███████ ██ ██  ██ ",
+                " ██    ██ ██   ██      ██ ██ ██   ██ ██ ██   ██ ██  ██ ██ ",
+                "  ██████  ██████  ███████ ██ ██████  ██ ██   ██ ██   ████ "
+        };
+
+        System.out.println();
+        for (String line : banner) {
+            System.out.println(PURPLE + BOLD + line + RESET);
+        }
+        System.out.println();
+        System.out.println(GRAY   + "  ┌─────────────────────────────────────┐" + RESET);
+        System.out.println(GRAY   + "  │  " + WHITE + "environment " + CYAN  + env.get(EnvKeys.ENVIRONMENT)       + GRAY + "               │" + RESET);
+        System.out.println(GRAY   + "  │  " + WHITE + "port        " + CYAN  + env.get(EnvKeys.PORT_WEB)          + GRAY + "                  │" + RESET);
+        System.out.println(GRAY   + "  └─────────────────────────────────────┘" + RESET);
+        System.out.println();
+        System.out.println(GRAY   + "  loading modules..." + RESET);
         System.out.println();
     }
 
