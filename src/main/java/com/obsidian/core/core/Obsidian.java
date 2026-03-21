@@ -157,7 +157,7 @@ public class Obsidian
 
         final String RESET  = "\u001B[0m";
         final String BOLD   = "\u001B[1m";
-        final String PURPLE = "\u001B[35m";
+        final String RED    = "\u001B[31m";
         final String CYAN   = "\u001B[36m";
         final String GRAY   = "\u001B[90m";
         final String WHITE  = "\u001B[97m";
@@ -172,7 +172,7 @@ public class Obsidian
 
         System.out.println();
         for (String line : banner) {
-            System.out.println(PURPLE + BOLD + line + RESET);
+            System.out.println(RED + BOLD + line + RESET);
         }
         System.out.println();
         System.out.println(GRAY   + "  ┌─────────────────────────────────────┐" + RESET);
