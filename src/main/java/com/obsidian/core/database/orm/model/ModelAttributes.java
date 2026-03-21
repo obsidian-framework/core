@@ -13,35 +13,65 @@ import java.util.*;
  */
 abstract class ModelAttributes
 {
-
     final Map<String, Object> attributes = new LinkedHashMap<>();
     final Map<String, Object> original   = new LinkedHashMap<>();
 
     abstract ModelMetadata meta();
 
-    // ─── GET ─────────────────────────────────────────────────
-
-    public Object get(String key) {
+    /**
+     * Returns the cast value of the given attribute, applying any registered cast.
+     *
+     * @param key attribute name
+     * @return the cast value, or the raw value if no cast is registered
+     */
+    public Object get(String key)
+    {
         Object value = attributes.get(key);
         String castType = meta().casts.get(key);
         if (castType != null && value != null) return AttributeCaster.castGet(value, castType);
         return value;
     }
 
+    /**
+     * Returns the raw value of the given attribute, bypassing cast handling.
+     *
+     * @param key attribute name
+     * @return the raw stored value
+     */
     public Object getRaw(String key) { return attributes.get(key); }
 
+    /**
+     * Returns the value of the given attribute as a {@link String}.
+     *
+     * @param key attribute name
+     * @return string representation, or {@code null} if the attribute is absent
+     */
     public String getString(String key) {
         Object val = get(key); return val != null ? val.toString() : null;
     }
 
-    public Integer getInteger(String key) {
+    /**
+     * Returns the value of the given attribute as an {@link Integer}.
+     *
+     * @param key attribute name
+     * @return integer value, or {@code null} if the attribute is absent
+     */
+    public Integer getInteger(String key)
+    {
         Object val = get(key);
         if (val == null) return null;
         if (val instanceof Number) return ((Number) val).intValue();
         return Integer.parseInt(val.toString());
     }
 
-    public long getLong(String key) {
+    /**
+     * Returns the value of the given attribute as a {@code long}.
+     *
+     * @param key attribute name
+     * @return long value, or {@code 0} if the attribute is absent
+     */
+    public long getLong(String key)
+    {
         Object value = attributes.get(key);
         if (value == null) return 0L;
         if (value instanceof Long l)      return l;
@@ -52,14 +82,28 @@ abstract class ModelAttributes
         return Long.parseLong(value.toString());
     }
 
-    public Double getDouble(String key) {
+    /**
+     * Returns the value of the given attribute as a {@link Double}.
+     *
+     * @param key attribute name
+     * @return double value, or {@code null} if the attribute is absent
+     */
+    public Double getDouble(String key)
+    {
         Object val = get(key);
         if (val == null) return null;
         if (val instanceof Number) return ((Number) val).doubleValue();
         return Double.parseDouble(val.toString());
     }
 
-    public Boolean getBoolean(String key) {
+    /**
+     * Returns the value of the given attribute as a {@link Boolean}.
+     *
+     * @param key attribute name
+     * @return boolean value, or {@code null} if the attribute is absent
+     */
+    public Boolean getBoolean(String key)
+    {
         Object val = get(key);
         if (val == null) return null;
         if (val instanceof Boolean) return (Boolean) val;
@@ -67,7 +111,14 @@ abstract class ModelAttributes
         return Boolean.parseBoolean(val.toString());
     }
 
-    public LocalDateTime getDateTime(String key) {
+    /**
+     * Returns the value of the given attribute as a {@link LocalDateTime}.
+     *
+     * @param key attribute name
+     * @return date-time value, or {@code null} if the attribute is absent
+     */
+    public LocalDateTime getDateTime(String key)
+    {
         Object val = get(key);
         if (val == null) return null;
         if (val instanceof LocalDateTime) return (LocalDateTime) val;
@@ -75,27 +126,51 @@ abstract class ModelAttributes
         return LocalDateTime.parse(val.toString());
     }
 
-    // ─── SET ─────────────────────────────────────────────────
     // Return void — Model redeclares these returning Model for fluent chaining.
     // Java allows a subclass to redeclare (hide) a void method with a covariant
     // return type when it's not an @Override of the same signature.
 
+    /**
+     * Sets an attribute value, applying any registered cast.
+     *
+     * @param key   attribute name
+     * @param value value to assign
+     */
     void _set(String key, Object value) {
         String castType = meta().casts.get(key);
         if (castType != null && value != null) value = AttributeCaster.castSet(value, castType);
         attributes.put(key, value);
     }
 
+    /**
+     * Sets an attribute value, bypassing cast handling.
+     *
+     * @param key   attribute name
+     * @param value raw value to assign
+     */
     void _setRaw(String key, Object value) {
         attributes.put(key, value);
     }
 
+    /**
+     * Returns the primary key value of this model.
+     *
+     * @return the primary key value, or {@code null} if not set
+     */
     public Object getId() { return attributes.get(meta().primaryKey); }
 
+    /**
+     * Returns an unmodifiable view of all current attributes.
+     *
+     * @return unmodifiable attribute map
+     */
     public Map<String, Object> getAttributes() { return Collections.unmodifiableMap(attributes); }
 
-    // ─── MASS ASSIGNMENT ─────────────────────────────────────
-
+    /**
+     * Mass-assigns attributes, respecting fillable and guarded rules.
+     *
+     * @param attrs attribute map to assign
+     */
     void _fill(Map<String, Object> attrs) {
         List<String> fillable = meta().fillable;
         List<String> guarded  = meta().guarded;
@@ -105,6 +180,11 @@ abstract class ModelAttributes
         }
     }
 
+    /**
+     * Mass-assigns attributes, bypassing fillable and guarded rules.
+     *
+     * @param attrs attribute map to assign
+     */
     void _forceFill(Map<String, Object> attrs) {
         attributes.putAll(attrs);
     }
@@ -115,13 +195,10 @@ abstract class ModelAttributes
         return !guarded.contains(key);
     }
 
-    // ─── DIRTY TRACKING ──────────────────────────────────────
-
     /**
      * Returns {@code true} if any attribute has been modified since the last sync.
      *
-     * <p>Short-circuits on the first dirty attribute found — does not build
-     * the full dirty map just to check emptiness.</p>
+     * @return {@code true} if the model has unsaved changes
      */
     public boolean isDirty() {
         for (Map.Entry<String, Object> entry : attributes.entrySet()) {
@@ -133,18 +210,20 @@ abstract class ModelAttributes
     }
 
     /**
-     * Returns {@code true} if the specified attribute has been modified since the last sync.
+     * Returns {@code true} if the given attribute has been modified since the last sync.
      *
-     * <p>O(1) — compares the single attribute directly instead of rebuilding the
-     * entire dirty map. Safe to call on models with many attributes.</p>
-     *
-     * @param key the attribute name to check
+     * @param key attribute name to check
      * @return {@code true} if the attribute's current value differs from the original
      */
     public boolean isDirty(String key) {
         return !Objects.equals(attributes.get(key), original.get(key));
     }
 
+    /**
+     * Returns all attributes that have been modified since the last sync.
+     *
+     * @return map of dirty attribute names to their current values
+     */
     public Map<String, Object> getDirty() {
         Map<String, Object> dirty = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : attributes.entrySet()) {
@@ -154,8 +233,16 @@ abstract class ModelAttributes
         return dirty;
     }
 
+    /**
+     * Returns an unmodifiable view of the original attribute values at the last sync.
+     *
+     * @return unmodifiable map of original attributes
+     */
     public Map<String, Object> getOriginal() { return Collections.unmodifiableMap(original); }
 
+    /**
+     * Syncs the original attribute snapshot to the current attribute values.
+     */
     protected void syncOriginal() {
         original.clear();
         original.putAll(attributes);

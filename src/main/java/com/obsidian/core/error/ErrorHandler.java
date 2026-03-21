@@ -61,10 +61,16 @@ public class ErrorHandler
      */
     private static String renderDebugPage(Throwable throwable, Request req)
     {
-        StackTraceElement[] stackTrace = throwable.getStackTrace();
+        StackTraceElement[] full = throwable.getStackTrace();
+        int limit = 50;
+        StackTraceElement[] stackTrace = full.length > limit
+                ? java.util.Arrays.copyOf(full, limit)
+                : full;
+        boolean truncated = full.length > limit;
 
         String exceptionClass = throwable.getClass().getName();
         String message = throwable.getMessage() != null ? throwable.getMessage() : "No message";
+        if (truncated) message = message + " (" + full.length + " frames — showing first " + limit + ")";
         String requestMethod = req.requestMethod();
         String requestPath = req.pathInfo();
         String queryString = req.queryString() != null ? "?" + req.queryString() : "";

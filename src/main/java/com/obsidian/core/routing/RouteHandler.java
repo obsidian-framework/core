@@ -60,6 +60,8 @@ public class RouteHandler
                 result = ErrorHandler.handle(cause, req, res);
             } catch (Exception e) {
                 result = ErrorHandler.handle(e, req, res);
+            } catch (Throwable t) {
+                result = ErrorHandler.handle(t, req, res);
             } finally {
                 executeAfterMiddleware(method, req, res);
             }

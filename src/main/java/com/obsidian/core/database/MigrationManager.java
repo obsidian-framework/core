@@ -12,8 +12,7 @@ import java.util.Set;
 
 /**
  * Migration manager for database schema versioning.
- * Discovers, executes and tracks migrations.
- * Uses DB static methods instead of ActiveJDBC Base.
+ * Discovers, executes, and tracks migrations.
  */
 public class MigrationManager
 {
@@ -23,12 +22,13 @@ public class MigrationManager
     private final DatabaseType dbType;
 
     /**
-     * Creates a new MigrationManager instance.
+     * Creates a new migration manager for the given database.
      *
-     * @param database The database
-     * @param logger The logger
+     * @param database database instance
+     * @param logger   logger instance
      */
-    public MigrationManager(DB database, Logger logger) {
+    public MigrationManager(DB database, Logger logger)
+    {
         this.database = database;
         this.logger = logger;
         this.migrations = new ArrayList<>();
@@ -36,12 +36,13 @@ public class MigrationManager
     }
 
     /**
-     * Add.
+     * Registers a migration to be managed by this instance.
      *
-     * @param migration The migration
-     * @return This instance for method chaining
+     * @param migration migration to register
+     * @return this manager for chaining
      */
-    public MigrationManager add(Migration migration) {
+    public MigrationManager add(Migration migration)
+    {
         migration.type = this.dbType;
         migration.logger = this.logger;
         migrations.add(migration);
@@ -49,9 +50,10 @@ public class MigrationManager
     }
 
     /**
-     * Discover.
+     * Scans the application's base package for {@link Migration} subclasses and registers them,
+     * sorted by class simple name. Subclasses outside the base package are skipped.
      *
-     * @return This instance for method chaining
+     * @return this manager for chaining
      */
     public MigrationManager discover()
     {
@@ -62,8 +64,6 @@ public class MigrationManager
             List<Migration> discoveredMigrations = new ArrayList<>();
 
             for (Class<? extends Migration> migrationClass : migrationClasses) {
-                // Restrict to the application's own package — prevents third-party
-                // dependencies that happen to extend Migration from being executed.
                 if (!migrationClass.getName().startsWith(basePackage)) {
                     logger.debug("Skipping migration outside base package: {}", migrationClass.getName());
                     continue;
@@ -91,10 +91,11 @@ public class MigrationManager
     }
 
     /**
-     * Migrate.
-     *
+     * Runs all pending migrations inside a transaction.
+     * Already-executed migrations are skipped.
      */
-    public void migrate() {
+    public void migrate()
+    {
         database.executeWithTransaction(() -> {
             createMigrationsTable();
             Set<String> executed = loadExecutedMigrations();
@@ -118,10 +119,10 @@ public class MigrationManager
     }
 
     /**
-     * Rollback.
-     *
+     * Rolls back all executed migrations in reverse order inside a transaction.
      */
-    public void rollback() {
+    public void rollback()
+    {
         database.executeWithTransaction(() -> {
             Set<String> executed = loadExecutedMigrations();
 
@@ -143,10 +144,10 @@ public class MigrationManager
     }
 
     /**
-     * Rollback Last.
-     *
+     * Rolls back only the most recently executed migration.
      */
-    public void rollbackLast() {
+    public void rollbackLast()
+    {
         database.executeWithTransaction(() -> {
             Set<String> executed = loadExecutedMigrations();
 
@@ -167,19 +168,19 @@ public class MigrationManager
     }
 
     /**
-     * Fresh.
-     *
+     * Rolls back all migrations then re-runs them from scratch.
      */
-    public void fresh() {
+    public void fresh()
+    {
         rollback();
         migrate();
     }
 
     /**
-     * Status.
-     *
+     * Logs the execution status of each registered migration.
      */
-    public void status() {
+    public void status()
+    {
         database.executeWithConnection(() -> {
             Set<String> executed = loadExecutedMigrations();
 
@@ -192,9 +193,8 @@ public class MigrationManager
         });
     }
 
-    // ─── PRIVATE HELPERS (using DB instead of Base) ──────────
-
-    private void createMigrationsTable() {
+    private void createMigrationsTable()
+    {
         String idColumn = switch (dbType) {
             case MYSQL -> "INT AUTO_INCREMENT PRIMARY KEY";
             case POSTGRESQL -> "SERIAL PRIMARY KEY";
@@ -210,7 +210,8 @@ public class MigrationManager
             """, idColumn));
     }
 
-    private Set<String> loadExecutedMigrations() {
+    private Set<String> loadExecutedMigrations()
+    {
         Set<String> executed = new HashSet<>();
         DB.findAll("SELECT migration FROM migrations").forEach(row ->
                 executed.add(row.get("migration").toString())

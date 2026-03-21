@@ -8,15 +8,15 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * MySQL/MariaDB SQL grammar. Also used for SQLite for most operations.
+ * MySQL/MariaDB SQL grammar. Also used as the default fallback.
  */
-public class MySqlGrammar implements Grammar {
-
+public class MySqlGrammar implements Grammar
+{
     @Override
-    public String compileSelect(QueryBuilder query) {
+    public String compileSelect(QueryBuilder query)
+    {
         StringBuilder sql = new StringBuilder();
 
-        // SELECT
         sql.append("SELECT ");
         if (query.isDistinct()) {
             sql.append("DISTINCT ");
@@ -28,31 +28,25 @@ public class MySqlGrammar implements Grammar {
             sql.append(String.join(", ", query.getColumns()));
         }
 
-        // FROM
         sql.append(" FROM ").append(query.getTable());
 
-        // JOINS
         for (JoinClause join : query.getJoins()) {
             sql.append(" ").append(join.toSql());
         }
 
-        // WHERE
         String whereClause = compileWheres(query.getWheres());
         if (!whereClause.isEmpty()) {
             sql.append(" WHERE ").append(whereClause);
         }
 
-        // GROUP BY
         if (!query.getGroups().isEmpty()) {
             sql.append(" GROUP BY ").append(String.join(", ", query.getGroups()));
         }
 
-        // HAVING
         if (!query.getHavings().isEmpty()) {
             sql.append(" HAVING ").append(compileHavings(query.getHavings()));
         }
 
-        // ORDER BY
         if (!query.getOrders().isEmpty()) {
             sql.append(" ORDER BY ");
             sql.append(query.getOrders().stream()
@@ -60,12 +54,10 @@ public class MySqlGrammar implements Grammar {
                     .collect(Collectors.joining(", ")));
         }
 
-        // LIMIT
         if (query.getLimitValue() != null) {
             sql.append(" LIMIT ").append(query.getLimitValue());
         }
 
-        // OFFSET
         if (query.getOffsetValue() != null) {
             sql.append(" OFFSET ").append(query.getOffsetValue());
         }
@@ -74,7 +66,8 @@ public class MySqlGrammar implements Grammar {
     }
 
     @Override
-    public String compileWheres(List<WhereClause> wheres) {
+    public String compileWheres(List<WhereClause> wheres)
+    {
         if (wheres.isEmpty()) return "";
 
         List<String> parts = new ArrayList<>();
@@ -82,79 +75,60 @@ public class MySqlGrammar implements Grammar {
         for (int i = 0; i < wheres.size(); i++) {
             WhereClause where = wheres.get(i);
             String compiled = compileWhere(where);
-
-            if (i == 0) {
-                parts.add(compiled);
-            } else {
-                parts.add(where.getBoolean() + " " + compiled);
-            }
+            parts.add(i == 0 ? compiled : where.getBoolean() + " " + compiled);
         }
 
         return String.join(" ", parts);
     }
 
-    private String compileWhere(WhereClause where) {
+    private String compileWhere(WhereClause where)
+    {
         switch (where.getType()) {
             case BASIC:
                 return where.getColumn() + " " + where.getOperator() + " ?";
-
             case NULL:
                 return where.getColumn() + " IS NULL";
-
             case NOT_NULL:
                 return where.getColumn() + " IS NOT NULL";
-
             case IN:
-                String placeholders = where.getValues().stream()
-                        .map(v -> "?")
-                        .collect(Collectors.joining(", "));
+                String placeholders = where.getValues().stream().map(v -> "?").collect(Collectors.joining(", "));
                 return where.getColumn() + " IN (" + placeholders + ")";
-
             case NOT_IN:
-                String notInPlaceholders = where.getValues().stream()
-                        .map(v -> "?")
-                        .collect(Collectors.joining(", "));
+                String notInPlaceholders = where.getValues().stream().map(v -> "?").collect(Collectors.joining(", "));
                 return where.getColumn() + " NOT IN (" + notInPlaceholders + ")";
-
             case BETWEEN:
                 return where.getColumn() + " BETWEEN ? AND ?";
-
             case NESTED:
-                String nestedSql = compileWheres(where.getNested().getWheres());
-                return "(" + nestedSql + ")";
-
+                return "(" + compileWheres(where.getNested().getWheres()) + ")";
             case RAW:
                 return where.getRawSql();
-
             default:
                 throw new IllegalArgumentException("Unknown where type: " + where.getType());
         }
     }
 
-    private String compileHavings(List<HavingClause> havings) {
+    private String compileHavings(List<HavingClause> havings)
+    {
         return havings.stream()
-                .map(h -> {
-                    if (h.isRaw()) return h.getRawSql();
-                    return h.getColumn() + " " + h.getOperator() + " ?";
-                })
+                .map(h -> h.isRaw() ? h.getRawSql() : h.getColumn() + " " + h.getOperator() + " ?")
                 .collect(Collectors.joining(" AND "));
     }
 
     /**
-     * Compiles an INSERT statement for the given table and column-value map.
+     * Compiles an INSERT statement.
+     * Validates all column names against {@link SqlIdentifier}.
      *
-     * @param table  the target table name (pre-validated by caller)
-     * @param values column-to-value map; keys must be valid SQL identifiers
-     * @return a compiled {@link InsertResult} containing SQL and bindings
+     * @param table  target table name
+     * @param values column-to-value map
+     * @return compiled {@link InsertResult}
      * @throws IllegalArgumentException if any column name fails identifier validation
      */
     @Override
-    public InsertResult compileInsert(String table, Map<String, Object> values) {
+    public InsertResult compileInsert(String table, Map<String, Object> values)
+    {
         List<String> columns = new ArrayList<>(values.keySet());
         List<Object> bindings = new ArrayList<>(values.values());
 
-        // Validate every column name — defence-in-depth even though callers
-        // are expected to have already passed through QueryBuilder/SqlIdentifier.
         for (String col : columns) {
             SqlIdentifier.requireIdentifier(col);
         }
@@ -168,17 +142,18 @@ public class MySqlGrammar implements Grammar {
 
     /**
      * Compiles an UPDATE statement.
+     * Validates all column names against {@link SqlIdentifier}.
      *
-     * @param table            the target table name
-     * @param values           column-to-value map for SET clause; keys must be valid identifiers
-     * @param wheres           compiled WHERE clauses
+     * @param table            target table name
+     * @param values           column-to-value map for the SET clause
+     * @param wheres           WHERE clauses to apply
      * @param existingBindings bindings already collected for the WHERE clause
-     * @return a compiled {@link UpdateResult} containing SQL and ordered bindings
+     * @return compiled {@link UpdateResult}
      * @throws IllegalArgumentException if any column name fails identifier validation
      */
     @Override
-    public UpdateResult compileUpdate(String table, Map<String, Object> values,
-                                      List<WhereClause> wheres, List<Object> existingBindings) {
+    public UpdateResult compileUpdate(String table, Map<String, Object> values, List<WhereClause> wheres, List<Object> existingBindings)
+    {
         List<Object> bindings = new ArrayList<>();
 
         String setClauses = values.entrySet().stream()
@@ -201,7 +176,8 @@ public class MySqlGrammar implements Grammar {
     }
 
     @Override
-    public DeleteResult compileDelete(String table, List<WhereClause> wheres, List<Object> bindings) {
+    public DeleteResult compileDelete(String table, List<WhereClause> wheres, List<Object> bindings)
+    {
         StringBuilder sql = new StringBuilder("DELETE FROM " + table);
 
         String whereClause = compileWheres(wheres);
@@ -213,11 +189,18 @@ public class MySqlGrammar implements Grammar {
     }
 
     /**
-     * Compiles an UPDATE … SET col = col ± n statement for atomic increment/decrement.
+     * Compiles an atomic increment or decrement UPDATE statement.
+     *
+     * @param table    target table name
+     * @param column   column to increment or decrement
+     * @param amount   positive to increment, negative to decrement
+     * @param wheres   WHERE clauses to apply
+     * @param bindings bindings already collected for the WHERE clause
+     * @return compiled SQL string
      */
     @Override
-    public String compileIncrement(String table, String column, int amount,
-                                   List<WhereClause> wheres, List<Object> bindings) {
+    public String compileIncrement(String table, String column, int amount, List<WhereClause> wheres, List<Object> bindings)
+    {
         String op = amount >= 0 ? "+" : "-";
         int absAmount = Math.abs(amount);
 

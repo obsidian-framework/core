@@ -11,12 +11,11 @@ import java.util.function.Consumer;
 
 /**
  * Handles JDBC execution for QueryBuilder.
- *
- * <p>Owns PreparedStatement lifecycle, parameter binding, ResultSet
- * hydration, batch insert, chunked streaming, and QueryLog recording.</p>
+ * Owns PreparedStatement lifecycle, parameter binding, ResultSet
+ * hydration, batch insert, chunked streaming, and QueryLog recording.
  */
-class QueryExecutor {
-
+class QueryExecutor
+{
     private static final Logger logger = LoggerFactory.getLogger(QueryExecutor.class);
 
     private final int queryTimeoutSeconds;
@@ -30,8 +29,6 @@ class QueryExecutor {
         this.queryTimeoutSeconds = queryTimeoutSeconds;
     }
 
-    // ─── SELECT ──────────────────────────────────────────────
-
     /**
      * Executes a SELECT query and returns all rows.
      *
@@ -39,7 +36,8 @@ class QueryExecutor {
      * @param params bound parameter values
      * @return list of rows as column-to-value maps
      */
-    List<Map<String, Object>> executeQuery(String sql, List<Object> params) {
+    List<Map<String, Object>> executeQuery(String sql, List<Object> params)
+    {
         long start = System.currentTimeMillis();
         Connection conn = DB.getConnection();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -57,16 +55,15 @@ class QueryExecutor {
         }
     }
 
-    // ─── INSERT ──────────────────────────────────────────────
-
     /**
      * Executes an INSERT and returns the generated key.
      *
      * @param sql    compiled INSERT SQL
      * @param params bound parameter values
-     * @return generated key, or null
+     * @return generated key, or {@code null}
      */
-    Object executeInsert(String sql, List<Object> params) {
+    Object executeInsert(String sql, List<Object> params)
+    {
         long start = System.currentTimeMillis();
         Connection conn = DB.getConnection();
         try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -90,11 +87,11 @@ class QueryExecutor {
      *
      * @param table        target table name
      * @param sql          compiled INSERT SQL derived from row 0
-     * @param batchColumns column names in the order they appear in sql
+     * @param batchColumns column names in the order they appear in the SQL
      * @param rows         all rows to insert
      */
-    void executeBatch(String table, String sql, List<String> batchColumns,
-                      List<Map<String, Object>> rows) {
+    void executeBatch(String table, String sql, List<String> batchColumns, List<Map<String, Object>> rows)
+    {
         long start = System.currentTimeMillis();
         Connection conn = DB.getConnection();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -106,17 +103,13 @@ class QueryExecutor {
                 stmt.addBatch();
             }
             stmt.executeBatch();
-            QueryLog.record(sql, List.of("[batch x" + rows.size() + "]"),
-                    System.currentTimeMillis() - start);
+            QueryLog.record(sql, List.of("[batch x" + rows.size() + "]"), System.currentTimeMillis() - start);
         } catch (SQLException e) {
-            QueryLog.record(sql, List.of("[batch x" + rows.size() + "]"),
-                    System.currentTimeMillis() - start);
+            QueryLog.record(sql, List.of("[batch x" + rows.size() + "]"), System.currentTimeMillis() - start);
             logger.error("Batch insert failed on table: {}", table, e);
             throw new RuntimeException("Database batch insert failed", e);
         }
     }
-
-    // ─── UPDATE / DELETE ─────────────────────────────────────
 
     /**
      * Executes an UPDATE, DELETE, or DDL statement.
@@ -125,7 +118,8 @@ class QueryExecutor {
      * @param params bound parameter values
      * @return number of affected rows
      */
-    int executeUpdate(String sql, List<Object> params) {
+    int executeUpdate(String sql, List<Object> params)
+    {
         long start = System.currentTimeMillis();
         Connection conn = DB.getConnection();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -141,18 +135,16 @@ class QueryExecutor {
         }
     }
 
-    // ─── STREAMING ───────────────────────────────────────────
-
     /**
      * Streams rows without loading the full result set into memory.
      *
      * @param sql       compiled SQL string
      * @param params    bound parameter values
-     * @param fetchSize rows per round-trip (Integer.MIN_VALUE for MySQL streaming)
+     * @param fetchSize rows per round-trip, use {@code Integer.MIN_VALUE} for MySQL streaming
      * @param consumer  called once per row — the map is reused, do not retain references
      */
-    void executeChunk(String sql, List<Object> params, int fetchSize,
-                      Consumer<Map<String, Object>> consumer) {
+    void executeChunk(String sql, List<Object> params, int fetchSize, Consumer<Map<String, Object>> consumer)
+    {
         Connection conn = DB.getConnection();
 
         if (DB.getInstance().getType() == DatabaseType.POSTGRESQL) {
@@ -168,8 +160,7 @@ class QueryExecutor {
         }
 
         long start = System.currentTimeMillis();
-        try (PreparedStatement stmt = conn.prepareStatement(sql,
-                ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
+        try (PreparedStatement stmt = conn.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
             stmt.setFetchSize(fetchSize);
             applyTimeout(stmt);
             bindParameters(stmt, params);
@@ -193,8 +184,6 @@ class QueryExecutor {
         }
     }
 
-    // ─── HELPERS ─────────────────────────────────────────────
-
     private void applyTimeout(PreparedStatement stmt) throws SQLException {
         if (queryTimeoutSeconds > 0) stmt.setQueryTimeout(queryTimeoutSeconds);
     }
@@ -205,21 +194,22 @@ class QueryExecutor {
      * @param stmt   statement to bind to
      * @param params values in placeholder order
      */
-    void bindParameters(PreparedStatement stmt, List<Object> params) throws SQLException {
+    void bindParameters(PreparedStatement stmt, List<Object> params) throws SQLException
+    {
         for (int i = 0; i < params.size(); i++) {
             Object value = params.get(i);
             if (value == null) {
                 stmt.setNull(i + 1, Types.NULL);
-            } else if (value instanceof String s)                { stmt.setString(i + 1, s); }
-            else if (value instanceof Integer iv)                { stmt.setInt(i + 1, iv); }
-            else if (value instanceof Long lv)                   { stmt.setLong(i + 1, lv); }
-            else if (value instanceof Double dv)                 { stmt.setDouble(i + 1, dv); }
-            else if (value instanceof Float fv)                  { stmt.setFloat(i + 1, fv); }
-            else if (value instanceof Boolean bv)                { stmt.setBoolean(i + 1, bv); }
-            else if (value instanceof java.util.Date d)          { stmt.setTimestamp(i + 1, new Timestamp(d.getTime())); }
+            } else if (value instanceof String s)                 { stmt.setString(i + 1, s); }
+            else if (value instanceof Integer iv)                 { stmt.setInt(i + 1, iv); }
+            else if (value instanceof Long lv)                    { stmt.setLong(i + 1, lv); }
+            else if (value instanceof Double dv)                  { stmt.setDouble(i + 1, dv); }
+            else if (value instanceof Float fv)                   { stmt.setFloat(i + 1, fv); }
+            else if (value instanceof Boolean bv)                 { stmt.setBoolean(i + 1, bv); }
+            else if (value instanceof java.util.Date d)           { stmt.setTimestamp(i + 1, new Timestamp(d.getTime())); }
             else if (value instanceof java.time.LocalDateTime ldt){ stmt.setTimestamp(i + 1, Timestamp.valueOf(ldt)); }
-            else if (value instanceof java.time.LocalDate ld)    { stmt.setDate(i + 1, java.sql.Date.valueOf(ld)); }
-            else                                                  { stmt.setObject(i + 1, value); }
+            else if (value instanceof java.time.LocalDate ld)     { stmt.setDate(i + 1, java.sql.Date.valueOf(ld)); }
+            else                                                   { stmt.setObject(i + 1, value); }
         }
     }
 
@@ -229,7 +219,8 @@ class QueryExecutor {
      * @param rs open ResultSet to read from
      * @return list of rows
      */
-    List<Map<String, Object>> resultSetToList(ResultSet rs) throws SQLException {
+    List<Map<String, Object>> resultSetToList(ResultSet rs) throws SQLException
+    {
         List<Map<String, Object>> results = new ArrayList<>(64);
         ResultSetMetaData meta = rs.getMetaData();
         int colCount = meta.getColumnCount();

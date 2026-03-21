@@ -2,32 +2,34 @@ package com.obsidian.core.database.orm.query.grammar;
 
 import java.util.List;
 
-public class UpdateResult {
-
+public class UpdateResult
+{
     private final String sql;
     private final List<Object> bindings;
 
     /**
-     * Creates a new UpdateResult instance.
+     * Creates a new update result.
      *
-     * @param sql Raw SQL string
-     * @param bindings Parameter values bound to the query
+     * @param sql      compiled SQL string
+     * @param bindings parameter values bound to the query
      */
-    public UpdateResult(String sql, List<Object> bindings) {
+    public UpdateResult(String sql, List<Object> bindings)
+    {
         this.sql = sql;
         this.bindings = bindings;
     }
 
     /**
-     * Returns the sql.
+     * Returns the compiled SQL string.
      *
-     * @return The sql
+     * @return SQL string
      */
-    public String getSql()           { return sql; }
+    public String getSql() { return sql; }
+
     /**
-     * Returns the bindings.
+     * Returns the parameter bindings.
      *
-     * @return The bindings
+     * @return list of bound values
      */
     public List<Object> getBindings() { return bindings; }
 }

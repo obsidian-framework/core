@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Database connection loader.
- * Initializes database connection based on environment configuration.
+ * Initializes the database connection based on environment configuration.
  * Supports SQLite, MySQL, and PostgreSQL.
  */
 public class DatabaseLoader
@@ -16,8 +16,7 @@ public class DatabaseLoader
     public final static Logger logger = LoggerFactory.getLogger(DatabaseLoader.class);
 
     /**
-     * Load Database.
-     *
+     * Reads environment configuration and initializes the appropriate database connection.
      */
     public static void loadDatabase()
     {
@@ -63,7 +62,8 @@ public class DatabaseLoader
         return (host != null && !host.isEmpty()) ? host : defaultHost;
     }
 
-    private static int resolvePort(EnvLoader env, int defaultPort) {
+    private static int resolvePort(EnvLoader env, int defaultPort)
+    {
         String port = env.get(EnvKeys.DB_PORT);
         if (port == null || port.isEmpty()) return defaultPort;
         try {
@@ -74,12 +74,12 @@ public class DatabaseLoader
         }
     }
 
-    private static String requireEnv(EnvLoader env, String key, String label) {
+    private static String requireEnv(EnvLoader env, String key, String label)
+    {
         String value = env.get(key);
         if (value == null || value.isEmpty()) {
             throw new IllegalStateException(
-                    "Missing required environment variable: " + label + ". " +
-                            "Set it in your .env file or environment before starting the application."
+                    "Missing required environment variable: " + label + ". " + "Set it in your .env file or environment before starting the application."
             );
         }
         return value;

@@ -11,26 +11,25 @@ import java.util.*;
  * Observer callbacks pass Model — the concrete type known at runtime.
  */
 @SuppressWarnings({"unchecked", "rawtypes"})
-abstract class ModelPersistence extends ModelAttributes {
-
+abstract class ModelPersistence extends ModelAttributes
+{
     boolean exists = false;
 
-    /** Implemented by Model — returns the concrete instance typed as Model. */
+    /**
+     * Implemented by Model — returns the concrete instance typed as Model.
+     */
     abstract Model self();
 
     abstract ModelMetadata meta();
 
-    // ─── PUBLIC API ──────────────────────────────────────────
-
     /**
      * Persists the model — inserts if new, updates if existing.
-     *
-     * <p>Fires {@code saving}/{@code saved} observer callbacks.
-     * Flushes the model's cache entries on success.</p>
+     * Fires {@code saving}/{@code saved} observer callbacks and flushes the model cache on success.
      *
      * @return {@code true} if the operation succeeded, {@code false} if an observer vetoed it
      */
-    public boolean save() {
+    public boolean save()
+    {
         ModelObserver obs = meta().observer;
         if (obs != null && !obs.saving(self())) return false;
         boolean result = exists ? performUpdate() : performInsert();
@@ -49,16 +48,14 @@ abstract class ModelPersistence extends ModelAttributes {
     public boolean saveIt() { return save(); }
 
     /**
-     * Deletes the model.
+     * Deletes the model. If soft deletes are enabled, sets {@code deleted_at} instead of
+     * removing the row. Fires {@code deleting}/{@code deleted} observer callbacks and
+     * flushes the model cache on success.
      *
-     * <p>If soft deletes are enabled, sets {@code deleted_at} instead of removing the row.
-     * Fires {@code deleting}/{@code deleted} observer callbacks.
-     * Flushes the model's cache entries on success.</p>
-     *
-     * @return {@code true} if deleted, {@code false} if the model does not exist in the DB
-     *         or an observer vetoed the operation
+     * @return {@code true} if deleted, {@code false} if the model does not exist in the database or an observer vetoed the operation
      */
-    public boolean delete() {
+    public boolean delete()
+    {
         if (!exists) return false;
         ModelMetadata m = meta();
         ModelObserver obs = m.observer;
@@ -84,14 +81,12 @@ abstract class ModelPersistence extends ModelAttributes {
 
     /**
      * Restores a soft-deleted model by clearing {@code deleted_at}.
+     * No-op if soft deletes are not enabled. Fires {@code restoring}/{@code restored} observer callbacks.
      *
-     * <p>No-op if the model does not use soft deletes.
-     * Fires {@code restoring}/{@code restored} observer callbacks.</p>
-     *
-     * @return {@code true} if restored, {@code false} if soft deletes are not enabled
-     *         or an observer vetoed the operation
+     * @return {@code true} if restored, {@code false} if soft deletes are not enabled or an observer vetoed the operation
      */
-    public boolean restore() {
+    public boolean restore()
+    {
         ModelMetadata m = meta();
         if (!m.softDeletes) return false;
         ModelObserver obs = m.observer;
@@ -112,7 +107,8 @@ abstract class ModelPersistence extends ModelAttributes {
      *
      * @return {@code true} always
      */
-    public boolean forceDelete() {
+    public boolean forceDelete()
+    {
         ModelMetadata m = meta();
         new QueryBuilder(m.table).where(m.primaryKey, getId()).delete();
         exists = false;
@@ -122,7 +118,8 @@ abstract class ModelPersistence extends ModelAttributes {
     /**
      * Reloads the model's attributes from the database.
      */
-    void _refresh() {
+    void _refresh()
+    {
         ModelMetadata m = meta();
         Map<String, Object> row = new QueryBuilder(m.table)
                 .where(m.primaryKey, getId()).first();
@@ -135,12 +132,13 @@ abstract class ModelPersistence extends ModelAttributes {
 
     /**
      * Returns {@code true} if this model instance exists in the database.
+     *
+     * @return {@code true} if persisted
      */
     public boolean exists() { return exists; }
 
-    // ─── INTERNAL ────────────────────────────────────────────
-
-    private boolean performInsert() {
+    private boolean performInsert()
+    {
         ModelMetadata m = meta();
         ModelObserver obs = m.observer;
         if (obs != null && !obs.creating(self())) return false;
@@ -168,7 +166,8 @@ abstract class ModelPersistence extends ModelAttributes {
         return true;
     }
 
-    private boolean performUpdate() {
+    private boolean performUpdate()
+    {
         ModelMetadata m = meta();
         ModelObserver obs = m.observer;
         if (obs != null && !obs.updating(self())) return false;

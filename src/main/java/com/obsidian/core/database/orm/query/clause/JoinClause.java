@@ -1,23 +1,24 @@
 package com.obsidian.core.database.orm.query.clause;
 
-public class JoinClause {
-
-    private final String type;   // INNER, LEFT, RIGHT, CROSS
+public class JoinClause
+{
+    private final String type;
     private final String table;
     private final String first;
     private final String operator;
     private final String second;
 
     /**
-     * Creates a new JoinClause instance.
+     * Creates a new join clause.
      *
-     * @param type The type
-     * @param table The table name
-     * @param first The first column in the join condition
-     * @param operator The comparison operator (=, !=, >, <, >=, <=, LIKE, etc.)
-     * @param second The second column in the join condition
+     * @param type     join type, e.g. {@code INNER}, {@code LEFT}, {@code RIGHT}, {@code CROSS}
+     * @param table    table to join
+     * @param first    first column in the join condition
+     * @param operator comparison operator
+     * @param second   second column in the join condition
      */
-    public JoinClause(String type, String table, String first, String operator, String second) {
+    public JoinClause(String type, String table, String first, String operator, String second)
+    {
         this.type = type;
         this.table = table;
         this.first = first;
@@ -26,40 +27,44 @@ public class JoinClause {
     }
 
     /**
-     * Returns the type.
+     * Returns the join type.
      *
-     * @return The type
+     * @return join type string
      */
     public String getType()     { return type; }
+
     /**
-     * Returns the table.
+     * Returns the table name.
      *
-     * @return The table
+     * @return table name
      */
     public String getTable()    { return table; }
+
     /**
-     * Returns the first.
+     * Returns the first column in the join condition.
      *
-     * @return The first
+     * @return first column name
      */
     public String getFirst()    { return first; }
+
     /**
-     * Returns the operator.
+     * Returns the comparison operator.
      *
-     * @return The operator
+     * @return operator string
      */
     public String getOperator() { return operator; }
+
     /**
-     * Returns the second.
+     * Returns the second column in the join condition.
      *
-     * @return The second
+     * @return second column name
      */
     public String getSecond()   { return second; }
 
     /**
-     * Returns the compiled SQL string without executing.
+     * Returns the compiled SQL fragment for this join clause.
      *
-     * @return The string value
+     * @return SQL join string
      */
     public String toSql() {
         if ("CROSS".equals(type)) {

@@ -14,7 +14,6 @@ import java.util.function.Consumer;
  */
 final class ModelMetadata
 {
-
     /** Database table name (from @Table annotation or convention). */
     final String table;
 

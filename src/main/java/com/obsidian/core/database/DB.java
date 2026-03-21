@@ -14,18 +14,16 @@ import java.util.concurrent.Callable;
 /**
  * Database connection manager with support for SQLite, MySQL, and PostgreSQL.
  *
- * <p><b>Security notes</b>:</p>
- * <ul>
- *   <li>The singleton field is {@code volatile} to guarantee safe publication
- *       in multi-threaded environments without a full lock on every read.</li>
- *   <li>MySQL/PostgreSQL connections require SSL by default. Set
- *       {@code OBSIDIAN_DB_DISABLE_SSL=true} (env or system property) only in
- *       local dev/test. System property takes priority over env variable.</li>
- *   <li>Credentials are never written to the log.</li>
- * </ul>
+ * Security notes:
+ * - The singleton field is {@code volatile} to guarantee safe publication
+ *   in multi-threaded environments without a full lock on every read.
+ * - MySQL/PostgreSQL connections require SSL by default. Set
+ *   {@code OBSIDIAN_DB_DISABLE_SSL=true} (env or system property) only in
+ *   local dev/test. System property takes priority over env variable.
+ * - Credentials are never written to the log.
  *
- * <p><b>Pool tuning</b>: explicit timeouts prevent the common failure mode
- * where stale connections accumulate because Hikari never evicts them.</p>
+ * Pool tuning: explicit timeouts prevent the common failure mode
+ * where stale connections accumulate because Hikari never evicts them.
  */
 public class DB
 {
@@ -35,55 +33,42 @@ public class DB
     /**
      * Thread-local connection — one JDBC connection per thread.
      *
-     * <p><b>Leak risk in thread pools</b>: threads in a pool are never destroyed, so
+     * Leak risk in thread pools: threads in a pool are never destroyed, so
      * {@link ThreadLocal} values survive indefinitely unless explicitly removed.
      * A connection left in {@code threadConnection} after a request finishes holds a
-     * pooled connection open and prevents it from being returned to HikariCP.</p>
+     * pooled connection open and prevents it from being returned to HikariCP.
      *
-     * <p><b>Required usage contract</b> — every code path that calls {@link #connect()}
+     * Required usage contract — every code path that calls {@link #connect()}
      * or {@link #getConnection()} MUST eventually call {@link #closeConnection()}, even
-     * on exception. The safe patterns are:</p>
-     * <ul>
-     *   <li>{@link #withConnection(Callable)} — opens and closes automatically.</li>
-     *   <li>{@link #withTransaction(Callable)} — same, with rollback on failure.</li>
-     *   <li>Servlet/request filters that call {@code DB.closeConnection()} in a
-     *       {@code finally} block or via a framework lifecycle hook.</li>
-     * </ul>
+     * on exception. The safe patterns are:
+     * - {@link #withConnection(Callable)} — opens and closes automatically.
+     * - {@link #withTransaction(Callable)} — same, with rollback on failure.
+     * - Servlet/request filters that call {@code DB.closeConnection()} in a
+     *   {@code finally} block or via a framework lifecycle hook.
      *
-     * <p>Never call {@link #getConnection()} directly in application code without one
+     * Never call {@link #getConnection()} directly in application code without one
      * of the above wrappers. Direct calls that miss {@link #closeConnection()} will
-     * silently exhaust the pool under load.</p>
+     * silently exhaust the pool under load.
      */
     private static final ThreadLocal<Connection> threadConnection = new ThreadLocal<>();
 
-    /** Static logger for use in static methods */
     private static final Logger staticLogger = org.slf4j.LoggerFactory.getLogger(DB.class);
 
-    /** Logger instance */
     private final Logger logger;
-
-    /** Database type */
     private final DatabaseType type;
-
-    /** Database path (SQLite) or database name (MySQL/PostgreSQL) */
     private final String dbPath;
-
-    /** JDBC URL for SQLite */
     private String jdbcUrl;
-
-    /** Connection pool for MySQL/PostgreSQL */
     private HikariDataSource pool;
-
-    // ─── STATIC FACTORY METHODS ──────────────────────────────
 
     /**
      * Initialises a SQLite database.
      *
-     * @param path   Path to the SQLite file
-     * @param logger Logger instance
-     * @return The singleton DB instance
+     * @param path   path to the SQLite file
+     * @param logger logger instance
+     * @return the singleton DB instance
      */
-    public static DB initSQLite(String path, Logger logger) {
+    public static DB initSQLite(String path, Logger logger)
+    {
         synchronized (DB.class) {
             instance = new DB(DatabaseType.SQLITE, path, null, 0, null, null, logger);
         }
@@ -93,16 +78,16 @@ public class DB
     /**
      * Initialises a MySQL/MariaDB connection pool.
      *
-     * @param host     Database host
-     * @param port     Database port
-     * @param database Database name
-     * @param user     Database user
-     * @param password Database password
-     * @param logger   Logger instance
-     * @return The singleton DB instance
+     * @param host     database host
+     * @param port     database port
+     * @param database database name
+     * @param user     database user
+     * @param password database password
+     * @param logger   logger instance
+     * @return the singleton DB instance
      */
-    public static DB initMySQL(String host, int port, String database,
-                               String user, String password, Logger logger) {
+    public static DB initMySQL(String host, int port, String database, String user, String password, Logger logger)
+    {
         synchronized (DB.class) {
             instance = new DB(DatabaseType.MYSQL, database, host, port, user, password, logger);
         }
@@ -112,16 +97,16 @@ public class DB
     /**
      * Initialises a PostgreSQL connection pool.
      *
-     * @param host     Database host
-     * @param port     Database port
-     * @param database Database name
-     * @param user     Database user
-     * @param password Database password
-     * @param logger   Logger instance
-     * @return The singleton DB instance
+     * @param host     database host
+     * @param port     database port
+     * @param database database name
+     * @param user     database user
+     * @param password database password
+     * @param logger   logger instance
+     * @return the singleton DB instance
      */
-    public static DB initPostgreSQL(String host, int port, String database,
-                                    String user, String password, Logger logger) {
+    public static DB initPostgreSQL(String host, int port, String database, String user, String password, Logger logger)
+    {
         synchronized (DB.class) {
             instance = new DB(DatabaseType.POSTGRESQL, database, host, port, user, password, logger);
         }
@@ -131,10 +116,12 @@ public class DB
     /**
      * Returns the singleton instance, throwing if not yet initialised.
      *
-     * @return The DB instance
+     * @return the DB instance
+     * @throws IllegalStateException if no init method has been called
      */
-    public static DB getInstance() {
-        DB db = instance; // single volatile read
+    public static DB getInstance()
+    {
+        DB db = instance;
         if (db == null) {
             throw new IllegalStateException(
                     "Database not initialised — call initSQLite / initMySQL / initPostgreSQL first.");
@@ -142,13 +129,11 @@ public class DB
         return db;
     }
 
-    // ─── STATIC CONVENIENCE METHODS ──────────────────────────
-
     /**
      * Borrows a connection for the duration of {@code task}, then returns it.
      *
-     * @param task The task
-     * @return The task's return value
+     * @param task callable to execute
+     * @return the task's return value
      */
     public static <T> T withConnection(Callable<T> task) {
         return getInstance().executeWithConnection(task);
@@ -157,17 +142,14 @@ public class DB
     /**
      * Wraps {@code task} in a database transaction, rolling back on any exception.
      *
-     * @param task The task
-     * @return The task's return value
+     * @param task callable to execute
+     * @return the task's return value
      */
     public static <T> T withTransaction(Callable<T> task) {
         return getInstance().executeWithTransaction(task);
     }
 
-    // ─── CONSTRUCTOR ─────────────────────────────────────────
-
-    private DB(DatabaseType type, String database, String host, int port,
-               String user, String password, Logger logger)
+    private DB(DatabaseType type, String database, String host, int port, String user, String password, Logger logger)
     {
         this.type   = type;
         this.logger = logger;
@@ -181,8 +163,7 @@ public class DB
         }
     }
 
-    private void setupConnectionPool(DatabaseType type, String host, int port,
-                                     String database, String user, String password)
+    private void setupConnectionPool(DatabaseType type, String host, int port, String database, String user, String password)
     {
         HikariConfig config = new HikariConfig();
 
@@ -191,43 +172,35 @@ public class DB
         config.setUsername(user);
         config.setPassword(password);
 
-        // Pool sizing
         config.setMaximumPoolSize(20);
         config.setMinimumIdle(5);
 
-        // ── Timeouts ────────────────────────────────────────
         // How long a caller waits for a connection before an exception is thrown.
-        config.setConnectionTimeout(30_000);        // 30 s
+        config.setConnectionTimeout(30_000);
         // How long an idle connection may sit in the pool before being evicted.
-        config.setIdleTimeout(600_000);             // 10 min
-        // Maximum lifetime of any connection in the pool, regardless of activity.
-        // Must be shorter than the server's wait_timeout to avoid "Connection reset" errors.
-        config.setMaxLifetime(1_800_000);           // 30 min
+        config.setIdleTimeout(600_000);
+        // Maximum lifetime of any connection, must be shorter than the server's wait_timeout.
+        config.setMaxLifetime(1_800_000);
         // How often Hikari probes idle connections to keep them alive.
-        config.setKeepaliveTime(60_000);            // 1 min
-        // Warn if a connection is held for longer than this — catches ThreadLocal leaks
-        // where closeConnection() was never called after a request. Set to 0 to disable.
-        config.setLeakDetectionThreshold(5_000);    // 5 s
+        config.setKeepaliveTime(60_000);
+        // Warn if a connection is held longer than this — catches ThreadLocal leaks.
+        config.setLeakDetectionThreshold(5_000);
 
         config.setAutoCommit(true);
         config.setPoolName("ObsidianDB-" + type.name());
 
         pool = new HikariDataSource(config);
-        // Log host+database but NOT credentials
         logger.info("Connection pool initialised for {} at {}:{}/{}", type, host, port, database);
     }
 
     /**
      * Builds a JDBC URL for the given database type.
-     *
-     * <p>SSL is enabled for both MySQL and PostgreSQL by default.
+     * SSL is enabled by default for MySQL and PostgreSQL.
      * Disable only for local dev/test by setting {@code OBSIDIAN_DB_DISABLE_SSL=true}
-     * as an environment variable OR as a JVM system property ({@code -DOBSIDIAN_DB_DISABLE_SSL=true}).
-     * System property takes priority — this allows {@code exec-maven-plugin} to pass the flag
-     * via {@code <systemProperties>} without relying on OS-level env injection, which does not
-     * work when Maven runs in-process.</p>
+     * as an environment variable or JVM system property. System property takes priority.
      */
-    private String buildJdbcUrl(DatabaseType type, String host, int port, String database) {
+    private String buildJdbcUrl(DatabaseType type, String host, int port, String database)
+    {
         boolean disableSsl = isSslDisabled();
         return switch (type) {
             case MYSQL -> {
@@ -248,8 +221,6 @@ public class DB
                             "Do not use this setting in production.");
                     yield String.format("jdbc:postgresql://%s:%d/%s?ssl=false", host, port, database);
                 }
-                // sslmode=verify-full requires the server certificate to match the hostname
-                // and be signed by a trusted CA — equivalent to MySQL verifyServerCertificate=true.
                 yield String.format(
                         "jdbc:postgresql://%s:%d/%s?ssl=true&sslmode=verify-full",
                         host, port, database);
@@ -259,23 +230,18 @@ public class DB
     }
 
     /**
-     * Returns true if SSL should be disabled.
-     *
-     * <p>Checks system property first (set via {@code -D} or {@code exec-maven-plugin}
-     * {@code <systemProperties>}), then falls back to the OS environment variable.
-     * System property wins because {@code exec:java} runs in-process and cannot inject
-     * environment variables after JVM startup.</p>
+     * Returns {@code true} if SSL should be disabled.
+     * Checks system property first, then falls back to the OS environment variable.
      */
-    private boolean isSslDisabled() {
+    private boolean isSslDisabled()
+    {
         String sysProp = System.getProperty("OBSIDIAN_DB_DISABLE_SSL");
         if (sysProp != null) return "true".equalsIgnoreCase(sysProp);
         return "true".equalsIgnoreCase(System.getenv("OBSIDIAN_DB_DISABLE_SSL"));
     }
 
-    // ─── CONNECTION MANAGEMENT ───────────────────────────────
-
     /**
-     * Opens a connection for the current thread (no-op if already open).
+     * Opens a connection for the current thread. No-op if already open.
      */
     public void connect()
     {
@@ -298,9 +264,12 @@ public class DB
     }
 
     /**
-     * Returns true if the current thread holds an open connection.
+     * Returns {@code true} if the current thread holds an open connection.
+     *
+     * @return {@code true} if a connection is active
      */
-    public static boolean hasConnection() {
+    public static boolean hasConnection()
+    {
         Connection conn = threadConnection.get();
         if (conn == null) return false;
         try {
@@ -312,8 +281,11 @@ public class DB
 
     /**
      * Returns the current thread's connection, opening one if necessary.
+     *
+     * @return active JDBC connection
      */
-    public static Connection getConnection() {
+    public static Connection getConnection()
+    {
         Connection conn = threadConnection.get();
         if (conn == null) {
             getInstance().connect();
@@ -325,7 +297,8 @@ public class DB
     /**
      * Closes and removes the current thread's connection.
      */
-    public static void closeConnection() {
+    public static void closeConnection()
+    {
         Connection conn = threadConnection.get();
         if (conn != null) {
             try {
@@ -335,14 +308,12 @@ public class DB
         }
     }
 
-    // ─── EXECUTE WITH CONNECTION / TRANSACTION ───────────────
-
     /**
      * Executes {@code task} with an open connection, closing it afterwards
      * only if this call was the one that opened it.
      *
-     * @param task The task
-     * @return The task's return value
+     * @param task callable to execute
+     * @return the task's return value
      */
     public <T> T executeWithConnection(Callable<T> task)
     {
@@ -367,8 +338,8 @@ public class DB
      * Executes {@code task} inside a transaction.
      * Rolls back and rethrows on any exception.
      *
-     * @param task The task
-     * @return The task's return value
+     * @param task callable to execute
+     * @return the task's return value
      */
     public <T> T executeWithTransaction(Callable<T> task)
     {
@@ -403,13 +374,14 @@ public class DB
         }
     }
 
-    // ─── RAW SQL EXECUTION ───────────────────────────────────
-
     /**
-     * Executes a DDL/DML statement (CREATE, INSERT, UPDATE, DELETE).
-     * All variable data must be passed as {@code params} — never interpolated.
+     * Executes a DDL/DML statement. All variable data must be passed as {@code params}.
+     *
+     * @param sql    raw SQL string
+     * @param params values to bind to {@code ?} placeholders
      */
-    public static void exec(String sql, Object... params) {
+    public static void exec(String sql, Object... params)
+    {
         Connection conn = getConnection();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             bindParams(stmt, params);
@@ -421,10 +393,14 @@ public class DB
     }
 
     /**
-     * Executes a SELECT query and returns a list of rows.
-     * All variable data must be passed as {@code params} — never interpolated.
+     * Executes a SELECT query and returns all rows. All variable data must be passed as {@code params}.
+     *
+     * @param sql    raw SQL string
+     * @param params values to bind to {@code ?} placeholders
+     * @return list of rows as column-to-value maps
      */
-    public static List<Map<String, Object>> findAll(String sql, Object... params) {
+    public static List<Map<String, Object>> findAll(String sql, Object... params)
+    {
         Connection conn = getConnection();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             bindParams(stmt, params);
@@ -439,15 +415,18 @@ public class DB
 
     /**
      * Executes a SELECT and returns the first cell value, or {@code null}.
+     *
+     * @param sql    raw SQL string
+     * @param params values to bind to {@code ?} placeholders
+     * @return first cell value, or {@code null}
      */
-    public static Object firstCell(String sql, Object... params) {
+    public static Object firstCell(String sql, Object... params)
+    {
         Connection conn = getConnection();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             bindParams(stmt, params);
             try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getObject(1);
-                }
+                if (rs.next()) return rs.getObject(1);
                 return null;
             }
         } catch (SQLException e) {
@@ -458,8 +437,13 @@ public class DB
 
     /**
      * Executes a SELECT and returns the first row as a map, or {@code null}.
+     *
+     * @param sql    raw SQL string
+     * @param params values to bind to {@code ?} placeholders
+     * @return first row as a column-to-value map, or {@code null}
      */
-    public static Map<String, Object> firstRow(String sql, Object... params) {
+    public static Map<String, Object> firstRow(String sql, Object... params)
+    {
         Connection conn = getConnection();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             bindParams(stmt, params);
@@ -475,16 +459,19 @@ public class DB
 
     /**
      * Executes an INSERT and returns the generated key, or {@code null}.
+     *
+     * @param sql    raw SQL string
+     * @param params values to bind to {@code ?} placeholders
+     * @return generated key, or {@code null}
      */
-    public static Object insertAndGetKey(String sql, Object... params) {
+    public static Object insertAndGetKey(String sql, Object... params)
+    {
         Connection conn = getConnection();
         try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             bindParams(stmt, params);
             stmt.executeUpdate();
             try (ResultSet keys = stmt.getGeneratedKeys()) {
-                if (keys.next()) {
-                    return keys.getObject(1);
-                }
+                if (keys.next()) return keys.getObject(1);
                 return null;
             }
         } catch (SQLException e) {
@@ -493,16 +480,9 @@ public class DB
         }
     }
 
-    // ─── CLOSE / SHUTDOWN ────────────────────────────────────
-
     /**
-     * Closes the current thread's connection and shuts down the pool.
-     *
-     * <p>Synchronized on {@code DB.class} for the same reason as the {@code init*} methods:
-     * a thread calling {@code close()} concurrently with another thread reading {@code instance}
-     * could observe a non-null instance whose pool has already been shut down. The lock ensures
-     * that once {@code close()} completes, any subsequent {@code getInstance()} either gets
-     * a valid instance or throws — never a half-closed one.</p>
+     * Closes the current thread's connection and shuts down the connection pool.
+     * Synchronized to prevent concurrent access to a half-closed instance.
      */
     public void close()
     {
@@ -517,23 +497,19 @@ public class DB
         }
     }
 
-    // ─── ACCESSORS ───────────────────────────────────────────
-
     /**
      * Returns the database type.
      *
-     * @return The database type
+     * @return database type
      */
     public DatabaseType getType() { return type; }
 
     /**
-     * Returns the logger.
+     * Returns the logger instance.
      *
-     * @return The logger
+     * @return logger
      */
     public Logger getLogger() { return logger; }
-
-    // ─── INTERNAL HELPERS ────────────────────────────────────
 
     private static void bindParams(PreparedStatement stmt, Object... params) throws SQLException
     {

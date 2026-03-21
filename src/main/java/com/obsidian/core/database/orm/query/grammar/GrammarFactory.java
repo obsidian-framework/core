@@ -1,16 +1,21 @@
 package com.obsidian.core.database.orm.query.grammar;
 
 /**
- * Factory to resolve the appropriate SQL Grammar based on database type.
+ * Factory to resolve the appropriate SQL grammar based on database type.
  */
-public class GrammarFactory {
-
+public class GrammarFactory
+{
     private static Grammar instance;
 
     /**
-     * Initialize from database type string (mysql, postgresql, sqlite).
+     * Initializes the grammar from a database type string.
+     * Accepted values: {@code mysql}, {@code mariadb}, {@code postgresql}, {@code postgres}, {@code sqlite}.
+     * Defaults to MySQL if the type is unrecognized.
+     *
+     * @param dbType database type string
      */
-    public static void initialize(String dbType) {
+    public static void initialize(String dbType)
+    {
         switch (dbType.toLowerCase()) {
             case "mysql":
             case "mariadb":
@@ -29,9 +34,12 @@ public class GrammarFactory {
     }
 
     /**
-     * Get the current grammar instance.
+     * Returns the current grammar instance, defaulting to MySQL if none has been initialized.
+     *
+     * @return current {@link Grammar} instance
      */
-    public static Grammar get() {
+    public static Grammar get()
+    {
         if (instance == null) {
             instance = new MySqlGrammar();
         }
@@ -39,7 +47,9 @@ public class GrammarFactory {
     }
 
     /**
-     * Set a custom grammar.
+     * Overrides the current grammar with a custom implementation.
+     *
+     * @param grammar custom grammar instance
      */
     public static void set(Grammar grammar) {
         instance = grammar;
