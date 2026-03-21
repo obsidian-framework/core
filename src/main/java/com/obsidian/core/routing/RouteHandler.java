@@ -44,14 +44,17 @@ public class RouteHandler
      */
     public static spark.Route create(Object controller, Method method)
     {
-        return (req, res) ->
-        {
+        return (req, res) -> {
             Object result = null;
             try {
                 RoleChecker.checkAccess(req, res);
+
                 executeBeforeMiddleware(method, req, res);
+
                 validateCsrf(controller, method, req, res);
+
                 result = invokeMethod(controller, method, req, res);
+
             } catch (InvocationTargetException e) {
                 Throwable cause = e.getCause();
                 result = ErrorHandler.handle(cause, req, res);
