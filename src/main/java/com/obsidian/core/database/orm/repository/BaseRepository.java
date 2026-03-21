@@ -32,69 +32,88 @@ import java.util.Map;
  *       public PostRepository() { super(Post.class); }
  *   }
  */
-public abstract class BaseRepository<T extends Model> {
-
+public abstract class BaseRepository<T extends Model>
+{
     protected final Class<T> modelClass;
 
     /**
-     * Creates a new BaseRepository instance.
+     * Creates a new repository for the given model class.
      *
-     * @param modelClass The model class to instantiate
+     * @param modelClass model class to operate on
      */
     public BaseRepository(Class<T> modelClass) {
         this.modelClass = modelClass;
     }
 
-    // ─── QUERY STARTER ───────────────────────────────────────
-
     /**
-     * Start a new query builder for this model.
+     * Returns a new query builder for this model.
+     *
+     * @return fresh {@link ModelQueryBuilder}
      */
     public ModelQueryBuilder<T> query() {
         return Model.query(modelClass);
     }
 
-    // ─── FIND ────────────────────────────────────────────────
-
     /**
-     * Find all records.
+     * Returns all records.
+     *
+     * @return list of all model instances
      */
     public List<T> findAll() {
         return Model.all(modelClass);
     }
 
     /**
-     * Find by primary key.
+     * Finds a record by primary key, or returns {@code null} if not found.
+     *
+     * @param id primary key value
+     * @return model instance, or {@code null}
      */
     public T findById(Object id) {
         return Model.find(modelClass, id);
     }
 
     /**
-     * Find by primary key or throw.
+     * Finds a record by primary key, throwing if not found.
+     *
+     * @param id primary key value
+     * @return model instance
+     * @throws com.obsidian.core.database.orm.model.ModelNotFoundException if no record exists
      */
     public T findByIdOrFail(Object id) {
         return Model.findOrFail(modelClass, id);
     }
 
     /**
-     * Find by a column value.
+     * Finds the first record where the given column equals the given value.
+     *
+     * @param column column name
+     * @param value  value to match
+     * @return first matching model instance, or {@code null}
      */
     public T findBy(String column, Object value) {
         return query().where(column, value).first();
     }
 
     /**
-     * Find all by a column value.
+     * Returns all records where the given column equals the given value.
+     *
+     * @param column column name
+     * @param value  value to match
+     * @return list of matching model instances
      */
     public List<T> findAllBy(String column, Object value) {
         return query().where(column, value).get();
     }
 
     /**
-     * Find by multiple column values (AND).
+     * Finds the first record matching all given attributes (AND conditions).
+     *
+     * @param attributes column-to-value map of conditions
+     * @return first matching model instance, or {@code null}
      */
-    public T findByAttributes(Map<String, Object> attributes) {
+    public T findByAttributes(Map<String, Object> attributes)
+    {
         ModelQueryBuilder<T> q = query();
         for (Map.Entry<String, Object> entry : attributes.entrySet()) {
             q.where(entry.getKey(), entry.getValue());
@@ -103,44 +122,56 @@ public abstract class BaseRepository<T extends Model> {
     }
 
     /**
-     * Find multiple by IDs.
+     * Returns all records whose primary key is in the given list.
+     *
+     * @param ids list of primary key values
+     * @return list of matching model instances
      */
     public List<T> findMany(List<Object> ids) {
         return query().whereIn("id", ids).get();
     }
 
-    // ─── CREATE ──────────────────────────────────────────────
-
     /**
-     * Create a new model with given attributes.
+     * Creates and persists a new model with the given attributes.
+     *
+     * @param attributes column-to-value map
+     * @return saved model instance
      */
     public T create(Map<String, Object> attributes) {
         return Model.create(modelClass, attributes);
     }
 
     /**
-     * Find or create.
+     * Finds the first record matching {@code search}, or creates one merging
+     * {@code search} and {@code extra} if none exists.
+     *
+     * @param search attributes used to locate the existing record
+     * @param extra  additional attributes merged in on creation only
+     * @return existing or newly created model instance
      */
     public T firstOrCreate(Map<String, Object> search, Map<String, Object> extra) {
         return Model.firstOrCreate(modelClass, search, extra);
     }
 
     /**
-     * Finds a matching model or creates one if not found.
+     * Finds the first record matching {@code search}, or creates one if none exists.
      *
-     * @param search Attributes to search for
-     * @return The model instance, or {@code null} if not found
+     * @param search attributes used to locate the existing record
+     * @return existing or newly created model instance
      */
     public T firstOrCreate(Map<String, Object> search) {
         return firstOrCreate(search, Map.of());
     }
 
-    // ─── UPDATE ──────────────────────────────────────────────
-
     /**
-     * Update a model by ID.
+     * Finds a record by primary key, applies the given attributes, and saves it.
+     *
+     * @param id         primary key value
+     * @param attributes column-to-value map to apply
+     * @return updated model instance
      */
-    public T update(Object id, Map<String, Object> attributes) {
+    public T update(Object id, Map<String, Object> attributes)
+    {
         T model = findByIdOrFail(id);
         model.fill(attributes);
         model.save();
@@ -148,197 +179,207 @@ public abstract class BaseRepository<T extends Model> {
     }
 
     /**
-     * Update matching records (bulk).
+     * Bulk-updates all records where the given column equals the given value.
+     *
+     * @param column     column name to filter on
+     * @param value      value to match
+     * @param attributes column-to-value map to apply
+     * @return number of affected rows
      */
     public int updateWhere(String column, Object value, Map<String, Object> attributes) {
         return query().where(column, value).update(attributes);
     }
 
-    // ─── DELETE ──────────────────────────────────────────────
-
     /**
-     * Delete by primary key.
+     * Deletes the record with the given primary key.
+     *
+     * @param id primary key value
+     * @return {@code true} if deleted, {@code false} if not found
      */
-    public boolean delete(Object id) {
+    public boolean delete(Object id)
+    {
         T model = findById(id);
         if (model == null) return false;
         return model.delete();
     }
 
     /**
-     * Delete by primary keys.
+     * Deletes multiple records by primary key in a single query.
+     *
+     * @param ids primary key values to delete
+     * @return number of affected rows
      */
     public int destroy(Object... ids) {
         return Model.destroy(modelClass, ids);
     }
 
     /**
-     * Delete matching records (bulk).
+     * Bulk-deletes all records where the given column equals the given value.
+     *
+     * @param column column name
+     * @param value  value to match
+     * @return number of affected rows
      */
     public int deleteWhere(String column, Object value) {
         return query().where(column, value).delete();
     }
 
-    // ─── AGGREGATES ──────────────────────────────────────────
-
     /**
-     * Returns the number of matching rows.
+     * Returns the total number of records.
      *
-     * @return The count or numeric result
+     * @return record count
      */
     public long count() {
         return query().count();
     }
 
     /**
-     * Returns the number of rows matching a condition.
+     * Returns the number of records where the given column equals the given value.
      *
-     * @param column The column name
-     * @param value The value to compare against
-     * @return The count or numeric result
+     * @param column column name
+     * @param value  value to match
+     * @return record count
      */
     public long countWhere(String column, Object value) {
         return query().where(column, value).count();
     }
 
     /**
-     * Checks if any rows match the query.
+     * Returns {@code true} if a record with the given primary key exists.
      *
-     * @param id The primary key value
-     * @return {@code true} if the operation succeeded, {@code false} otherwise
+     * @param id primary key value
+     * @return {@code true} if found
      */
     public boolean exists(Object id) {
         return query().where("id", id).exists();
     }
 
     /**
-     * Checks if any record matches a column condition.
+     * Returns {@code true} if any record matches the given column condition.
      *
-     * @param column The column name
-     * @param value The value to compare against
-     * @return {@code true} if the operation succeeded, {@code false} otherwise
+     * @param column column name
+     * @param value  value to match
+     * @return {@code true} if at least one match exists
      */
     public boolean existsWhere(String column, Object value) {
         return query().where(column, value).exists();
     }
 
     /**
-     * Returns the maximum value of a column.
+     * Returns the maximum value of the given column.
      *
-     * @param column The column name
-     * @return The result value, or {@code null} if not found
+     * @param column column name
+     * @return maximum value, or {@code null}
      */
     public Object max(String column) {
         return query().max(column);
     }
 
     /**
-     * Returns the minimum value of a column.
+     * Returns the minimum value of the given column.
      *
-     * @param column The column name
-     * @return The result value, or {@code null} if not found
+     * @param column column name
+     * @return minimum value, or {@code null}
      */
     public Object min(String column) {
         return query().min(column);
     }
 
     /**
-     * Returns the sum of a column.
+     * Returns the sum of the given column.
      *
-     * @param column The column name
-     * @return The result value, or {@code null} if not found
+     * @param column column name
+     * @return sum value, or {@code null}
      */
     public Object sum(String column) {
         return query().sum(column);
     }
 
     /**
-     * Returns the average of a column.
+     * Returns the average of the given column.
      *
-     * @param column The column name
-     * @return The result value, or {@code null} if not found
+     * @param column column name
+     * @return average value, or {@code null}
      */
     public Object avg(String column) {
         return query().avg(column);
     }
 
-    // ─── PAGINATION ──────────────────────────────────────────
-
     /**
-     * Paginate all records.
+     * Paginates all records.
+     *
+     * @param page    page number, starting at 1
+     * @param perPage number of items per page
+     * @return paginated result set
      */
     public Paginator<T> paginate(int page, int perPage) {
         return query().paginate(page, perPage);
     }
 
     /**
-     * Paginates the query results.
+     * Paginates all records with a default page size of 15.
      *
-     * @param page Page number (starts at 1)
-     * @return A paginated result set with metadata
+     * @param page page number, starting at 1
+     * @return paginated result set
      */
     public Paginator<T> paginate(int page) {
         return paginate(page, 15);
     }
 
-    // ─── ORDERING ────────────────────────────────────────────
-
     /**
-     * Orders by the given column descending (default: created_at).
+     * Returns all records ordered by {@code created_at} descending.
      *
-     * @return A list of results
+     * @return list of model instances
      */
     public List<T> latest() {
         return query().latest().get();
     }
 
     /**
-     * Orders by the given column descending (default: created_at).
+     * Returns the most recent records ordered by {@code created_at} descending.
      *
-     * @param limit Maximum number of rows
-     * @return A list of results
+     * @param limit maximum number of records to return
+     * @return list of model instances
      */
     public List<T> latest(int limit) {
         return query().latest().limit(limit).get();
     }
 
     /**
-     * Orders by the given column ascending (default: created_at).
+     * Returns all records ordered by {@code created_at} ascending.
      *
-     * @return A list of results
+     * @return list of model instances
      */
     public List<T> oldest() {
         return query().oldest().get();
     }
 
     /**
-     * Executes the query and returns the first result, or null.
+     * Returns the first record, or {@code null} if none exists.
      *
-     * @return The model instance, or {@code null} if not found
+     * @return first model instance, or {@code null}
      */
     public T first() {
         return query().first();
     }
 
-    // ─── PLUCK ───────────────────────────────────────────────
-
     /**
-     * Extracts a single column value from each result.
+     * Returns the value of the given column from each record.
      *
-     * @param column The column name
-     * @return A list of results
+     * @param column column name to extract
+     * @return list of column values
      */
     public List<Object> pluck(String column) {
         return query().pluck(column);
     }
 
     /**
-     * Pluck Where.
+     * Returns the value of the given column from records matching a condition.
      *
-     * @param column The column name
-     * @param whereCol The where col
-     * @param whereVal The where val
-     * @return A list of results
+     * @param column   column name to extract
+     * @param whereCol column name to filter on
+     * @param whereVal value to match
+     * @return list of column values
      */
     public List<Object> pluckWhere(String column, String whereCol, Object whereVal) {
         return query().where(whereCol, whereVal).pluck(column);

@@ -50,8 +50,6 @@ public class BelongsToMany<T extends Model> implements Relation<T>
         return this;
     }
 
-    // ─── READ ────────────────────────────────────────────────
-
     @Override
     public List<T> get() {
         T instance      = Model.newInstance(relatedClass);
@@ -83,8 +81,6 @@ public class BelongsToMany<T extends Model> implements Relation<T>
         List<T> results = get();
         return results.isEmpty() ? null : results.get(0);
     }
-
-    // ─── ATTACH ──────────────────────────────────────────────
 
     /**
      * Attaches a single related ID.
@@ -128,8 +124,6 @@ public class BelongsToMany<T extends Model> implements Relation<T>
         new QueryBuilder(pivotTable).insertAll(rows);
     }
 
-    // ─── DETACH ──────────────────────────────────────────────
-
     /**
      * Detaches a single related ID.
      *
@@ -164,8 +158,6 @@ public class BelongsToMany<T extends Model> implements Relation<T>
                 .delete();
     }
 
-    // ─── SYNC ────────────────────────────────────────────────
-
     /**
      * Replaces all pivot entries with the given IDs.
      *
@@ -187,8 +179,6 @@ public class BelongsToMany<T extends Model> implements Relation<T>
         if (!toDetach.isEmpty()) detachMany(toDetach);
         if (!toAttach.isEmpty()) attachMany(toAttach);
     }
-
-    // ─── TOGGLE ──────────────────────────────────────────────
 
     /**
      * For each ID: attaches if absent, detaches if present.
@@ -213,8 +203,6 @@ public class BelongsToMany<T extends Model> implements Relation<T>
         if (!toAttach.isEmpty()) attachMany(toAttach);
     }
 
-    // ─── UPDATE PIVOT ────────────────────────────────────────
-
     /**
      * Updates pivot data for a specific related ID.
      *
@@ -228,8 +216,6 @@ public class BelongsToMany<T extends Model> implements Relation<T>
                 .where(relatedPivotKey, relatedId)
                 .update(pivotData);
     }
-
-    // ─── EAGER LOADING ───────────────────────────────────────
 
     @Override
     public void eagerLoad(List<? extends Model> parents, String relationName) {
@@ -283,16 +269,12 @@ public class BelongsToMany<T extends Model> implements Relation<T>
         }
     }
 
-    // ─── ACCESSORS ───────────────────────────────────────────
-
     /** @return pivot table name */
     public String getPivotTable()      { return pivotTable; }
     /** @return pivot column referencing the parent */
     public String getForeignPivotKey() { return foreignPivotKey; }
     /** @return pivot column referencing the related model */
     public String getRelatedPivotKey() { return relatedPivotKey; }
-
-    // ─── HELPERS ─────────────────────────────────────────────
 
     private List<Object> currentRelatedIds() {
         return new QueryBuilder(pivotTable)

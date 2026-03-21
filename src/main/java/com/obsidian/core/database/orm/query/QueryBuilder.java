@@ -4,7 +4,6 @@ import com.obsidian.core.database.orm.query.clause.*;
 import com.obsidian.core.database.orm.query.grammar.*;
 import com.obsidian.core.database.DB;
 
-import java.sql.PreparedStatement;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -35,12 +34,10 @@ public class QueryBuilder
     private final List<String> eagerLoads = new ArrayList<>();
     private int queryTimeoutSeconds = 30;
 
-    // ─── CONSTRUCTORS ────────────────────────────────────────
-
     /**
      * Creates a builder for the given table using the default grammar.
      *
-     * @param table table name — must be a valid SQL identifier
+     * @param table table name, must be a valid SQL identifier
      */
     public QueryBuilder(String table) {
         this(table, GrammarFactory.get());
@@ -49,10 +46,11 @@ public class QueryBuilder
     /**
      * Creates a builder for the given table and grammar.
      *
-     * @param table   table name — must be a valid SQL identifier
+     * @param table   table name, must be a valid SQL identifier
      * @param grammar SQL grammar to use for compilation
      */
-    public QueryBuilder(String table, Grammar grammar) {
+    public QueryBuilder(String table, Grammar grammar)
+    {
         if (!table.startsWith("__")) {
             SqlIdentifier.requireIdentifier(table);
         }
@@ -61,15 +59,14 @@ public class QueryBuilder
         this.executor = new QueryExecutor(queryTimeoutSeconds);
     }
 
-    // ─── SELECT ──────────────────────────────────────────────
-
     /**
      * Adds columns to the SELECT clause.
      *
-     * @param cols column names — must be valid SQL identifiers
+     * @param cols column names, must be valid SQL identifiers
      * @return this builder
      */
-    public QueryBuilder select(String... cols) {
+    public QueryBuilder select(String... cols)
+    {
         for (String col : cols) SqlIdentifier.requireIdentifier(col);
         columns.addAll(Arrays.asList(cols));
         return this;
@@ -77,8 +74,9 @@ public class QueryBuilder
 
     /**
      * Adds a raw expression to the SELECT clause.
+     * The caller is responsible for ensuring {@code expression} is safe.
      *
-     * @param expression raw SQL expression — must be a trusted, hardcoded string
+     * @param expression raw SQL expression
      * @return this builder
      */
     public QueryBuilder selectRaw(String expression) {
@@ -96,17 +94,16 @@ public class QueryBuilder
         return this;
     }
 
-    // ─── WHERE ───────────────────────────────────────────────
-
     /**
      * Adds an AND WHERE condition.
      *
-     * @param column   column name — must be a valid SQL identifier
-     * @param operator comparison operator — must be in the allowed whitelist
+     * @param column   column name, must be a valid SQL identifier
+     * @param operator comparison operator, must be in the allowed whitelist
      * @param value    value bound via PreparedStatement
      * @return this builder
      */
-    public QueryBuilder where(String column, String operator, Object value) {
+    public QueryBuilder where(String column, String operator, Object value)
+    {
         SqlIdentifier.requireIdentifier(column);
         SqlIdentifier.requireOperator(operator);
         wheres.add(new WhereClause(column, operator, value, "AND"));
@@ -133,7 +130,8 @@ public class QueryBuilder
      * @param value    value bound via PreparedStatement
      * @return this builder
      */
-    public QueryBuilder orWhere(String column, String operator, Object value) {
+    public QueryBuilder orWhere(String column, String operator, Object value)
+    {
         SqlIdentifier.requireIdentifier(column);
         SqlIdentifier.requireOperator(operator);
         wheres.add(new WhereClause(column, operator, value, "OR"));
@@ -158,7 +156,8 @@ public class QueryBuilder
      * @param column column name
      * @return this builder
      */
-    public QueryBuilder whereNull(String column) {
+    public QueryBuilder whereNull(String column)
+    {
         SqlIdentifier.requireIdentifier(column);
         wheres.add(WhereClause.isNull(column, "AND"));
         return this;
@@ -170,7 +169,8 @@ public class QueryBuilder
      * @param column column name
      * @return this builder
      */
-    public QueryBuilder whereNotNull(String column) {
+    public QueryBuilder whereNotNull(String column)
+    {
         SqlIdentifier.requireIdentifier(column);
         wheres.add(WhereClause.isNotNull(column, "AND"));
         return this;
@@ -182,22 +182,24 @@ public class QueryBuilder
      * @param column column to remove the null check for
      * @return this builder
      */
-    public QueryBuilder removeWhereNull(String column) {
+    public QueryBuilder removeWhereNull(String column)
+    {
         wheres.removeIf(w -> w.getType() == WhereClause.Type.NULL && column.equals(w.getColumn()));
         return this;
     }
 
     /**
      * Adds a WHERE column IN (...) condition.
+     * An empty list produces {@code 1 = 0}, which matches no rows.
      *
      * @param column column name
      * @param values values bound via PreparedStatement
      * @return this builder
      */
-    public QueryBuilder whereIn(String column, List<?> values) {
+    public QueryBuilder whereIn(String column, List<?> values)
+    {
         SqlIdentifier.requireIdentifier(column);
         if (values == null || values.isEmpty()) {
-            // IN () is invalid SQL on all databases — empty set is never matched
             wheres.add(WhereClause.raw("1 = 0", "AND"));
             return this;
         }
@@ -208,15 +210,16 @@ public class QueryBuilder
 
     /**
      * Adds a WHERE column NOT IN (...) condition.
+     * An empty list is a no-op since NOT IN () is always true.
      *
      * @param column column name
      * @param values values bound via PreparedStatement
      * @return this builder
      */
-    public QueryBuilder whereNotIn(String column, List<?> values) {
+    public QueryBuilder whereNotIn(String column, List<?> values)
+    {
         SqlIdentifier.requireIdentifier(column);
         if (values == null || values.isEmpty()) {
-            // NOT IN () is always true — empty exclusion set is a no-op
             return this;
         }
         wheres.add(WhereClause.notIn(column, values, "AND"));
@@ -232,7 +235,8 @@ public class QueryBuilder
      * @param high   upper bound
      * @return this builder
      */
-    public QueryBuilder whereBetween(String column, Object low, Object high) {
+    public QueryBuilder whereBetween(String column, Object low, Object high)
+    {
         SqlIdentifier.requireIdentifier(column);
         wheres.add(WhereClause.between(column, low, high, "AND"));
         bindings.add(low);
@@ -252,13 +256,14 @@ public class QueryBuilder
     }
 
     /**
-     * Adds a raw WHERE clause.
+     * Adds a raw WHERE clause. The caller is responsible for safety.
      *
-     * @param sql    raw SQL fragment — column names and operators only, values via params
+     * @param sql    raw SQL fragment
      * @param params values to bind to {@code ?} placeholders
      * @return this builder
      */
-    public QueryBuilder whereRaw(String sql, Object... params) {
+    public QueryBuilder whereRaw(String sql, Object... params)
+    {
         wheres.add(WhereClause.raw(sql, "AND"));
         bindings.addAll(Arrays.asList(params));
         return this;
@@ -270,7 +275,8 @@ public class QueryBuilder
      * @param group callback receiving a nested builder
      * @return this builder
      */
-    public QueryBuilder where(Consumer<QueryBuilder> group) {
+    public QueryBuilder where(Consumer<QueryBuilder> group)
+    {
         QueryBuilder nested = new QueryBuilder(this.table, this.grammar);
         group.accept(nested);
         wheres.add(WhereClause.nested(nested, "AND"));
@@ -284,15 +290,14 @@ public class QueryBuilder
      * @param group callback receiving a nested builder
      * @return this builder
      */
-    public QueryBuilder orWhere(Consumer<QueryBuilder> group) {
+    public QueryBuilder orWhere(Consumer<QueryBuilder> group)
+    {
         QueryBuilder nested = new QueryBuilder(this.table, this.grammar);
         group.accept(nested);
         wheres.add(WhereClause.nested(nested, "OR"));
         bindings.addAll(nested.getBindings());
         return this;
     }
-
-    // ─── JOIN ────────────────────────────────────────────────
 
     /**
      * Adds an INNER JOIN clause.
@@ -303,7 +308,8 @@ public class QueryBuilder
      * @param second   right-hand column
      * @return this builder
      */
-    public QueryBuilder join(String table, String first, String operator, String second) {
+    public QueryBuilder join(String table, String first, String operator, String second)
+    {
         SqlIdentifier.requireIdentifier(table);
         SqlIdentifier.requireIdentifier(first);
         SqlIdentifier.requireOperator(operator);
@@ -321,7 +327,8 @@ public class QueryBuilder
      * @param second   right-hand column
      * @return this builder
      */
-    public QueryBuilder leftJoin(String table, String first, String operator, String second) {
+    public QueryBuilder leftJoin(String table, String first, String operator, String second)
+    {
         SqlIdentifier.requireIdentifier(table);
         SqlIdentifier.requireIdentifier(first);
         SqlIdentifier.requireOperator(operator);
@@ -339,7 +346,8 @@ public class QueryBuilder
      * @param second   right-hand column
      * @return this builder
      */
-    public QueryBuilder rightJoin(String table, String first, String operator, String second) {
+    public QueryBuilder rightJoin(String table, String first, String operator, String second)
+    {
         SqlIdentifier.requireIdentifier(table);
         SqlIdentifier.requireIdentifier(first);
         SqlIdentifier.requireOperator(operator);
@@ -354,42 +362,73 @@ public class QueryBuilder
      * @param table joined table name
      * @return this builder
      */
-    public QueryBuilder crossJoin(String table) {
+    public QueryBuilder crossJoin(String table)
+    {
         SqlIdentifier.requireIdentifier(table);
         joins.add(new JoinClause("CROSS", table, null, null, null));
         return this;
     }
 
-    // ─── ORDER BY ────────────────────────────────────────────
-
     /**
      * Adds an ORDER BY clause.
      *
      * @param column    column name
-     * @param direction ASC or DESC
+     * @param direction {@code ASC} or {@code DESC}
      * @return this builder
      */
-    public QueryBuilder orderBy(String column, String direction) {
+    public QueryBuilder orderBy(String column, String direction)
+    {
         SqlIdentifier.requireIdentifier(column);
         SqlIdentifier.requireDirection(direction);
         orders.add(new OrderClause(column, direction.toUpperCase()));
         return this;
     }
 
-    /** @param column column name — orders ASC */
-    public QueryBuilder orderBy(String column)    { return orderBy(column, "ASC"); }
-    /** @param column column name — orders DESC */
-    public QueryBuilder orderByDesc(String column) { return orderBy(column, "DESC"); }
-    /** @param column column name — orders DESC */
-    public QueryBuilder latest(String column)      { return orderByDesc(column); }
-    /** Orders by created_at DESC. */
-    public QueryBuilder latest()                   { return latest("created_at"); }
-    /** @param column column name — orders ASC */
-    public QueryBuilder oldest(String column)      { return orderBy(column, "ASC"); }
-    /** Orders by created_at ASC. */
-    public QueryBuilder oldest()                   { return oldest("created_at"); }
+    /**
+     * Adds an ascending ORDER BY clause.
+     *
+     * @param column column name
+     * @return this builder
+     */
+    public QueryBuilder orderBy(String column) { return orderBy(column, "ASC"); }
 
-    // ─── GROUP BY / HAVING ───────────────────────────────────
+    /**
+     * Adds a descending ORDER BY clause.
+     *
+     * @param column column name
+     * @return this builder
+     */
+    public QueryBuilder orderByDesc(String column) { return orderBy(column, "DESC"); }
+
+    /**
+     * Orders by the given column descending.
+     *
+     * @param column column name
+     * @return this builder
+     */
+    public QueryBuilder latest(String column) { return orderByDesc(column); }
+
+    /**
+     * Orders by {@code created_at} descending.
+     *
+     * @return this builder
+     */
+    public QueryBuilder latest() { return latest("created_at"); }
+
+    /**
+     * Orders by the given column ascending.
+     *
+     * @param column column name
+     * @return this builder
+     */
+    public QueryBuilder oldest(String column) { return orderBy(column, "ASC"); }
+
+    /**
+     * Orders by {@code created_at} ascending.
+     *
+     * @return this builder
+     */
+    public QueryBuilder oldest() { return oldest("created_at"); }
 
     /**
      * Adds a GROUP BY clause.
@@ -397,7 +436,8 @@ public class QueryBuilder
      * @param cols column names
      * @return this builder
      */
-    public QueryBuilder groupBy(String... cols) {
+    public QueryBuilder groupBy(String... cols)
+    {
         for (String col : cols) SqlIdentifier.requireIdentifier(col);
         groups.addAll(Arrays.asList(cols));
         return this;
@@ -411,7 +451,8 @@ public class QueryBuilder
      * @param value    value bound via PreparedStatement
      * @return this builder
      */
-    public QueryBuilder having(String column, String operator, Object value) {
+    public QueryBuilder having(String column, String operator, Object value)
+    {
         SqlIdentifier.requireIdentifier(column);
         SqlIdentifier.requireOperator(operator);
         havings.add(new HavingClause(column, operator, value));
@@ -420,28 +461,50 @@ public class QueryBuilder
     }
 
     /**
-     * Adds a raw HAVING clause.
+     * Adds a raw HAVING clause. The caller is responsible for safety.
      *
-     * @param sql    raw SQL string — caller must ensure safety
+     * @param sql    raw SQL string
      * @param params values to bind to placeholders
      * @return this builder
      */
-    public QueryBuilder havingRaw(String sql, Object... params) {
+    public QueryBuilder havingRaw(String sql, Object... params)
+    {
         havings.add(HavingClause.raw(sql));
         bindings.addAll(Arrays.asList(params));
         return this;
     }
 
-    // ─── LIMIT / OFFSET ──────────────────────────────────────
+    /**
+     * Sets the maximum number of rows to return.
+     *
+     * @param limit max rows
+     * @return this builder
+     */
+    public QueryBuilder limit(int limit) { this.limitValue = limit; return this; }
 
-    /** @param limit max rows to return */
-    public QueryBuilder limit(int limit)   { this.limitValue  = limit;  return this; }
-    /** @param offset rows to skip */
+    /**
+     * Sets the number of rows to skip.
+     *
+     * @param offset rows to skip
+     * @return this builder
+     */
     public QueryBuilder offset(int offset) { this.offsetValue = offset; return this; }
-    /** @param n max rows — alias for limit */
-    public QueryBuilder take(int n)        { return limit(n); }
-    /** @param n rows to skip — alias for offset */
-    public QueryBuilder skip(int n)        { return offset(n); }
+
+    /**
+     * Alias for {@link #limit}.
+     *
+     * @param n max rows
+     * @return this builder
+     */
+    public QueryBuilder take(int n) { return limit(n); }
+
+    /**
+     * Alias for {@link #offset}.
+     *
+     * @param n rows to skip
+     * @return this builder
+     */
+    public QueryBuilder skip(int n) { return offset(n); }
 
     /**
      * Sets the statement-level query timeout.
@@ -449,7 +512,8 @@ public class QueryBuilder
      * @param seconds timeout in seconds, 0 to disable
      * @return this builder
      */
-    public QueryBuilder timeout(int seconds) {
+    public QueryBuilder timeout(int seconds)
+    {
         this.queryTimeoutSeconds = seconds;
         return this;
     }
@@ -459,25 +523,25 @@ public class QueryBuilder
      *
      * @return this builder
      */
-    public QueryBuilder requireWhere() {
+    public QueryBuilder requireWhere()
+    {
         this.requiresWhere = true;
         return this;
     }
 
     /**
-     * Applies LIMIT and OFFSET for the given page.
+     * Applies LIMIT and OFFSET for the given page. Pages start at 1.
      *
-     * @param page    page number starting at 1
+     * @param page    page number
      * @param perPage items per page
      * @return this builder
      */
-    public QueryBuilder forPage(int page, int perPage) {
+    public QueryBuilder forPage(int page, int perPage)
+    {
         if (page < 1)    throw new IllegalArgumentException("forPage: page must be >= 1, got: " + page);
         if (perPage < 1) throw new IllegalArgumentException("forPage: perPage must be >= 1, got: " + perPage);
         return limit(perPage).offset((page - 1) * perPage);
     }
-
-    // ─── EAGER LOADING ───────────────────────────────────────
 
     /**
      * Specifies relations to eager-load with the query results.
@@ -485,17 +549,20 @@ public class QueryBuilder
      * @param relations relation method names
      * @return this builder
      */
-    public QueryBuilder with(String... relations) {
+    public QueryBuilder with(String... relations)
+    {
         eagerLoads.addAll(Arrays.asList(relations));
         return this;
     }
 
-    /** @return immutable list of eager-load relation names */
+    /**
+     * Returns an immutable list of eager-load relation names.
+     *
+     * @return eager-load relation names
+     */
     public List<String> getEagerLoads() {
         return Collections.unmodifiableList(eagerLoads);
     }
-
-    // ─── SCOPES ──────────────────────────────────────────────
 
     /**
      * Applies a scope function to this builder.
@@ -503,20 +570,28 @@ public class QueryBuilder
      * @param scope scope function to apply
      * @return this builder
      */
-    public QueryBuilder applyScope(Consumer<QueryBuilder> scope) {
+    public QueryBuilder applyScope(Consumer<QueryBuilder> scope)
+    {
         scope.accept(this);
         return this;
     }
 
-    // ─── SELECT EXECUTION ────────────────────────────────────
-
-    /** @return all matching rows */
+    /**
+     * Executes the query and returns all matching rows.
+     *
+     * @return list of rows as column-to-value maps
+     */
     public List<Map<String, Object>> get() {
         return executor.executeQuery(toSql(), getBindings());
     }
 
-    /** @return first matching row, or null */
-    public Map<String, Object> first() {
+    /**
+     * Executes the query and returns the first matching row, or {@code null}.
+     *
+     * @return first row, or {@code null}
+     */
+    public Map<String, Object> first()
+    {
         limit(1);
         List<Map<String, Object>> results = get();
         return results.isEmpty() ? null : results.get(0);
@@ -526,19 +601,20 @@ public class QueryBuilder
      * Finds a row by primary key.
      *
      * @param id primary key value
-     * @return matching row, or null
+     * @return matching row, or {@code null}
      */
     public Map<String, Object> find(Object id) {
         return where("id", id).first();
     }
 
     /**
-     * Returns a single column's values as a list.
+     * Returns the values of a single column across all matching rows.
      *
      * @param column column name
-     * @return list of values
+     * @return list of column values
      */
-    public List<Object> pluck(String column) {
+    public List<Object> pluck(String column)
+    {
         SqlIdentifier.requireIdentifier(column);
         columns.clear();
         columns.add(column);
@@ -546,11 +622,12 @@ public class QueryBuilder
     }
 
     /**
-     * Returns true if any row matches the current WHERE clauses.
+     * Returns {@code true} if at least one row matches the current WHERE clauses.
      *
-     * @return true if at least one row exists
+     * @return {@code true} if a matching row exists
      */
-    public boolean exists() {
+    public boolean exists()
+    {
         StringBuilder sql = new StringBuilder("SELECT 1 FROM ").append(table);
         for (JoinClause join : joins) sql.append(" ").append(join.toSql());
         String where = grammar.compileWheres(wheres);
@@ -559,57 +636,86 @@ public class QueryBuilder
         return !executor.executeQuery(sql.toString(), new ArrayList<>(bindings)).isEmpty();
     }
 
-    /** @return true if no rows match */
+    /**
+     * Returns {@code true} if no rows match the current WHERE clauses.
+     *
+     * @return {@code true} if no matching row exists
+     */
     public boolean doesntExist() {
         return !exists();
     }
 
-    // ─── AGGREGATES ──────────────────────────────────────────
-
-    /** @return count of all matching rows */
+    /**
+     * Returns the count of all matching rows.
+     *
+     * @return row count
+     */
     public long count() { return QueryAggregates.count(this, executor, grammar, "*"); }
 
     /**
-     * Returns count of non-null values in the given column.
+     * Returns the count of non-null values in the given column.
      *
      * @param column column name
      * @return count of non-null values
      */
-    public long count(String column) {
+    public long count(String column)
+    {
         SqlIdentifier.requireIdentifier(column);
         return QueryAggregates.count(this, executor, grammar, column);
     }
 
-    /** @param column column name */
+    /**
+     * Returns the maximum value of the given column.
+     *
+     * @param column column name
+     * @return maximum value, or {@code null}
+     */
     public Object max(String column) { SqlIdentifier.requireIdentifier(column); return QueryAggregates.aggregate(this, executor, grammar, "MAX", column); }
-    /** @param column column name */
-    public Object min(String column) { SqlIdentifier.requireIdentifier(column); return QueryAggregates.aggregate(this, executor, grammar, "MIN", column); }
-    /** @param column column name */
-    public Object sum(String column) { SqlIdentifier.requireIdentifier(column); return QueryAggregates.aggregate(this, executor, grammar, "SUM", column); }
-    /** @param column column name */
-    public Object avg(String column) { SqlIdentifier.requireIdentifier(column); return QueryAggregates.aggregate(this, executor, grammar, "AVG", column); }
 
-    // ─── INSERT ──────────────────────────────────────────────
+    /**
+     * Returns the minimum value of the given column.
+     *
+     * @param column column name
+     * @return minimum value, or {@code null}
+     */
+    public Object min(String column) { SqlIdentifier.requireIdentifier(column); return QueryAggregates.aggregate(this, executor, grammar, "MIN", column); }
+
+    /**
+     * Returns the sum of the given column.
+     *
+     * @param column column name
+     * @return sum value, or {@code null}
+     */
+    public Object sum(String column) { SqlIdentifier.requireIdentifier(column); return QueryAggregates.aggregate(this, executor, grammar, "SUM", column); }
+
+    /**
+     * Returns the average of the given column.
+     *
+     * @param column column name
+     * @return average value, or {@code null}
+     */
+    public Object avg(String column) { SqlIdentifier.requireIdentifier(column); return QueryAggregates.aggregate(this, executor, grammar, "AVG", column); }
 
     /**
      * Inserts a single row and returns the generated key.
      *
      * @param values column-to-value map
-     * @return generated key, or null
+     * @return generated key, or {@code null}
      */
-    public Object insert(Map<String, Object> values) {
+    public Object insert(Map<String, Object> values)
+    {
         InsertResult result = grammar.compileInsert(table, values);
         return executor.executeInsert(result.getSql(), result.getBindings());
     }
 
     /**
-     /**
-     * Inserts multiple rows in a single JDBC batch, wrapped in a transaction.
-     * If any row fails, the entire batch is rolled back.
+     * Inserts multiple rows in a single JDBC batch wrapped in a transaction.
+     * All rows must share the same key set. If any row fails, the entire batch is rolled back.
      *
-     * @param rows rows to insert — all must share the same key set
+     * @param rows rows to insert
      */
-    public void insertAll(List<Map<String, Object>> rows) {
+    public void insertAll(List<Map<String, Object>> rows)
+    {
         if (rows == null || rows.isEmpty()) return;
         if (rows.size() == 1) { insert(rows.get(0)); return; }
 
@@ -618,9 +724,7 @@ public class QueryBuilder
 
         for (int i = 1; i < rows.size(); i++) {
             if (!rows.get(i).keySet().equals(expectedKeys)) {
-                throw new IllegalArgumentException(
-                        "insertAll: row " + i + " has a different key set than row 0. " +
-                                "Expected: " + expectedKeys + ", got: " + rows.get(i).keySet());
+                throw new IllegalArgumentException("insertAll: row " + i + " has a different key set than row 0. " + "Expected: " + expectedKeys + ", got: " + rows.get(i).keySet());
             }
         }
 
@@ -632,20 +736,17 @@ public class QueryBuilder
         });
     }
 
-    // ─── UPDATE / DELETE ─────────────────────────────────────
-
     /**
      * Updates matching rows.
      *
      * @param values column-to-value map
      * @return number of affected rows
      */
-    public int update(Map<String, Object> values) {
+    public int update(Map<String, Object> values)
+    {
         if (values == null || values.isEmpty()) return 0;
         if (requiresWhere && wheres.isEmpty())
-            throw new IllegalStateException(
-                    "update() called on table '" + table + "' without a WHERE clause. " +
-                            "Add a condition or remove requireWhere().");
+            throw new IllegalStateException("update() called on table '" + table + "' without a WHERE clause. " + "Add a condition or remove requireWhere().");
         UpdateResult result = grammar.compileUpdate(table, values, wheres, bindings);
         return executor.executeUpdate(result.getSql(), result.getBindings());
     }
@@ -655,43 +756,59 @@ public class QueryBuilder
      *
      * @return number of affected rows
      */
-    public int delete() {
+    public int delete()
+    {
         if (requiresWhere && wheres.isEmpty())
-            throw new IllegalStateException(
-                    "delete() called on table '" + table + "' without a WHERE clause. " +
-                            "Add a condition or remove requireWhere().");
+            throw new IllegalStateException("delete() called on table '" + table + "' without a WHERE clause. " + "Add a condition or remove requireWhere().");
         DeleteResult result = grammar.compileDelete(table, wheres, bindings);
         return executor.executeUpdate(result.getSql(), result.getBindings());
     }
-
-    // ─── INCREMENT / DECREMENT ───────────────────────────────
 
     /**
      * Atomically increments a numeric column.
      *
      * @param column column name
-     * @param amount increment amount (negative to decrement)
+     * @param amount increment amount, negative to decrement
      * @return number of affected rows
      */
-    public int increment(String column, int amount) {
+    public int increment(String column, int amount)
+    {
         SqlIdentifier.requireIdentifier(column);
         String sql = grammar.compileIncrement(table, column, amount, wheres, bindings);
         return executor.executeUpdate(sql, new ArrayList<>(bindings));
     }
 
-    /** @param column column name */
+    /**
+     * Increments a numeric column by 1.
+     *
+     * @param column column name
+     * @return number of affected rows
+     */
     public int increment(String column) { return increment(column, 1); }
-    /** @param column column name @param amount decrement amount */
+
+    /**
+     * Decrements a numeric column by the given amount.
+     *
+     * @param column column name
+     * @param amount decrement amount
+     * @return number of affected rows
+     */
     public int decrement(String column, int amount) { return increment(column, -amount); }
-    /** @param column column name */
+
+    /**
+     * Decrements a numeric column by 1.
+     *
+     * @param column column name
+     * @return number of affected rows
+     */
     public int decrement(String column) { return decrement(column, 1); }
 
     /**
      * Streams rows without loading the full result set into memory.
-     * Wrap with {@code DB.withTransaction(() -> { ... })}.
+     * Wrap with {@code DB.withTransaction(() -> { ... })} on PostgreSQL.
      *
-     * @param fetchSize rows per round-trip ({@code Integer.MIN_VALUE} for MySQL streaming)
-     * @param consumer  called once per row — do not retain the map reference across calls
+     * @param fetchSize rows per round-trip, use {@code Integer.MIN_VALUE} for MySQL streaming
+     * @param consumer  called once per row, do not retain the map reference across calls
      */
     public void chunk(int fetchSize, Consumer<Map<String, Object>> consumer) {
         executor.executeChunk(toSql(), getBindings(), fetchSize, consumer);
@@ -708,8 +825,9 @@ public class QueryBuilder
 
     /**
      * Executes a raw SELECT query.
+     * The caller is responsible for ensuring {@code sql} is safe.
      *
-     * @param sql    raw SQL — must be a trusted, hardcoded string
+     * @param sql    raw SQL string
      * @param params values to bind to {@code ?} placeholders
      * @return list of rows
      */
@@ -718,13 +836,10 @@ public class QueryBuilder
     }
 
     /**
-     * Executes a raw UPDATE/DELETE/DDL statement.
+     * Executes a raw UPDATE, DELETE, or DDL statement.
+     * Never interpolate user input into {@code sql} — always use {@code ?} placeholders.
      *
-     * <p><b>SQL injection warning</b>: {@code sql} is executed as-is. Never interpolate
-     * user input into the SQL string — always use {@code ?} placeholders and pass values
-     * via {@code params}.
-     *
-     * @param sql    raw SQL — must be a trusted, hardcoded string
+     * @param sql    raw SQL string
      * @param params values to bind to {@code ?} placeholders
      * @return number of affected rows
      */
@@ -732,15 +847,19 @@ public class QueryBuilder
         return new QueryBuilder("__raw__").executor.executeUpdate(sql, Arrays.asList(params));
     }
 
-    // ─── COMPILATION ─────────────────────────────────────────
-
-    /** @return compiled SQL string without executing */
+    /**
+     * Returns the compiled SQL string without executing.
+     *
+     * @return compiled SQL
+     */
     public String toSql() { return grammar.compileSelect(this); }
 
-    /** @return immutable view of the current bindings */
+    /**
+     * Returns an immutable view of the current parameter bindings.
+     *
+     * @return unmodifiable list of bindings
+     */
     public List<Object> getBindings() { return Collections.unmodifiableList(bindings); }
-
-    // ─── GETTERS ─────────────────────────────────────────────
 
     public String             getTable()       { return table; }
     public List<String>       getColumns()     { return columns; }

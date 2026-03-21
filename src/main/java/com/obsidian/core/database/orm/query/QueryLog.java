@@ -19,18 +19,22 @@ public class QueryLog
 
     private static final List<Entry> log = Collections.synchronizedList(new ArrayList<>());
 
-    // ─── CONTROL ─────────────────────────────────────────────
+    /**
+     * Enables query logging.
+     */
+    public static void enable() { enabled = true; }
 
-    /** Enables query logging. */
-    public static void enable()  { enabled = true; }
-
-    /** Disables query logging. */
+    /**
+     * Disables query logging.
+     */
     public static void disable() { enabled = false; }
 
-    /** @return true if logging is currently enabled */
+    /**
+     * Returns {@code true} if logging is currently enabled.
+     *
+     * @return {@code true} if enabled
+     */
     public static boolean isEnabled() { return enabled; }
-
-    // ─── RECORD ──────────────────────────────────────────────
 
     /**
      * Records a query execution.
@@ -39,7 +43,8 @@ public class QueryLog
      * @param bindings   parameter values bound to the query
      * @param durationMs execution time in milliseconds
      */
-    public static void record(String sql, List<Object> bindings, long durationMs) {
+    public static void record(String sql, List<Object> bindings, long durationMs)
+    {
         if (!enabled) return;
         synchronized (log) {
             if (log.size() >= MAX_ENTRIES) log.remove(0);
@@ -47,26 +52,26 @@ public class QueryLog
         }
     }
 
-    // ─── READ ────────────────────────────────────────────────
-
     /**
      * Returns an immutable snapshot of all logged entries.
      *
      * @return snapshot safe to iterate without synchronisation
      */
-    public static List<Entry> getLog() {
+    public static List<Entry> getLog()
+    {
         synchronized (log) {
             return Collections.unmodifiableList(new ArrayList<>(log));
         }
     }
 
     /**
-     * Returns the last n entries.
+     * Returns the last {@code n} entries.
      *
      * @param n number of recent entries to return
-     * @return immutable snapshot of at most n entries
+     * @return immutable snapshot of at most {@code n} entries
      */
-    public static List<Entry> last(int n) {
+    public static List<Entry> last(int n)
+    {
         synchronized (log) {
             int size = log.size();
             if (n >= size) return Collections.unmodifiableList(new ArrayList<>(log));
@@ -74,10 +79,16 @@ public class QueryLog
         }
     }
 
-    /** Clears all recorded entries. */
+    /**
+     * Clears all recorded entries.
+     */
     public static void clear() { log.clear(); }
 
-    /** @return total number of recorded entries */
+    /**
+     * Returns the total number of recorded entries.
+     *
+     * @return entry count
+     */
     public static int count() { return log.size(); }
 
     /**
@@ -85,7 +96,8 @@ public class QueryLog
      *
      * @return total duration in milliseconds
      */
-    public static long totalTimeMs() {
+    public static long totalTimeMs()
+    {
         synchronized (log) {
             long total = 0;
             for (Entry e : log) total += e.durationMs;
@@ -93,24 +105,27 @@ public class QueryLog
         }
     }
 
-    /** Logs all entries at DEBUG level via SLF4J. */
-    public static void dump() {
+    /**
+     * Logs all entries at DEBUG level via SLF4J.
+     */
+    public static void dump()
+    {
         List<Entry> snapshot = getLog();
         long total = 0;
         for (Entry e : snapshot) total += e.durationMs;
         logger.debug("=== Query Log ({} queries, {}ms total) ===", snapshot.size(), total);
         for (int i = 0; i < snapshot.size(); i++) {
             Entry e = snapshot.get(i);
-            logger.debug("[{}] {}  |  bindings: {}  |  {}ms",  i + 1, e.getSql(), e.getBindings(), e.getDurationMs());
+            logger.debug("[{}] {}  |  bindings: {}  |  {}ms", i + 1, e.getSql(), e.getBindings(), e.getDurationMs());
         }
         logger.debug("=== End Query Log ===");
     }
 
-    // ─── ENTRY ───────────────────────────────────────────────
-
-    /** Immutable record of a single query execution. */
-    public static class Entry {
-
+    /**
+     * Immutable record of a single query execution.
+     */
+    public static class Entry
+    {
         private final String       sql;
         private final List<Object> bindings;
         private final long         durationMs;
@@ -120,37 +135,59 @@ public class QueryLog
          * Creates a log entry.
          *
          * @param sql        executed SQL string
-         * @param bindings   parameter values (defensively copied)
+         * @param bindings   parameter values, defensively copied
          * @param durationMs execution time in milliseconds
          */
-        public Entry(String sql, List<Object> bindings, long durationMs) {
+        public Entry(String sql, List<Object> bindings, long durationMs)
+        {
             this.sql        = sql;
             this.bindings   = bindings != null ? List.copyOf(bindings) : Collections.emptyList();
             this.durationMs = durationMs;
             this.timestamp  = System.currentTimeMillis();
         }
 
-        /** @return executed SQL string */
-        public String       getSql()        { return sql; }
-        /** @return bound parameter values */
-        public List<Object> getBindings()   { return bindings; }
-        /** @return execution time in milliseconds */
-        public long         getDurationMs() { return durationMs; }
-        /** @return epoch millis when this entry was created */
-        public long         getTimestamp()  { return timestamp; }
+        /**
+         * Returns the executed SQL string.
+         *
+         * @return SQL string
+         */
+        public String getSql() { return sql; }
+
+        /**
+         * Returns the bound parameter values.
+         *
+         * @return list of bindings
+         */
+        public List<Object> getBindings() { return bindings; }
+
+        /**
+         * Returns the execution time in milliseconds.
+         *
+         * @return duration in milliseconds
+         */
+        public long getDurationMs() { return durationMs; }
+
+        /**
+         * Returns the epoch millisecond timestamp when this entry was created.
+         *
+         * @return creation timestamp
+         */
+        public long getTimestamp() { return timestamp; }
 
         /**
          * Returns the SQL with parameter values interpolated.
+         * For debug use only — never pass the result to a JDBC driver.
          *
-         * @return interpolated SQL — debug only, never pass to a JDBC driver
+         * @return interpolated SQL string
          */
-        public String toRawSql() {
+        public String toRawSql()
+        {
             String raw = sql;
             for (Object binding : bindings) {
                 String replacement;
-                if (binding == null)                    replacement = "NULL";
-                else if (binding instanceof String)     replacement = "'" + binding.toString().replace("'", "\\'") + "'";
-                else                                    replacement = binding.toString();
+                if (binding == null)                replacement = "NULL";
+                else if (binding instanceof String) replacement = "'" + binding.toString().replace("'", "\\'") + "'";
+                else                                replacement = binding.toString();
                 raw = raw.replaceFirst("\\?", replacement);
             }
             return raw;

@@ -22,108 +22,107 @@ import java.util.stream.Collectors;
  *   users.ids();                                   // List<Object>
  *   users.toMapList();                             // List<Map<String, Object>>
  */
-public class ModelCollection<T extends Model> implements Iterable<T> {
-
+public class ModelCollection<T extends Model> implements Iterable<T>
+{
     private final List<T> items;
 
     /**
-     * Creates a new ModelCollection instance.
+     * Creates a new collection wrapping the given list of models.
      *
-     * @param items The items
+     * @param items list of model instances
      */
     public ModelCollection(List<T> items) {
         this.items = new ArrayList<>(items);
     }
 
     /**
-     * Of.
+     * Creates a new collection from the given list of models.
      *
-     * @param items The items
-     * @return This instance for method chaining
+     * @param items list of model instances
+     * @return a new {@link ModelCollection}
      */
     public static <T extends Model> ModelCollection<T> of(List<T> items) {
         return new ModelCollection<>(items);
     }
 
     /**
-     * Empty.
+     * Creates an empty collection.
      *
-     * @return This instance for method chaining
+     * @return an empty {@link ModelCollection}
      */
     public static <T extends Model> ModelCollection<T> empty() {
         return new ModelCollection<>(Collections.emptyList());
     }
 
-    // ─── ACCESS ──────────────────────────────────────────────
-
     /**
-     * Returns all items in the collection.
+     * Returns all items in the collection as an unmodifiable list.
      *
-     * @return A list of results
+     * @return unmodifiable list of all model instances
      */
     public List<T> all() {
         return Collections.unmodifiableList(items);
     }
 
     /**
-     * Executes the query and returns the results.
+     * Returns the item at the given index.
      *
-     * @param index The item index
-     * @return The model instance, or {@code null} if not found
+     * @param index zero-based index
+     * @return model instance at the given position
      */
     public T get(int index) {
         return items.get(index);
     }
 
     /**
-     * Executes the query and returns the first result, or null.
+     * Returns the first item, or {@code null} if the collection is empty.
      *
-     * @return The model instance, or {@code null} if not found
+     * @return first model instance, or {@code null}
      */
     public T first() {
         return items.isEmpty() ? null : items.get(0);
     }
 
     /**
-     * Returns the last N entries from the query log.
+     * Returns the last item, or {@code null} if the collection is empty.
      *
-     * @return The model instance, or {@code null} if not found
+     * @return last model instance, or {@code null}
      */
     public T last() {
         return items.isEmpty() ? null : items.get(items.size() - 1);
     }
 
     /**
-     * Returns the number of matching rows.
+     * Returns the number of items in the collection.
      *
-     * @return The number of affected rows
+     * @return item count
      */
     public int count() {
         return items.size();
     }
 
     /**
-     * Checks if the collection/result is empty.
+     * Returns {@code true} if the collection contains no items.
      *
-     * @return {@code true} if the operation succeeded, {@code false} otherwise
+     * @return {@code true} if empty
      */
     public boolean isEmpty() {
         return items.isEmpty();
     }
 
     /**
-     * Checks if the collection/result is not empty.
+     * Returns {@code true} if the collection contains at least one item.
      *
-     * @return {@code true} if the operation succeeded, {@code false} otherwise
+     * @return {@code true} if not empty
      */
     public boolean isNotEmpty() {
         return !items.isEmpty();
     }
 
-    // ─── EXTRACTION ──────────────────────────────────────────
-
     /**
-     * Extract a single attribute from each model.
+     * Returns the value of the given attribute from each model.
+     *
+     * @param key attribute name to extract
+     * @return list of attribute values
      */
     public List<Object> pluck(String key) {
         return items.stream()
@@ -132,7 +131,11 @@ public class ModelCollection<T extends Model> implements Iterable<T> {
     }
 
     /**
-     * Extract two attributes as key-value pairs.
+     * Returns a map of {@code keyKey} → {@code valueKey} extracted from each model.
+     *
+     * @param valueKey attribute to use as map value
+     * @param keyKey   attribute to use as map key
+     * @return ordered map of extracted key-value pairs
      */
     public Map<Object, Object> pluck(String valueKey, String keyKey) {
         Map<Object, Object> map = new LinkedHashMap<>();
@@ -143,14 +146,19 @@ public class ModelCollection<T extends Model> implements Iterable<T> {
     }
 
     /**
-     * Get all model IDs.
+     * Returns the primary key value of each model in the collection.
+     *
+     * @return list of primary key values
      */
     public List<Object> ids() {
         return pluck("id");
     }
 
     /**
-     * Key the collection by an attribute.
+     * Returns a map keyed by the given attribute, pointing to each model.
+     *
+     * @param key attribute name to use as key
+     * @return ordered map of attribute value → model instance
      */
     public Map<Object, T> keyBy(String key) {
         Map<Object, T> map = new LinkedHashMap<>();
@@ -161,7 +169,10 @@ public class ModelCollection<T extends Model> implements Iterable<T> {
     }
 
     /**
-     * Group by an attribute.
+     * Groups models by the value of the given attribute.
+     *
+     * @param key attribute name to group by
+     * @return ordered map of attribute value → list of model instances
      */
     public Map<Object, List<T>> groupBy(String key) {
         Map<Object, List<T>> grouped = new LinkedHashMap<>();
@@ -172,10 +183,11 @@ public class ModelCollection<T extends Model> implements Iterable<T> {
         return grouped;
     }
 
-    // ─── FILTERING ───────────────────────────────────────────
-
     /**
-     * Filter with a predicate.
+     * Returns a new collection containing only items matching the predicate.
+     *
+     * @param predicate filter condition
+     * @return filtered collection
      */
     public ModelCollection<T> filter(Predicate<T> predicate) {
         return new ModelCollection<>(items.stream()
@@ -184,35 +196,53 @@ public class ModelCollection<T extends Model> implements Iterable<T> {
     }
 
     /**
-     * Filter where attribute equals value.
+     * Returns a new collection where the given attribute equals the given value.
+     *
+     * @param key   attribute name
+     * @param value value to match
+     * @return filtered collection
      */
     public ModelCollection<T> where(String key, Object value) {
         return filter(m -> Objects.equals(m.get(key), value));
     }
 
     /**
-     * Filter where attribute is not null.
+     * Returns a new collection where the given attribute is not {@code null}.
+     *
+     * @param key attribute name
+     * @return filtered collection
      */
     public ModelCollection<T> whereNotNull(String key) {
         return filter(m -> m.get(key) != null);
     }
 
     /**
-     * Filter where attribute is in the given list.
+     * Returns a new collection where the given attribute is in the provided list.
+     *
+     * @param key    attribute name
+     * @param values allowed values
+     * @return filtered collection
      */
     public ModelCollection<T> whereIn(String key, List<?> values) {
         return filter(m -> values.contains(m.get(key)));
     }
 
     /**
-     * Reject items matching predicate (inverse of filter).
+     * Returns a new collection excluding items that match the predicate.
+     *
+     * @param predicate condition to reject
+     * @return filtered collection
      */
     public ModelCollection<T> reject(Predicate<T> predicate) {
         return filter(predicate.negate());
     }
 
     /**
-     * Get unique items by attribute.
+     * Returns a new collection with duplicate values of the given attribute removed,
+     * keeping the first occurrence of each.
+     *
+     * @param key attribute name to deduplicate on
+     * @return deduplicated collection
      */
     public ModelCollection<T> unique(String key) {
         Set<Object> seen = new LinkedHashSet<>();
@@ -226,10 +256,11 @@ public class ModelCollection<T extends Model> implements Iterable<T> {
         return new ModelCollection<>(result);
     }
 
-    // ─── SORTING ─────────────────────────────────────────────
-
     /**
-     * Sort by attribute (ascending).
+     * Returns a new collection sorted by the given attribute in ascending order.
+     *
+     * @param key attribute name to sort by
+     * @return sorted collection
      */
     @SuppressWarnings("unchecked")
     public ModelCollection<T> sortBy(String key) {
@@ -246,7 +277,10 @@ public class ModelCollection<T extends Model> implements Iterable<T> {
     }
 
     /**
-     * Sort by attribute (descending).
+     * Returns a new collection sorted by the given attribute in descending order.
+     *
+     * @param key attribute name to sort by
+     * @return sorted collection
      */
     public ModelCollection<T> sortByDesc(String key) {
         List<T> sorted = sortBy(key).items;
@@ -254,48 +288,62 @@ public class ModelCollection<T extends Model> implements Iterable<T> {
         return new ModelCollection<>(sorted);
     }
 
-    // ─── TRANSFORMATION ──────────────────────────────────────
-
     /**
-     * Map each model to a value.
+     * Maps each model to a value using the given function.
+     *
+     * @param mapper mapping function
+     * @return list of mapped values
      */
     public <R> List<R> map(Function<T, R> mapper) {
         return items.stream().map(mapper).collect(Collectors.toList());
     }
 
     /**
-     * FlatMap across model lists.
+     * Flat-maps each model to a list of values and returns a flattened result.
+     *
+     * @param mapper function returning a list per model
+     * @return flattened list of values
      */
     public <R> List<R> flatMap(Function<T, List<R>> mapper) {
         return items.stream().flatMap(m -> mapper.apply(m).stream()).collect(Collectors.toList());
     }
 
     /**
-     * Execute action on each model.
+     * Executes the given action on each model and returns this collection.
+     *
+     * @param action action to perform
+     * @return this collection for chaining
      */
     public ModelCollection<T> each(java.util.function.Consumer<T> action) {
         items.forEach(action);
         return this;
     }
 
-    // ─── SLICING ─────────────────────────────────────────────
-
     /**
-     * Take first N items.
+     * Returns a new collection containing only the first {@code n} items.
+     *
+     * @param n number of items to take
+     * @return truncated collection
      */
     public ModelCollection<T> take(int n) {
         return new ModelCollection<>(items.stream().limit(n).collect(Collectors.toList()));
     }
 
     /**
-     * Skip first N items.
+     * Returns a new collection with the first {@code n} items removed.
+     *
+     * @param n number of items to skip
+     * @return collection without the first {@code n} items
      */
     public ModelCollection<T> skip(int n) {
         return new ModelCollection<>(items.stream().skip(n).collect(Collectors.toList()));
     }
 
     /**
-     * Split into chunks.
+     * Splits the collection into chunks of the given size.
+     *
+     * @param size maximum size of each chunk
+     * @return list of sub-collections
      */
     public List<ModelCollection<T>> chunk(int size) {
         List<ModelCollection<T>> chunks = new ArrayList<>();
@@ -306,10 +354,11 @@ public class ModelCollection<T extends Model> implements Iterable<T> {
         return chunks;
     }
 
-    // ─── AGGREGATES ──────────────────────────────────────────
-
     /**
-     * Sum a numeric attribute.
+     * Returns the sum of the given numeric attribute across all models.
+     *
+     * @param key numeric attribute name
+     * @return sum as a double
      */
     public double sum(String key) {
         return items.stream()
@@ -320,7 +369,10 @@ public class ModelCollection<T extends Model> implements Iterable<T> {
     }
 
     /**
-     * Average of a numeric attribute.
+     * Returns the average of the given numeric attribute across all models.
+     *
+     * @param key numeric attribute name
+     * @return average as a double, or {@code 0.0} if the collection is empty
      */
     public double avg(String key) {
         return items.stream()
@@ -332,7 +384,10 @@ public class ModelCollection<T extends Model> implements Iterable<T> {
     }
 
     /**
-     * Max of a numeric attribute.
+     * Returns the maximum value of the given numeric attribute, or {@code null} if empty.
+     *
+     * @param key numeric attribute name
+     * @return maximum value, or {@code null}
      */
     public Object max(String key) {
         return items.stream()
@@ -345,7 +400,10 @@ public class ModelCollection<T extends Model> implements Iterable<T> {
     }
 
     /**
-     * Min of a numeric attribute.
+     * Returns the minimum value of the given numeric attribute, or {@code null} if empty.
+     *
+     * @param key numeric attribute name
+     * @return minimum value, or {@code null}
      */
     public Object min(String key) {
         return items.stream()
@@ -358,33 +416,34 @@ public class ModelCollection<T extends Model> implements Iterable<T> {
     }
 
     /**
-     * Check if any model matches.
+     * Returns {@code true} if any model in the collection matches the predicate.
+     *
+     * @param predicate condition to test
+     * @return {@code true} if at least one match is found
      */
     public boolean contains(Predicate<T> predicate) {
         return items.stream().anyMatch(predicate);
     }
 
     /**
-     * Checks if any item matches the given condition.
+     * Returns {@code true} if any model has the given attribute equal to the given value.
      *
-     * @param key The attribute/column name
-     * @param value The value to compare against
-     * @return {@code true} if the operation succeeded, {@code false} otherwise
+     * @param key   attribute name
+     * @param value value to match
+     * @return {@code true} if at least one match is found
      */
     public boolean contains(String key, Object value) {
         return contains(m -> Objects.equals(m.get(key), value));
     }
 
-    // ─── SERIALIZATION ───────────────────────────────────────
-
     /**
-     * Convert all models to maps (respects hidden()).
+     * Returns all models serialized to maps, respecting {@code hidden()} rules.
+     *
+     * @return list of attribute maps
      */
     public List<Map<String, Object>> toMapList() {
         return items.stream().map(Model::toMap).collect(Collectors.toList());
     }
-
-    // ─── ITERABLE ────────────────────────────────────────────
 
     @Override
     public Iterator<T> iterator() {

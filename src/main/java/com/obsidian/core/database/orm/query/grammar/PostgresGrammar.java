@@ -10,10 +10,11 @@ import java.util.stream.Collectors;
 /**
  * PostgreSQL SQL grammar.
  */
-public class PostgresGrammar implements Grammar {
-
+public class PostgresGrammar implements Grammar
+{
     @Override
-    public String compileSelect(QueryBuilder query) {
+    public String compileSelect(QueryBuilder query)
+    {
         StringBuilder sql = new StringBuilder();
 
         sql.append("SELECT ");
@@ -65,7 +66,8 @@ public class PostgresGrammar implements Grammar {
     }
 
     @Override
-    public String compileWheres(List<WhereClause> wheres) {
+    public String compileWheres(List<WhereClause> wheres)
+    {
         if (wheres.isEmpty()) return "";
 
         List<String> parts = new ArrayList<>();
@@ -73,65 +75,47 @@ public class PostgresGrammar implements Grammar {
         for (int i = 0; i < wheres.size(); i++) {
             WhereClause where = wheres.get(i);
             String compiled = compileWhere(where);
-
-            if (i == 0) {
-                parts.add(compiled);
-            } else {
-                parts.add(where.getBoolean() + " " + compiled);
-            }
+            parts.add(i == 0 ? compiled : where.getBoolean() + " " + compiled);
         }
 
         return String.join(" ", parts);
     }
 
-    private String compileWhere(WhereClause where) {
+    private String compileWhere(WhereClause where)
+    {
         switch (where.getType()) {
             case BASIC:
                 return where.getColumn() + " " + where.getOperator() + " ?";
-
             case NULL:
                 return where.getColumn() + " IS NULL";
-
             case NOT_NULL:
                 return where.getColumn() + " IS NOT NULL";
-
             case IN:
-                String placeholders = where.getValues().stream()
-                        .map(v -> "?")
-                        .collect(Collectors.joining(", "));
+                String placeholders = where.getValues().stream().map(v -> "?").collect(Collectors.joining(", "));
                 return where.getColumn() + " IN (" + placeholders + ")";
-
             case NOT_IN:
-                String notInPlaceholders = where.getValues().stream()
-                        .map(v -> "?")
-                        .collect(Collectors.joining(", "));
+                String notInPlaceholders = where.getValues().stream().map(v -> "?").collect(Collectors.joining(", "));
                 return where.getColumn() + " NOT IN (" + notInPlaceholders + ")";
-
             case BETWEEN:
                 return where.getColumn() + " BETWEEN ? AND ?";
-
             case NESTED:
-                String nestedSql = compileWheres(where.getNested().getWheres());
-                return "(" + nestedSql + ")";
-
+                return "(" + compileWheres(where.getNested().getWheres()) + ")";
             case RAW:
                 return where.getRawSql();
-
             default:
                 throw new IllegalArgumentException("Unknown where type: " + where.getType());
         }
     }
 
-    private String compileHavings(List<HavingClause> havings) {
+    private String compileHavings(List<HavingClause> havings)
+    {
         return havings.stream()
-                .map(h -> {
-                    if (h.isRaw()) return h.getRawSql();
-                    return h.getColumn() + " " + h.getOperator() + " ?";
-                })
+                .map(h -> h.isRaw() ? h.getRawSql() : h.getColumn() + " " + h.getOperator() + " ?")
                 .collect(Collectors.joining(" AND "));
     }
 
-    private String compileJoin(JoinClause join) {
+    private String compileJoin(JoinClause join)
+    {
         if ("CROSS".equals(join.getType())) {
             return join.getType() + " JOIN " + quoteTable(join.getTable());
         }
@@ -141,9 +125,14 @@ public class PostgresGrammar implements Grammar {
 
     /**
      * Compiles a PostgreSQL INSERT with {@code RETURNING id} for key retrieval.
+     *
+     * @param table  target table name
+     * @param values column-to-value map
+     * @return compiled {@link InsertResult}
      */
     @Override
-    public InsertResult compileInsert(String table, Map<String, Object> values) {
+    public InsertResult compileInsert(String table, Map<String, Object> values)
+    {
         List<String> columns = new ArrayList<>(values.keySet());
         List<Object> bindings = new ArrayList<>(values.values());
 
@@ -158,10 +147,16 @@ public class PostgresGrammar implements Grammar {
 
     /**
      * Compiles a PostgreSQL UPDATE statement.
+     *
+     * @param table            target table name
+     * @param values           column-to-value map for the SET clause
+     * @param wheres           WHERE clauses to apply
+     * @param existingBindings bindings already collected for the WHERE clause
+     * @return compiled {@link UpdateResult}
      */
     @Override
-    public UpdateResult compileUpdate(String table, Map<String, Object> values,
-                                      List<WhereClause> wheres, List<Object> existingBindings) {
+    public UpdateResult compileUpdate(String table, Map<String, Object> values, List<WhereClause> wheres, List<Object> existingBindings)
+    {
         List<Object> bindings = new ArrayList<>();
 
         String setClauses = values.entrySet().stream()
@@ -183,7 +178,8 @@ public class PostgresGrammar implements Grammar {
     }
 
     @Override
-    public DeleteResult compileDelete(String table, List<WhereClause> wheres, List<Object> bindings) {
+    public DeleteResult compileDelete(String table, List<WhereClause> wheres, List<Object> bindings)
+    {
         StringBuilder sql = new StringBuilder("DELETE FROM " + quoteTable(table));
 
         String whereClause = compileWheres(wheres);
@@ -195,11 +191,18 @@ public class PostgresGrammar implements Grammar {
     }
 
     /**
-     * Compiles an atomic increment/decrement UPDATE.
+     * Compiles an atomic increment or decrement UPDATE statement.
+     *
+     * @param table    target table name
+     * @param column   column to increment or decrement
+     * @param amount   positive to increment, negative to decrement
+     * @param wheres   WHERE clauses to apply
+     * @param bindings bindings already collected for the WHERE clause
+     * @return compiled SQL string
      */
     @Override
-    public String compileIncrement(String table, String column, int amount,
-                                   List<WhereClause> wheres, List<Object> bindings) {
+    public String compileIncrement(String table, String column, int amount, List<WhereClause> wheres, List<Object> bindings)
+    {
         String op = amount >= 0 ? "+" : "-";
         int absAmount = Math.abs(amount);
 
@@ -217,9 +220,8 @@ public class PostgresGrammar implements Grammar {
         return sql.toString();
     }
 
-    // ─── PostgreSQL quoting ──────────────────────────────────
-
-    private String quoteTable(String table) {
+    private String quoteTable(String table)
+    {
         if (table.contains(".")) {
             return Arrays.stream(table.split("\\."))
                     .map(this::quoteIdentifier)
@@ -228,7 +230,8 @@ public class PostgresGrammar implements Grammar {
         return quoteIdentifier(table);
     }
 
-    private String quoteColumn(String column) {
+    private String quoteColumn(String column)
+    {
         if (column.contains(".")) {
             return Arrays.stream(column.split("\\."))
                     .map(this::quoteIdentifier)
@@ -238,12 +241,15 @@ public class PostgresGrammar implements Grammar {
     }
 
     /**
-     * Quotes a single SQL identifier component with double quotes.
+     * Quotes a single SQL identifier with double quotes.
+     * Wildcard {@code *} is returned as-is.
      *
-     * @param identifier a single unquoted identifier part (not {@code table.column} — split first)
+     * @param identifier unquoted identifier part
+     * @return double-quoted identifier
      * @throws IllegalArgumentException if the identifier fails validation
      */
-    private String quoteIdentifier(String identifier) {
+    private String quoteIdentifier(String identifier)
+    {
         if (identifier.equals("*")) {
             return identifier;
         }

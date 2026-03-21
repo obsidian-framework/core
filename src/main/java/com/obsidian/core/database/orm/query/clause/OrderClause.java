@@ -1,38 +1,40 @@
 package com.obsidian.core.database.orm.query.clause;
 
-public class OrderClause {
-
+public class OrderClause
+{
     private final String column;
     private final String direction;
 
     /**
-     * Creates a new OrderClause instance.
+     * Creates a new order clause.
      *
-     * @param column The column name
-     * @param direction The sort direction ("ASC" or "DESC")
+     * @param column    column name to order by
+     * @param direction sort direction, {@code "ASC"} or {@code "DESC"}
      */
-    public OrderClause(String column, String direction) {
+    public OrderClause(String column, String direction)
+    {
         this.column = column;
         this.direction = direction;
     }
 
     /**
-     * Returns the column.
+     * Returns the column name.
      *
-     * @return The column
+     * @return column name
      */
     public String getColumn()    { return column; }
+
     /**
-     * Returns the direction.
+     * Returns the sort direction.
      *
-     * @return The direction
+     * @return {@code "ASC"} or {@code "DESC"}
      */
     public String getDirection() { return direction; }
 
     /**
-     * Returns the compiled SQL string without executing.
+     * Returns the compiled SQL fragment for this order clause.
      *
-     * @return The string value
+     * @return SQL order string
      */
     public String toSql() {
         return column + " " + direction;

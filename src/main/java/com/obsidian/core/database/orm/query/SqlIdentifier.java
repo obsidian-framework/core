@@ -15,11 +15,8 @@ public final class SqlIdentifier
             "IN", "NOT IN", "IS", "IS NOT"
     );
 
-    /**
-     * Strict identifier pattern — no bypass for spaces, parentheses, or keywords.
-     */
-    private static final Pattern IDENTIFIER_PATTERN =
-            Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_.]*(?:\\.\\*)?$");
+    /** Strict identifier pattern — no bypass for spaces, parentheses, or keywords. */
+    private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_.]*(?:\\.\\*)?$");
 
     private SqlIdentifier() {}
 
@@ -29,11 +26,11 @@ public final class SqlIdentifier
      * @param operator the operator string supplied by the caller
      * @throws IllegalArgumentException if the operator is not in the whitelist
      */
-    public static void requireOperator(String operator) {
+    public static void requireOperator(String operator)
+    {
         if (operator == null || !ALLOWED_OPERATORS.contains(operator.toUpperCase())) {
             throw new IllegalArgumentException(
-                    "SQL injection guard: operator not allowed: \"" + operator + "\". " +
-                            "Allowed: " + ALLOWED_OPERATORS
+                    "SQL injection guard: operator not allowed: \"" + operator + "\". " + "Allowed: " + ALLOWED_OPERATORS
             );
         }
     }
@@ -44,31 +41,32 @@ public final class SqlIdentifier
      * @param name the identifier to validate
      * @throws IllegalArgumentException if the name does not match the strict allowlist
      */
-    public static void requireIdentifier(String name) {
+    public static void requireIdentifier(String name)
+    {
         if (name == null) {
             throw new IllegalArgumentException("SQL identifier must not be null");
         }
-        // Bare wildcard is the only special case — it is structurally unambiguous.
         if (name.equals("*")) {
             return;
         }
         if (!IDENTIFIER_PATTERN.matcher(name).matches()) {
             throw new IllegalArgumentException(
                     "SQL injection guard: invalid identifier: \"" + name + "\". " +
-                            "Identifiers must match [a-zA-Z_][a-zA-Z0-9_.]* or table.*. " +
-                            "For raw expressions use selectRaw/whereRaw/havingRaw."
+                    "Identifiers must match [a-zA-Z_][a-zA-Z0-9_.]* or table.*. " +
+                    "For raw expressions use selectRaw/whereRaw/havingRaw."
             );
         }
     }
 
     /**
-     * Convenience: validate a direction string for ORDER BY.
+     * Validates a direction string for ORDER BY.
      * Only {@code ASC} and {@code DESC} are accepted.
      *
      * @param direction the direction string
      * @throws IllegalArgumentException if it is neither ASC nor DESC
      */
-    public static void requireDirection(String direction) {
+    public static void requireDirection(String direction)
+    {
         if (direction == null) {
             throw new IllegalArgumentException("ORDER BY direction must not be null");
         }

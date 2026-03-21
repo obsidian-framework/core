@@ -4,18 +4,18 @@ import java.util.*;
 
 /**
  * Serialization (toMap) and hydration (hydrate, hydrateList).
- *
- * <p>Extracted from {@link Model} to keep each concern in a single file.</p>
+ * Extracted from {@link Model} to keep each concern in a single file.
  */
-abstract class ModelSerializer extends ModelRelations {
-
-    // ─── SERIALIZATION ───────────────────────────────────────
-
+abstract class ModelSerializer extends ModelRelations
+{
     /**
      * Converts this model to a plain map, excluding {@link Model#hidden()} fields
-     * and including any eagerly loaded relations (recursively serialized).
+     * and including any eagerly loaded relations serialized recursively.
+     *
+     * @return attribute map with hidden fields removed and relations included
      */
-    public Map<String, Object> toMap() {
+    public Map<String, Object> toMap()
+    {
         Map<String, Object> map = new LinkedHashMap<>(attributes);
 
         for (String key : meta().hidden) {
@@ -33,12 +33,15 @@ abstract class ModelSerializer extends ModelRelations {
         return map;
     }
 
-    // ─── HYDRATION ───────────────────────────────────────────
-
     /**
      * Creates a model instance from a raw database row and marks it as persisted.
+     *
+     * @param modelClass model class to instantiate
+     * @param row        raw row data from the database
+     * @return hydrated model instance
      */
-    public static <T extends Model> T hydrate(Class<T> modelClass, Map<String, Object> row) {
+    public static <T extends Model> T hydrate(Class<T> modelClass, Map<String, Object> row)
+    {
         T model = Model.newInstance(modelClass);
         model.hydrateAttributes(row);
         return model;
@@ -46,8 +49,13 @@ abstract class ModelSerializer extends ModelRelations {
 
     /**
      * Creates model instances from a list of raw database rows.
+     *
+     * @param modelClass model class to instantiate
+     * @param rows       list of raw row data from the database
+     * @return list of hydrated model instances
      */
-    public static <T extends Model> List<T> hydrateList(Class<T> modelClass, List<Map<String, Object>> rows) {
+    public static <T extends Model> List<T> hydrateList(Class<T> modelClass, List<Map<String, Object>> rows)
+    {
         List<T> models = new ArrayList<>(rows.size());
         for (Map<String, Object> row : rows) {
             models.add(hydrate(modelClass, row));
@@ -56,10 +64,13 @@ abstract class ModelSerializer extends ModelRelations {
     }
 
     /**
-     * Internal hydration — fills attributes and marks the model as persisted.
+     * Fills attributes from a raw row and marks the model as persisted.
      * Package-private so {@link ModelQueryBuilder} can call it without reflection.
+     *
+     * @param row raw row data from the database
      */
-    void hydrateAttributes(Map<String, Object> row) {
+    void hydrateAttributes(Map<String, Object> row)
+    {
         attributes.putAll(row);
         exists = true;
         syncOriginal();

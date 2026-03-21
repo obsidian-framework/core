@@ -13,28 +13,30 @@ import java.util.List;
  */
 public abstract class Migration
 {
-
     /** Database type — set by MigrationManager before calling up() / down(). */
     protected DatabaseType type;
 
     /** Logger — set by MigrationManager before calling up() / down(). */
     protected Logger logger;
 
-    /** Applies the migration. */
+    /**
+     * Applies the migration.
+     */
     public abstract void up();
 
-    /** Reverts the migration. */
+    /**
+     * Reverts the migration.
+     */
     public abstract void down();
-
-    // ─── DDL ─────────────────────────────────────────────────
 
     /**
      * Creates a table using a Blueprint callback.
      *
-     * @param tableName table name — must be a valid SQL identifier
-     * @param builder   callback that receives a Blueprint to define columns
+     * @param tableName table name, must be a valid SQL identifier
+     * @param builder   callback that receives a {@link Blueprint} to define columns
      */
-    protected void createTable(String tableName, TableBuilder builder) {
+    protected void createTable(String tableName, TableBuilder builder)
+    {
         SqlIdentifier.requireIdentifier(tableName);
 
         List<String> columns     = new ArrayList<>();
@@ -52,9 +54,10 @@ public abstract class Migration
     /**
      * Drops a table if it exists.
      *
-     * @param tableName table name — must be a valid SQL identifier
+     * @param tableName table name, must be a valid SQL identifier
      */
-    protected void dropTable(String tableName) {
+    protected void dropTable(String tableName)
+    {
         SqlIdentifier.requireIdentifier(tableName);
         DB.exec("DROP TABLE IF EXISTS " + tableName);
         logger.info("Table dropped: {}", tableName);
@@ -65,9 +68,10 @@ public abstract class Migration
      *
      * @param tableName  table name
      * @param columnName column name
-     * @param definition raw column type definition e.g. "VARCHAR(255) NOT NULL"
+     * @param definition raw column type definition, e.g. {@code "VARCHAR(255) NOT NULL"}
      */
-    protected void addColumn(String tableName, String columnName, String definition) {
+    protected void addColumn(String tableName, String columnName, String definition)
+    {
         SqlIdentifier.requireIdentifier(tableName);
         SqlIdentifier.requireIdentifier(columnName);
         DB.exec("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + definition);
@@ -75,12 +79,13 @@ public abstract class Migration
     }
 
     /**
-     * Drops a column from a table.
+     * Drops a column from a table. No-op on SQLite, which does not support DROP COLUMN.
      *
      * @param tableName  table name
      * @param columnName column name
      */
-    protected void dropColumn(String tableName, String columnName) {
+    protected void dropColumn(String tableName, String columnName)
+    {
         if (type == DatabaseType.SQLITE) {
             logger.warn("SQLite does not support DROP COLUMN — skipped for column: {}", columnName);
             return;
@@ -97,7 +102,8 @@ public abstract class Migration
      * @param from current table name
      * @param to   new table name
      */
-    protected void renameTable(String from, String to) {
+    protected void renameTable(String from, String to)
+    {
         SqlIdentifier.requireIdentifier(from);
         SqlIdentifier.requireIdentifier(to);
         DB.exec("ALTER TABLE " + from + " RENAME TO " + to);
@@ -105,15 +111,15 @@ public abstract class Migration
     }
 
     /**
-     * Returns true if the given table exists.
+     * Returns {@code true} if the given table exists in the database.
      *
      * @param tableName table name to check
-     * @return true if the table exists
+     * @return {@code true} if the table exists
      */
-    protected boolean tableExists(String tableName) {
+    protected boolean tableExists(String tableName)
+    {
         String sql = switch (type) {
-            case MYSQL      -> "SELECT COUNT(*) FROM information_schema.tables " +
-                    "WHERE table_schema = DATABASE() AND table_name = ?";
+            case MYSQL      -> "SELECT COUNT(*) FROM information_schema.tables " + "WHERE table_schema = DATABASE() AND table_name = ?";
             case POSTGRESQL -> "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?";
             default         -> "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?";
         };
@@ -124,19 +130,22 @@ public abstract class Migration
     }
 
     /**
-     * Executes raw SQL with bound parameters.
+     * Executes a raw SQL statement with bound parameters.
+     * The caller is responsible for ensuring {@code sql} is safe.
      *
-     * @param sql    raw SQL — caller must ensure safety
+     * @param sql    raw SQL string
      * @param params values bound via PreparedStatement
      */
     protected void raw(String sql, Object... params) {
         DB.exec(sql, params);
     }
 
-    // ─── FUNCTIONAL INTERFACE ────────────────────────────────
-
+    /**
+     * Callback used by {@link #createTable} to define columns on a {@link Blueprint}.
+     */
     @FunctionalInterface
-    public interface TableBuilder {
+    public interface TableBuilder
+    {
         /**
          * Defines columns on the given blueprint.
          *
