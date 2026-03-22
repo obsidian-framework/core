@@ -28,6 +28,7 @@ public class DatabaseLoader
         switch (dbType)
         {
             case SQLITE:
+                loadDriver("org.sqlite.JDBC", "SQLite");
                 String dbPath = env.get(EnvKeys.DB_PATH);
                 if (dbPath == null || dbPath.isEmpty()) {
                     dbPath = "data.db";
@@ -35,6 +36,7 @@ public class DatabaseLoader
                 DB.initSQLite(dbPath, logger);
                 break;
             case MYSQL:
+                loadDriver("com.mysql.cj.jdbc.Driver", "MySQL");
                 DB.initMySQL(
                         resolveHost(env, "localhost"),
                         resolvePort(env, 3306),
@@ -45,6 +47,7 @@ public class DatabaseLoader
                 );
                 break;
             case POSTGRESQL:
+                loadDriver("org.postgresql.Driver", "PostgreSQL");
                 DB.initPostgreSQL(
                         resolveHost(env, "localhost"),
                         resolvePort(env, 5432),
@@ -54,6 +57,15 @@ public class DatabaseLoader
                         logger
                 );
                 break;
+        }
+    }
+
+    private static void loadDriver(String className, String driverName)
+    {
+        try {
+            Class.forName(className);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(driverName + " driver not found: " + className, e);
         }
     }
 
