@@ -2,6 +2,7 @@ package com.obsidian.core.database.orm.model;
 
 import com.obsidian.core.database.orm.query.QueryBuilder;
 import com.obsidian.core.database.orm.model.relation.Relation;
+import com.obsidian.core.database.orm.model.Table;
 import com.obsidian.core.database.orm.pagination.Paginator;
 
 import java.lang.reflect.Method;
@@ -224,6 +225,34 @@ public class ModelQueryBuilder<T extends Model>
      */
     public ModelQueryBuilder<T> where(Consumer<QueryBuilder> group) {
         queryBuilder.where(group);
+        return this;
+    }
+
+    /**
+     * Adds a WHERE EXISTS subquery for a BelongsTo relation.
+     *
+     * @param relatedClass    related model class (must have @Table annotation)
+     * @param relatedKey      primary key column on the related table
+     * @param foreignKey      foreign key column on this model's table
+     * @param constraints     callback to add conditions on the related table query
+     * @return this builder for chaining
+     */
+    public ModelQueryBuilder<T> whereHas(Class<? extends Model> relatedClass, String relatedKey, String foreignKey, Consumer<QueryBuilder> constraints)
+    {
+        Table tableAnnotation = relatedClass.getAnnotation(Table.class);
+        if (tableAnnotation == null) {
+            throw new IllegalArgumentException("Class " + relatedClass.getSimpleName() + " has no @Table annotation");
+        }
+        String relatedTable = tableAnnotation.value();
+
+        QueryBuilder sub = new QueryBuilder(relatedTable);
+        sub.whereRaw(relatedTable + "." + relatedKey + " = " + queryBuilder.getTable() + "." + foreignKey);
+        constraints.accept(sub);
+
+        String subSql = sub.toSql().replace("SELECT *", "SELECT 1");
+        List<Object> subBindings = sub.getBindings();
+
+        queryBuilder.whereRaw("EXISTS (" + subSql + ")", subBindings.toArray());
         return this;
     }
 
