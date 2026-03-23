@@ -70,7 +70,7 @@ public class DB
     public static DB initSQLite(String path, Logger logger)
     {
         synchronized (DB.class) {
-            instance = new DB(DatabaseType.SQLITE, path, null, 0, null, null, logger);
+            instance = new DB(DatabaseType.SQLITE, path, null, 0, null, null, false, logger);
         }
         return instance;
     }
@@ -86,10 +86,10 @@ public class DB
      * @param logger   logger instance
      * @return the singleton DB instance
      */
-    public static DB initMySQL(String host, int port, String database, String user, String password, Logger logger)
+    public static DB initMySQL(String host, int port, String database, String user, String password, boolean ssl, Logger logger)
     {
         synchronized (DB.class) {
-            instance = new DB(DatabaseType.MYSQL, database, host, port, user, password, logger);
+            instance = new DB(DatabaseType.MYSQL, database, host, port, user, password, ssl, logger);
         }
         return instance;
     }
@@ -105,10 +105,10 @@ public class DB
      * @param logger   logger instance
      * @return the singleton DB instance
      */
-    public static DB initPostgreSQL(String host, int port, String database, String user, String password, Logger logger)
+    public static DB initPostgreSQL(String host, int port, String database, String user, String password, boolean ssl, Logger logger)
     {
         synchronized (DB.class) {
-            instance = new DB(DatabaseType.POSTGRESQL, database, host, port, user, password, logger);
+            instance = new DB(DatabaseType.POSTGRESQL, database, host, port, user, password, ssl, logger);
         }
         return instance;
     }
@@ -149,7 +149,7 @@ public class DB
         return getInstance().executeWithTransaction(task);
     }
 
-    private DB(DatabaseType type, String database, String host, int port, String user, String password, Logger logger)
+    private DB(DatabaseType type, String database, String host, int port, String user, String password, boolean ssl, Logger logger)
     {
         this.type   = type;
         this.logger = logger;
@@ -159,15 +159,15 @@ public class DB
             this.jdbcUrl = "jdbc:sqlite:" + database;
             logger.info("SQLite database initialised: {}", database);
         } else {
-            setupConnectionPool(type, host, port, database, user, password);
+            setupConnectionPool(type, host, port, database, user, password, ssl);
         }
     }
 
-    private void setupConnectionPool(DatabaseType type, String host, int port, String database, String user, String password)
+    private void setupConnectionPool(DatabaseType type, String host, int port, String database, String user, String password, boolean ssl)
     {
         HikariConfig config = new HikariConfig();
 
-        String url = buildJdbcUrl(type, host, port, database);
+        String url = buildJdbcUrl(type, host, port, database, ssl);
         config.setJdbcUrl(url);
         config.setUsername(user);
         config.setPassword(password);
@@ -195,49 +195,19 @@ public class DB
 
     /**
      * Builds a JDBC URL for the given database type.
-     * SSL is enabled by default for MySQL and PostgreSQL.
-     * Disable only for local dev/test by setting {@code OBSIDIAN_DB_DISABLE_SSL=true}
-     * as an environment variable or JVM system property. System property takes priority.
+     * SSL is controlled by the {@code DB_SSL} environment variable (default: true).
      */
-    private String buildJdbcUrl(DatabaseType type, String host, int port, String database)
+    private String buildJdbcUrl(DatabaseType type, String host, int port, String database, boolean ssl)
     {
-        boolean disableSsl = isSslDisabled();
         return switch (type) {
-            case MYSQL -> {
-                if (disableSsl) {
-                    logger.warn("MySQL SSL verification is DISABLED (OBSIDIAN_DB_DISABLE_SSL=true). " +
-                            "Do not use this setting in production.");
-                    yield String.format(
-                            "jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
-                            host, port, database);
-                }
-                yield String.format(
-                        "jdbc:mysql://%s:%d/%s?useSSL=true&verifyServerCertificate=true&serverTimezone=UTC",
-                        host, port, database);
-            }
-            case POSTGRESQL -> {
-                if (disableSsl) {
-                    logger.warn("PostgreSQL SSL verification is DISABLED (OBSIDIAN_DB_DISABLE_SSL=true). " +
-                            "Do not use this setting in production.");
-                    yield String.format("jdbc:postgresql://%s:%d/%s?ssl=false", host, port, database);
-                }
-                yield String.format(
-                        "jdbc:postgresql://%s:%d/%s?ssl=true&sslmode=verify-full",
-                        host, port, database);
-            }
+            case MYSQL -> ssl
+                    ? String.format("jdbc:mysql://%s:%d/%s?useSSL=true&verifyServerCertificate=true&serverTimezone=UTC", host, port, database)
+                    : String.format("jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC", host, port, database);
+            case POSTGRESQL -> ssl
+                    ? String.format("jdbc:postgresql://%s:%d/%s?ssl=true&sslmode=verify-full", host, port, database)
+                    : String.format("jdbc:postgresql://%s:%d/%s?ssl=false", host, port, database);
             default -> throw new IllegalArgumentException("Unsupported database type: " + type);
         };
-    }
-
-    /**
-     * Returns {@code true} if SSL should be disabled.
-     * Checks system property first, then falls back to the OS environment variable.
-     */
-    private boolean isSslDisabled()
-    {
-        String sysProp = System.getProperty("OBSIDIAN_DB_DISABLE_SSL");
-        if (sysProp != null) return "true".equalsIgnoreCase(sysProp);
-        return "true".equalsIgnoreCase(System.getenv("OBSIDIAN_DB_DISABLE_SSL"));
     }
 
     /**

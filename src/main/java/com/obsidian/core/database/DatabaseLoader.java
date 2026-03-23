@@ -43,6 +43,7 @@ public class DatabaseLoader
                         requireEnv(env, EnvKeys.DB_NAME, "DB_NAME"),
                         requireEnv(env, EnvKeys.DB_USER, "DB_USER"),
                         requireEnv(env, EnvKeys.DB_PASSWORD, "DB_PASSWORD"),
+                        resolveSsl(env),
                         logger
                 );
                 break;
@@ -54,6 +55,7 @@ public class DatabaseLoader
                         requireEnv(env, EnvKeys.DB_NAME, "DB_NAME"),
                         requireEnv(env, EnvKeys.DB_USER, "DB_USER"),
                         requireEnv(env, EnvKeys.DB_PASSWORD, "DB_PASSWORD"),
+                        resolveSsl(env),
                         logger
                 );
                 break;
@@ -67,6 +69,12 @@ public class DatabaseLoader
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(driverName + " driver not found: " + className, e);
         }
+    }
+
+    private static boolean resolveSsl(EnvLoader env) {
+        String ssl = env.get("DB_SSL");
+        if (ssl == null || ssl.isEmpty()) return true; // SSL activé par défaut
+        return "true".equalsIgnoreCase(ssl);
     }
 
     private static String resolveHost(EnvLoader env, String defaultHost) {
