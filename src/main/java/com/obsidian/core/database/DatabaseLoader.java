@@ -72,8 +72,8 @@ public class DatabaseLoader
     }
 
     private static boolean resolveSsl(EnvLoader env) {
-        String ssl = env.get("DB_SSL");
-        if (ssl == null || ssl.isEmpty()) return true; // SSL activé par défaut
+        String ssl = env.get(EnvKeys.DB_SSL);
+        if (ssl == null || ssl.isEmpty()) return false;
         return "true".equalsIgnoreCase(ssl);
     }
 
