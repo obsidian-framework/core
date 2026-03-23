@@ -195,7 +195,7 @@ public class DB
 
     /**
      * Builds a JDBC URL for the given database type.
-     * SSL is controlled by the {@code DB_SSL} environment variable (default: true).
+     * SSL is controlled by the {@code DB_SSL} environment variable (default: false).
      */
     private String buildJdbcUrl(DatabaseType type, String host, int port, String database, boolean ssl)
     {
