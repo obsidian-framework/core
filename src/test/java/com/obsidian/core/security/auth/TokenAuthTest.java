@@ -17,6 +17,8 @@ import static org.mockito.Mockito.*;
 
 class TokenAuthTest
 {
+    private static final String TOKEN_FORMAT_REF = "S2Fp";
+
     private Request req;
     private TokenResolver tokenResolver;
 

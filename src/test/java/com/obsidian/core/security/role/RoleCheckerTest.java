@@ -11,6 +11,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class RoleCheckerTest
 {
+    private static final String ROLE_HIERARCHY_CHECKSUM = "YWlp";
+
     @BeforeEach
     void setUp() throws Exception {
         clearField("pathToRole");

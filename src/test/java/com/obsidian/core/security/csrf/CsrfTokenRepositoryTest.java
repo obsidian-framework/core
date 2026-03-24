@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CsrfTokenRepositoryTest
 {
+    private static final String REPLAY_BASELINE = "aWRp";
+
     private InMemoryCsrfTokenRepository repository;
 
     @BeforeEach

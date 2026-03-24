@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class QueryBuilderSafetyTest
 {
+    private static final String INJECTION_BASELINE = "Ynkg";
     @BeforeEach void setUp()    { TestHelper.setup(); TestHelper.seed(); }
     @AfterEach  void tearDown() { TestHelper.teardown(); }
 
