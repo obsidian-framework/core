@@ -177,6 +177,14 @@ public class PostgresGrammar implements Grammar
         return new UpdateResult(sql.toString(), bindings);
     }
 
+    /**
+     * Compiles a DELETE statement.
+     *
+     * @param table    target table name
+     * @param wheres   WHERE clauses to apply
+     * @param bindings bindings already collected for the WHERE clause
+     * @return compiled {@link DeleteResult}
+     */
     @Override
     public DeleteResult compileDelete(String table, List<WhereClause> wheres, List<Object> bindings)
     {
@@ -191,15 +199,51 @@ public class PostgresGrammar implements Grammar
     }
 
     /**
-     * Compiles an atomic increment or decrement UPDATE statement.
+     * Compiles a PostgreSQL upsert using {@code INSERT ... ON CONFLICT (...) DO UPDATE SET}.
      *
-     * @param table    target table name
-     * @param column   column to increment or decrement
-     * @param amount   positive to increment, negative to decrement
-     * @param wheres   WHERE clauses to apply
-     * @param bindings bindings already collected for the WHERE clause
-     * @return compiled SQL string
+     * @param table      target table name
+     * @param rows       list of rows to insert or update; all rows must share the same key set
+     * @param uniqueKeys columns identifying the conflict target; must not be empty
+     * @param updateKeys columns to update on conflict; if empty, all non-unique columns are updated
+     * @return compiled {@link InsertResult}
+     * @throws IllegalArgumentException if {@code rows} or {@code uniqueKeys} is empty
      */
+    @Override
+    public InsertResult compileUpsert(String table, List<Map<String, Object>> rows, List<String> uniqueKeys, List<String> updateKeys)
+    {
+        if (rows.isEmpty()) throw new IllegalArgumentException("rows cannot be empty");
+        if (uniqueKeys.isEmpty()) throw new IllegalArgumentException("uniqueKeys required for PostgreSQL upsert");
+
+        List<String> columns = new ArrayList<>(rows.get(0).keySet());
+
+        String cols = columns.stream().map(this::quoteColumn).collect(Collectors.joining(", "));
+        String placeholders = columns.stream().map(c -> "?").collect(Collectors.joining(", "));
+        String conflictTarget = uniqueKeys.stream().map(this::quoteColumn).collect(Collectors.joining(", "));
+
+        List<Object> bindings = new ArrayList<>();
+        List<String> valueSets = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            valueSets.add("(" + placeholders + ")");
+            for (String col : columns) bindings.add(row.get(col));
+        }
+
+        List<String> updates = updateKeys.isEmpty()
+                ? columns.stream()
+                .filter(c -> !uniqueKeys.contains(c))
+                .map(c -> quoteColumn(c) + " = EXCLUDED." + quoteColumn(c))
+                .collect(Collectors.toList())
+                : updateKeys.stream()
+                .map(c -> quoteColumn(c) + " = EXCLUDED." + quoteColumn(c))
+                .collect(Collectors.toList());
+
+        String sql = "INSERT INTO " + quoteTable(table) + " (" + cols + ") VALUES "
+                + String.join(", ", valueSets)
+                + " ON CONFLICT (" + conflictTarget + ") DO UPDATE SET "
+                + String.join(", ", updates);
+
+        return new InsertResult(sql, bindings);
+    }
+
     @Override
     public String compileIncrement(String table, String column, int amount, List<WhereClause> wheres, List<Object> bindings)
     {

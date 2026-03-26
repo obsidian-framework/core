@@ -737,6 +737,36 @@ public class QueryBuilder
     }
 
     /**
+     * Inserts or updates rows in bulk based on unique key conflicts.
+     * Uses dialect-specific syntax: ON DUPLICATE KEY UPDATE (MySQL),
+     * ON CONFLICT DO UPDATE (PostgreSQL / SQLite 3.24+).
+     *
+     * @param rows       list of rows to insert or update
+     * @param uniqueKeys columns identifying uniqueness (conflict target)
+     * @param updateKeys columns to update on conflict; if empty, all non-unique columns are updated
+     * @return number of affected rows
+     */
+    public int upsert(List<Map<String, Object>> rows, List<String> uniqueKeys, List<String> updateKeys)
+    {
+        if (rows == null || rows.isEmpty()) return 0;
+        com.obsidian.core.database.orm.query.grammar.InsertResult result =
+                grammar.compileUpsert(table, rows, uniqueKeys, updateKeys);
+        return executor.executeUpdate(result.getSql(), result.getBindings());
+    }
+
+    /**
+     * Inserts or updates rows in bulk, updating all non-unique columns on conflict.
+     *
+     * @param rows       list of rows to insert or update
+     * @param uniqueKeys columns identifying uniqueness
+     * @return number of affected rows
+     */
+    public int upsert(List<Map<String, Object>> rows, List<String> uniqueKeys)
+    {
+        return upsert(rows, uniqueKeys, List.of());
+    }
+
+    /**
      * Updates matching rows.
      *
      * @param values column-to-value map
