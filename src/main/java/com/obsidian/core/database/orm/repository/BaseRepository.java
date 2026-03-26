@@ -35,14 +35,26 @@ import java.util.Map;
 public abstract class BaseRepository<T extends Model>
 {
     protected final Class<T> modelClass;
+    private final String primaryKey;
 
     /**
      * Creates a new repository for the given model class.
+     * The primary key is resolved once at construction time and cached.
      *
      * @param modelClass model class to operate on
      */
     public BaseRepository(Class<T> modelClass) {
         this.modelClass = modelClass;
+        this.primaryKey = Model.newInstance(modelClass).primaryKey();
+    }
+
+    /**
+     * Returns the primary key column name for this model.
+     *
+     * @return primary key column name
+     */
+    public String primaryKey() {
+        return primaryKey;
     }
 
     /**
@@ -128,7 +140,7 @@ public abstract class BaseRepository<T extends Model>
      * @return list of matching model instances
      */
     public List<T> findMany(List<Object> ids) {
-        return query().whereIn("id", ids).get();
+        return query().whereIn(primaryKey(), ids).get();
     }
 
     /**
@@ -161,6 +173,27 @@ public abstract class BaseRepository<T extends Model>
      */
     public T firstOrCreate(Map<String, Object> search) {
         return firstOrCreate(search, Map.of());
+    }
+
+    /**
+     * Finds the first record matching {@code search}, updates it with {@code attributes},
+     * or creates a new one merging both if none exists.
+     *
+     * @param search     attributes used to locate the existing record
+     * @param attributes attributes to apply on update or merge on create
+     * @return updated or newly created model instance
+     */
+    public T updateOrCreate(Map<String, Object> search, Map<String, Object> attributes)
+    {
+        T model = findByAttributes(search);
+        if (model != null) {
+            model.fill(attributes);
+            model.save();
+            return model;
+        }
+        java.util.Map<String, Object> merged = new java.util.LinkedHashMap<>(search);
+        merged.putAll(attributes);
+        return create(merged);
     }
 
     /**
@@ -251,7 +284,7 @@ public abstract class BaseRepository<T extends Model>
      * @return {@code true} if found
      */
     public boolean exists(Object id) {
-        return query().where("id", id).exists();
+        return query().where(primaryKey(), id).exists();
     }
 
     /**
@@ -383,5 +416,74 @@ public abstract class BaseRepository<T extends Model>
      */
     public List<Object> pluckWhere(String column, String whereCol, Object whereVal) {
         return query().where(whereCol, whereVal).pluck(column);
+    }
+
+    /**
+     * Inserts or updates rows in bulk based on unique key conflicts.
+     * Delegates to the dialect-specific grammar (MySQL / PostgreSQL / SQLite).
+     *
+     * @param rows       list of rows to insert or update
+     * @param uniqueKeys columns identifying uniqueness (conflict target)
+     * @param updateKeys columns to update on conflict; if empty, updates all non-unique columns
+     * @return number of affected rows
+     */
+    public int upsert(List<Map<String, Object>> rows, List<String> uniqueKeys, List<String> updateKeys) {
+        return new com.obsidian.core.database.orm.query.QueryBuilder(
+                Model.newInstance(modelClass).table()
+        ).upsert(rows, uniqueKeys, updateKeys);
+    }
+
+    /**
+     * Inserts or updates rows, updating all non-unique columns on conflict.
+     *
+     * @param rows       list of rows to insert or update
+     * @param uniqueKeys columns identifying uniqueness
+     * @return number of affected rows
+     */
+    public int upsert(List<Map<String, Object>> rows, List<String> uniqueKeys) {
+        return upsert(rows, uniqueKeys, List.of());
+    }
+
+    /**
+     * Processes all records in chunks of the given size, avoiding loading
+     * the entire table into memory at once.
+     *
+     * <p><strong>Note:</strong> this method uses offset-based pagination. If rows are
+     * inserted or deleted during iteration, pages may shift and some records may be
+     * skipped or processed twice. Use only when the table is stable during the operation.</p>
+     *
+     * @param size     number of records per chunk
+     * @param callback called for each chunk
+     */
+    public void chunk(int size, java.util.function.Consumer<List<T>> callback) {
+        int page = 1;
+        List<T> chunk;
+        do {
+            chunk = query().forPage(page, size).get();
+            if (!chunk.isEmpty()) callback.accept(chunk);
+            page++;
+        } while (chunk.size() == size);
+    }
+
+    /**
+     * Processes records matching a condition in chunks.
+     *
+     * <p><strong>Note:</strong> this method uses offset-based pagination. If rows are
+     * inserted or deleted during iteration, pages may shift and some records may be
+     * skipped or processed twice. Use only when the result set is stable during the operation.</p>
+     *
+     * @param column   column name to filter on
+     * @param value    value to match
+     * @param size     number of records per chunk
+     * @param callback called for each chunk
+     */
+    public void chunkWhere(String column, Object value, int size, java.util.function.Consumer<List<T>> callback) {
+        int page = 1;
+        List<T> chunk;
+        do {
+            chunk = query().where(column, value).forPage(page, size).get();
+            if (!chunk.isEmpty()) callback.accept(chunk);
+            page++;
+        } while (chunk.size() == size);
     }
 }

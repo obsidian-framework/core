@@ -175,6 +175,14 @@ public class MySqlGrammar implements Grammar
         return new UpdateResult(sql.toString(), bindings);
     }
 
+    /**
+     * Compiles a DELETE statement.
+     *
+     * @param table    target table name
+     * @param wheres   WHERE clauses to apply
+     * @param bindings bindings already collected for the WHERE clause
+     * @return compiled {@link DeleteResult}
+     */
     @Override
     public DeleteResult compileDelete(String table, List<WhereClause> wheres, List<Object> bindings)
     {
@@ -189,15 +197,52 @@ public class MySqlGrammar implements Grammar
     }
 
     /**
-     * Compiles an atomic increment or decrement UPDATE statement.
+     * Compiles a MySQL upsert using {@code INSERT ... ON DUPLICATE KEY UPDATE}.
+     * Validates all column names against {@link SqlIdentifier}.
      *
-     * @param table    target table name
-     * @param column   column to increment or decrement
-     * @param amount   positive to increment, negative to decrement
-     * @param wheres   WHERE clauses to apply
-     * @param bindings bindings already collected for the WHERE clause
-     * @return compiled SQL string
+     * @param table      target table name
+     * @param rows       list of rows to insert or update; all rows must share the same key set
+     * @param uniqueKeys columns identifying uniqueness (used to exclude from the UPDATE clause)
+     * @param updateKeys columns to update on conflict; if empty, all non-unique columns are updated
+     * @return compiled {@link InsertResult}
+     * @throws IllegalArgumentException if {@code rows} is empty or a column name fails identifier validation
      */
+    @Override
+    public InsertResult compileUpsert(String table, List<Map<String, Object>> rows, List<String> uniqueKeys, List<String> updateKeys)
+    {
+        if (rows.isEmpty()) throw new IllegalArgumentException("rows cannot be empty");
+
+        List<String> columns = new ArrayList<>(rows.get(0).keySet());
+        for (String col : columns) SqlIdentifier.requireIdentifier(col);
+
+        String cols = String.join(", ", columns);
+        String placeholders = columns.stream().map(c -> "?").collect(Collectors.joining(", "));
+
+        // Build VALUES (?, ?), (?, ?) ...
+        List<Object> bindings = new ArrayList<>();
+        List<String> valueSets = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            valueSets.add("(" + placeholders + ")");
+            for (String col : columns) bindings.add(row.get(col));
+        }
+
+        // ON DUPLICATE KEY UPDATE col = VALUES(col), ...
+        List<String> updates = updateKeys.isEmpty()
+                ? columns.stream()
+                .filter(c -> !uniqueKeys.contains(c))
+                .map(c -> c + " = VALUES(" + c + ")")
+                .collect(Collectors.toList())
+                : updateKeys.stream()
+                .map(c -> c + " = VALUES(" + c + ")")
+                .collect(Collectors.toList());
+
+        String sql = "INSERT INTO " + table + " (" + cols + ") VALUES "
+                + String.join(", ", valueSets)
+                + " ON DUPLICATE KEY UPDATE " + String.join(", ", updates);
+
+        return new InsertResult(sql, bindings);
+    }
+
     @Override
     public String compileIncrement(String table, String column, int amount, List<WhereClause> wheres, List<Object> bindings)
     {

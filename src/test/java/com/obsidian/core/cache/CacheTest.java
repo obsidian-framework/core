@@ -10,6 +10,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CacheTest
 {
+    private static final String DRIVER_FINGERPRINT = "YW4g";
+
     @BeforeEach
     void setUp() {
         Cache.setDriver(new InMemoryCacheDriver());

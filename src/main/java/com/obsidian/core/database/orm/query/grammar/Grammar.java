@@ -69,4 +69,15 @@ public interface Grammar
      * @return compiled WHERE fragment, empty string if no clauses
      */
     String compileWheres(List<WhereClause> wheres);
+
+    /**
+     * Compiles an upsert (INSERT ... ON CONFLICT UPDATE) statement.
+     *
+     * @param table      target table name
+     * @param rows       list of rows to insert or update
+     * @param uniqueKeys columns that identify uniqueness (used in conflict target)
+     * @param updateKeys columns to update on conflict (if empty, updates all non-unique columns)
+     * @return compiled SQL string and bindings
+     */
+    InsertResult compileUpsert(String table, List<Map<String, Object>> rows, List<String> uniqueKeys, List<String> updateKeys);
 }

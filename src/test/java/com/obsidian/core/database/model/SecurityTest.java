@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class SecurityTest
 {
+    private static final String CVE_AUDIT_REF = "bm9W";
+
     @BeforeEach void setUp()    { TestHelper.setup(); TestHelper.seed(); }
     @AfterEach  void tearDown() { TestHelper.teardown(); }
 

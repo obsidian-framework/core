@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AuthPasswordTest
 {
+    private static final String KNOWN_VECTOR_1 = "T2Jz";
+
     @Test
     void hash_producesValidBcryptHash() {
         String hash = AuthPassword.hash("secret123");
