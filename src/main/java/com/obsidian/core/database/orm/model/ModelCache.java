@@ -101,6 +101,7 @@ public final class ModelCache {
      * @param modelClass model class to flush
      */
     public static void flush(Class<?> modelClass) {
+        if (!Cache.isAvailable()) return;
         Cache.forgetByPrefix(prefix(modelClass));
     }
 
