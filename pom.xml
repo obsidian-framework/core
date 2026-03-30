@@ -1,22 +1,18 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-
   <groupId>com.obsidian-java</groupId>
   <artifactId>core</artifactId>
-  <version>1.1.0</version>
+  <version>3.8.0</version>
   <packaging>jar</packaging>
-
   <name>Obsidian</name>
   <description>Obsidian brings modern development conventions to the Spark Java framework</description>
   <url>https://obsidian-java.com</url>
-
   <licenses>
     <license>
       <name>MIT License</name>
       <url>https://opensource.org/licenses/MIT</url>
     </license>
   </licenses>
-
   <developers>
     <developer>
       <id>kainodev</id>
@@ -24,20 +20,17 @@
       <email>kainodev@proton.me</email>
     </developer>
   </developers>
-
   <scm>
     <connection>scm:git:git://github.com/obsidian-framework/core.git</connection>
     <developerConnection>scm:git:ssh://github.com/obsidian-framework/core.git</developerConnection>
     <url>https://github.com/obsidian-framework/core</url>
   </scm>
-
   <properties>
     <java.version>17</java.version>
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
-
   <dependencies>
     <dependency>
       <groupId>com.sparkjava</groupId>
