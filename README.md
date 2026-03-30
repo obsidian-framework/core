@@ -12,11 +12,10 @@
     <img src="https://img.shields.io/badge/Java-17+-orange.svg" alt="Java 17+">
   </a>
   <a href="https://jitpack.io/#obsidian-framework/core">
-    <img src="https://jitpack.io/v/obsidian-framework/core.svg" alt="JitPack">
-  </a>
-
-  <a href="https://jitpack.io/#obsidian-framework/core">
     <img src="https://github.com/obsidian-framework/core/actions/workflows/ci.yml/badge.svg" alt="workflows">
+  </a>
+  <a href="https://central.sonatype.com/artifact/com.obsidian-java/core">
+    <img src="https://img.shields.io/maven-central/v/com.obsidian-java/core" alt="workflows">
   </a>
 </p>
 
@@ -42,24 +41,13 @@ mvn clean package exec:java
 
 ### Maven
 
-Add the JitPack repository:
-
-```xml
-<repositories>
-    <repository>
-        <id>jitpack.io</id>
-        <url>https://jitpack.io</url>
-    </repository>
-</repositories>
-```
-
 Add the dependency:
 
 ```xml
 <dependency>
-    <groupId>com.github.obsidian-framework</groupId>
+    <groupId>com.obsidian-java</groupId>
     <artifactId>core</artifactId>
-    <version>latest</version>
+    <version>{version}</version>
 </dependency>
 ```
 
