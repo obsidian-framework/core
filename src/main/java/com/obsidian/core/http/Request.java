@@ -1,4 +1,4 @@
-package com.obsidian.core.spark;
+package com.obsidian.core.http;
 
 public class Request extends spark.Request {
 }
