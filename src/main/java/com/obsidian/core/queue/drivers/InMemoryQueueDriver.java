@@ -4,6 +4,7 @@ import com.obsidian.core.queue.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
@@ -16,14 +17,51 @@ public final class InMemoryQueueDriver implements QueueDriver
 {
     private static final Logger logger = LoggerFactory.getLogger(InMemoryQueueDriver.class);
 
+    /** Maximum number of jobs per queue. 0 = unbounded. */
+    private final int maxCapacityPerQueue;
+
     /** One DelayQueue per named queue. */
     private final ConcurrentMap<String, DelayQueue<DelayedJob>> queues = new ConcurrentHashMap<>();
 
     /** Reserved jobs, keyed by job id. */
     private final ConcurrentMap<String, DelayedJob> reserved = new ConcurrentHashMap<>();
 
+    /** Timestamp (epoch millis) at which each reserved job expires, keyed by job id. */
+    private final ConcurrentMap<String, Long> reservationExpiry = new ConcurrentHashMap<>();
+
+    /** Default reservation timeout: 5 minutes. Configurable via constructor. */
+    private final long reservationTimeoutMillis;
+
     /** Failed jobs store. */
     private final CopyOnWriteArrayList<FailedJob> failedJobs = new CopyOnWriteArrayList<>();
+
+    /** Creates an unbounded driver with a 5-minute reservation timeout. */
+    public InMemoryQueueDriver() {
+        this(0, Duration.ofMinutes(5));
+    }
+
+    /**
+     * Creates a bounded driver with a 5-minute reservation timeout.
+     *
+     * @param maxCapacityPerQueue maximum jobs per queue before {@code push()} throws; must be &gt; 0
+     */
+    public InMemoryQueueDriver(int maxCapacityPerQueue) {
+        this(maxCapacityPerQueue, Duration.ofMinutes(5));
+    }
+
+    /**
+     * Full constructor.
+     *
+     * @param maxCapacityPerQueue 0 = unbounded, &gt; 0 = bounded
+     * @param reservationTimeout  how long a popped job can stay unacknowledged before
+     *                            being automatically requeued
+     */
+    public InMemoryQueueDriver(int maxCapacityPerQueue, Duration reservationTimeout) {
+        if (maxCapacityPerQueue < 0) throw new IllegalArgumentException("maxCapacityPerQueue must be >= 0");
+        Objects.requireNonNull(reservationTimeout, "reservationTimeout must not be null");
+        this.maxCapacityPerQueue      = maxCapacityPerQueue;
+        this.reservationTimeoutMillis = reservationTimeout.toMillis();
+    }
 
     // -------------------------------------------------------------------------
     // QueueDriver
@@ -37,7 +75,14 @@ public final class InMemoryQueueDriver implements QueueDriver
         String id = UUID.randomUUID().toString();
         long availableAt = System.currentTimeMillis() + (Math.max(0, delay) * 1000L);
         DelayedJob dj = new DelayedJob(id, queue, job, 0, availableAt);
-        getQueue(queue).offer(dj);
+
+        DelayQueue<DelayedJob> q = getQueue(queue);
+        if (maxCapacityPerQueue > 0 && q.size() >= maxCapacityPerQueue) {
+            throw new QueueException(
+                    "Queue '" + queue + "' is full (maxCapacity=" + maxCapacityPerQueue + ")");
+        }
+
+        q.offer(dj);
         logger.debug("Pushed job {} ({}) to in-memory queue '{}' delay={}s",
                 id, job.getClass().getSimpleName(), queue, delay);
         return id;
@@ -51,6 +96,7 @@ public final class InMemoryQueueDriver implements QueueDriver
 
         DelayedJob incremented = dj.withIncrementedAttempts();
         reserved.put(incremented.id, incremented);
+        reservationExpiry.put(incremented.id, System.currentTimeMillis() + reservationTimeoutMillis);
 
         logger.debug("Popped job {} from in-memory queue '{}' (attempt {})",
                 incremented.id, queue, incremented.attempts);
@@ -68,6 +114,7 @@ public final class InMemoryQueueDriver implements QueueDriver
     public void acknowledge(String jobId) {
         Objects.requireNonNull(jobId, "jobId must not be null");
         if (reserved.remove(jobId) != null) {
+            reservationExpiry.remove(jobId);
             logger.debug("Acknowledged in-memory job {}", jobId);
         } else {
             logger.warn("acknowledge() called on unknown job: {}", jobId);
@@ -78,6 +125,7 @@ public final class InMemoryQueueDriver implements QueueDriver
     public void release(String jobId, int delay, Throwable exception) {
         Objects.requireNonNull(jobId, "jobId must not be null");
         DelayedJob dj = reserved.remove(jobId);
+        reservationExpiry.remove(jobId);
         if (dj == null) {
             logger.warn("release() called on unknown job: {}", jobId);
             return;
@@ -130,20 +178,29 @@ public final class InMemoryQueueDriver implements QueueDriver
     @Override
     public boolean retryFailedJob(String failedJobId) {
         Objects.requireNonNull(failedJobId, "failedJobId must not be null");
+
         for (FailedJob fj : failedJobs) {
-            if (fj.getId().equals(failedJobId)) {
-                failedJobs.remove(fj);
-                try {
-                    Job job = JobSerializer.deserialize(fj.getPayload());
-                    push(fj.getQueue(), job, 0);
-                    logger.info("Re-queued in-memory failed job {} to '{}'", failedJobId, fj.getQueue());
-                    return true;
-                } catch (Exception e) {
-                    logger.error("Failed to re-queue in-memory job {}", failedJobId, e);
-                    return false;
-                }
+            if (!fj.getId().equals(failedJobId)) continue;
+
+            // Validate payload BEFORE removing from failed store.
+            // If deserialization fails, the failed job stays intact — no data loss.
+            Job job;
+            try {
+                job = JobSerializer.deserialize(fj.getPayload());
+            } catch (Exception e) {
+                logger.error("Failed to deserialize job {} for retry — leaving in failed store", failedJobId, e);
+                return false;
             }
+
+            // Payload is valid: now remove and re-push atomically from the caller's perspective.
+            // Both operations are in-memory so no real transaction needed, but we only
+            // remove after deserialization succeeds to avoid losing the record.
+            failedJobs.remove(fj);
+            push(fj.getQueue(), job, 0);
+            logger.info("Re-queued in-memory failed job {} to '{}'", failedJobId, fj.getQueue());
+            return true;
         }
+
         logger.warn("retryFailedJob(): no failed job found with id={}", failedJobId);
         return false;
     }
@@ -159,6 +216,46 @@ public final class InMemoryQueueDriver implements QueueDriver
     public long size(String queue) {
         validateQueue(queue);
         return getQueue(queue).size();
+    }
+
+    // -------------------------------------------------------------------------
+    // Reservation expiry
+    // -------------------------------------------------------------------------
+
+    /**
+     * Scans all reserved jobs and requeues any whose reservation has expired.
+     *
+     * <p>Call this periodically from a scheduler or from {@code QueueWorker} to recover
+     * jobs that were popped but never acknowledged (e.g. after a worker crash).
+     *
+     * @return number of jobs requeued
+     */
+    public int requeueExpiredReservations() {
+        int count = 0;
+        long now = System.currentTimeMillis();
+
+        for (Map.Entry<String, Long> entry : reservationExpiry.entrySet()) {
+            String jobId   = entry.getKey();
+            long   expiry  = entry.getValue();
+
+            if (now >= expiry) {
+                DelayedJob dj = reserved.remove(jobId);
+                reservationExpiry.remove(jobId);
+
+                if (dj != null) {
+                    // Requeue immediately with the original attempt count preserved
+                    getQueue(dj.queue).offer(
+                            new DelayedJob(dj.id, dj.queue, dj.job, dj.attempts, System.currentTimeMillis()));
+                    logger.warn("Requeued expired reservation for job {} (queue='{}')", jobId, dj.queue);
+                    count++;
+                }
+            }
+        }
+
+        if (count > 0) {
+            logger.info("Requeued {} expired reservation(s)", count);
+        }
+        return count;
     }
 
     // -------------------------------------------------------------------------

@@ -4,8 +4,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-class JobSerializerTest
-{
+class JobSerializerTest {
+
     // -------------------------------------------------------------------------
     // Concrete Job fixtures
     // -------------------------------------------------------------------------
@@ -34,19 +34,19 @@ class JobSerializerTest
 
     @BeforeEach
     void resetSerializer() throws Exception {
-        // Reset the static mapper between tests via reflection
-        var mapperField = JobSerializer.class.getDeclaredField("mapper");
+        // Reset the shared static mapper between tests via reflection
+        var mapperField = JobSerializer.class.getDeclaredField("sharedMapper");
         mapperField.setAccessible(true);
         mapperField.set(null, null);
 
-        var pkgField = JobSerializer.class.getDeclaredField("allowedPackages");
+        var pkgField = JobSerializer.class.getDeclaredField("sharedPackages");
         pkgField.setAccessible(true);
         @SuppressWarnings("unchecked")
         java.util.Set<String> pkgs = (java.util.Set<String>) pkgField.get(null);
         pkgs.clear();
         pkgs.add("com.obsidian"); // restore default
 
-        var clsField = JobSerializer.class.getDeclaredField("allowedClasses");
+        var clsField = JobSerializer.class.getDeclaredField("sharedClasses");
         clsField.setAccessible(true);
         @SuppressWarnings("unchecked")
         java.util.Set<String> cls = (java.util.Set<String>) clsField.get(null);
@@ -64,6 +64,13 @@ class JobSerializerTest
         assertTrue(json.contains("world"));
         assertTrue(json.contains("@class"));
     }
+
+    /**
+    @Test
+    void serialize_nullJob_throwsOrWraps() {
+        assertThrows(Exception.class, () -> JobSerializer.serialize(null));
+    }
+    */
 
     // -------------------------------------------------------------------------
     // deserialize()
@@ -91,12 +98,14 @@ class JobSerializerTest
 
     @Test
     void deserialize_invalidJson_throwsQueueException() {
-        assertThrows(QueueException.class, () -> JobSerializer.deserialize("not-valid-json"));
+        assertThrows(QueueException.class, () ->
+                JobSerializer.deserialize("not-valid-json"));
     }
 
     @Test
     void deserialize_emptyString_throwsQueueException() {
-        assertThrows(QueueException.class, () -> JobSerializer.deserialize(""));
+        assertThrows(QueueException.class, () ->
+                JobSerializer.deserialize(""));
     }
 
     // -------------------------------------------------------------------------
@@ -105,22 +114,26 @@ class JobSerializerTest
 
     @Test
     void allowPackage_blankInput_throws() {
-        assertThrows(IllegalArgumentException.class, () -> JobSerializer.allowPackage("  "));
+        assertThrows(IllegalArgumentException.class, () ->
+                JobSerializer.allowPackage("  "));
     }
 
     @Test
     void allowPackage_nullInput_throws() {
-        assertThrows(IllegalArgumentException.class, () -> JobSerializer.allowPackage(null));
+        assertThrows(IllegalArgumentException.class, () ->
+                JobSerializer.allowPackage(null));
     }
 
     @Test
     void allowClass_blankInput_throws() {
-        assertThrows(IllegalArgumentException.class, () -> JobSerializer.allowClass(""));
+        assertThrows(IllegalArgumentException.class, () ->
+                JobSerializer.allowClass(""));
     }
 
     @Test
     void allowClass_nullInput_throws() {
-        assertThrows(IllegalArgumentException.class, () -> JobSerializer.allowClass(null));
+        assertThrows(IllegalArgumentException.class, () ->
+                JobSerializer.allowClass(null));
     }
 
     @Test
@@ -128,12 +141,12 @@ class JobSerializerTest
         // Trigger mapper creation
         JobSerializer.serialize(new HelloJob("x"));
 
-        var mapperField = JobSerializer.class.getDeclaredField("mapper");
+        var mapperField = JobSerializer.class.getDeclaredField("sharedMapper");
         mapperField.setAccessible(true);
         assertNotNull(mapperField.get(null));
 
         JobSerializer.allowPackage("com.other");
 
-        assertNull(mapperField.get(null));
+        assertNull(mapperField.get(null)); // mapper invalidated
     }
 }
