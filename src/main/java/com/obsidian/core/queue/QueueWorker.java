@@ -23,9 +23,12 @@ public final class QueueWorker {
     private final int                  threads;
     private final Duration reservationTimeout;
     private final Duration             idleSleep;
+    private final boolean              registerShutdownHook;
+    private final Duration             shutdownGracePeriod;
 
     private final AtomicBoolean        running  = new AtomicBoolean(false);
     private ExecutorService            executor;
+    private Thread                     shutdownHookThread;
 
     /** Track last time we swept expired reservations (millis). */
     private volatile long lastExpirySweep = 0;
@@ -40,6 +43,8 @@ public final class QueueWorker {
         this.threads            = b.threads;
         this.reservationTimeout = b.reservationTimeout;
         this.idleSleep          = b.idleSleep;
+        this.registerShutdownHook = b.registerShutdownHook;
+        this.shutdownGracePeriod  = b.shutdownGracePeriod;
 
         if (this.queues.isEmpty()) throw new IllegalArgumentException("At least one queue is required");
         if (this.threads < 1)     throw new IllegalArgumentException("threads must be >= 1");
@@ -51,6 +56,12 @@ public final class QueueWorker {
 
     /**
      * Starts the worker threads. Idempotent — calling start() twice is a no-op.
+     *
+     * <p>If {@code registerShutdownHook(true)} was set on the builder (the default),
+     * a JVM shutdown hook is installed that calls {@link #stop(Duration)} with the
+     * configured grace period. This means SIGTERM (Docker stop, Kubernetes pod
+     * termination, Ctrl-C) will trigger a graceful drain instead of killing in-flight
+     * jobs mid-execution.
      */
     public synchronized void start() {
         if (running.compareAndSet(false, true)) {
@@ -62,8 +73,18 @@ public final class QueueWorker {
             for (int i = 0; i < threads; i++) {
                 executor.submit(this::workerLoop);
             }
-            logger.info("QueueWorker started — queues={}, threads={}, reservationTimeout={}s",
-                    queues, threads, reservationTimeout.getSeconds());
+
+            if (registerShutdownHook) {
+                shutdownHookThread = new Thread(() -> {
+                    logger.info("JVM shutdown detected — draining QueueWorker (grace={}s)",
+                            shutdownGracePeriod.getSeconds());
+                    stopInternal(shutdownGracePeriod, false);
+                }, "queue-worker-shutdown-hook");
+                Runtime.getRuntime().addShutdownHook(shutdownHookThread);
+            }
+
+            logger.info("QueueWorker started — queues={}, threads={}, reservationTimeout={}s, shutdownHook={}",
+                    queues, threads, reservationTimeout.getSeconds(), registerShutdownHook);
         }
     }
 
@@ -73,6 +94,18 @@ public final class QueueWorker {
      * @param timeout maximum time to wait for graceful shutdown
      */
     public synchronized void stop(Duration timeout) {
+        stopInternal(timeout, true);
+    }
+
+    /**
+     * Internal stop implementation.
+     *
+     * @param timeout              graceful timeout
+     * @param removeShutdownHook   true when called explicitly by user code; false when
+     *                             the JVM shutdown hook itself is calling us (you can't
+     *                             remove a hook from inside a running hook).
+     */
+    private synchronized void stopInternal(Duration timeout, boolean removeShutdownHook) {
         if (running.compareAndSet(true, false)) {
             executor.shutdown();
             try {
@@ -84,6 +117,16 @@ public final class QueueWorker {
                 executor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
+
+            if (removeShutdownHook && shutdownHookThread != null) {
+                try {
+                    Runtime.getRuntime().removeShutdownHook(shutdownHookThread);
+                } catch (IllegalStateException ignored) {
+                    // JVM already shutting down — hook can't be removed, but that's fine.
+                }
+                shutdownHookThread = null;
+            }
+
             logger.info("QueueWorker stopped");
         }
     }
@@ -104,8 +147,14 @@ public final class QueueWorker {
     private void workerLoop() {
         logger.debug("Worker thread started: {}", Thread.currentThread().getName());
 
+        // Exponential backoff state for repeated pop() failures
+        // (e.g. DB unreachable). Resets on any successful pop iteration.
+        long currentBackoffMillis = 0L;
+        final long maxBackoffMillis = 30_000L;
+
         while (running.get()) {
             boolean processedAny = false;
+            boolean popFailed    = false;
 
             for (String queue : queues) {
                 if (!running.get()) break;
@@ -116,15 +165,36 @@ public final class QueueWorker {
                         processJob(maybeJob.get());
                         processedAny = true;
                     }
-                } catch (Exception e) {
-                    logger.error("Unexpected error popping from queue '{}': {}", queue, e.getMessage(), e);
+                } catch (Throwable t) {
+                    // Same VM-error policy as processJob: don't try to recover
+                    // from OOM / unrecoverable VM state.
+                    if (t instanceof VirtualMachineError) throw (VirtualMachineError) t;
+
+                    popFailed = true;
+                    logger.error("Unexpected error popping from queue '{}': {} (backoff={}ms)",
+                            queue, t.getMessage(), currentBackoffMillis, t);
                 }
             }
 
-            // If no queue had work, sleep before polling again to avoid busy-waiting
-            if (!processedAny) {
+            // Update backoff: grow on failure, reset on any clean iteration.
+            if (popFailed) {
+                currentBackoffMillis = (currentBackoffMillis == 0L)
+                        ? idleSleep.toMillis()
+                        : Math.min(currentBackoffMillis * 2, maxBackoffMillis);
+            } else {
+                currentBackoffMillis = 0L;
+            }
+
+            // Sleep when idle OR when we hit errors. The backoff sleep replaces
+            // the normal idle sleep when an error occurred, so we don't hammer
+            // a failing driver.
+            long sleepMillis = popFailed
+                    ? currentBackoffMillis
+                    : (processedAny ? 0L : idleSleep.toMillis());
+
+            if (sleepMillis > 0L) {
                 try {
-                    Thread.sleep(idleSleep.toMillis());
+                    Thread.sleep(sleepMillis);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
@@ -165,16 +235,36 @@ public final class QueueWorker {
             driver.acknowledge(jobId);
             logger.debug("Job {} completed successfully", jobId);
 
-        } catch (Exception e) {
-            logger.warn("Job {} failed (attempt {}/{}): {}",
-                    jobId, queuedJob.getAttempts(), job.maxAttempts(), e.getMessage());
+        } catch (Throwable t) {
+            // Catch Throwable (not just Exception) so that an Error from a buggy
+            // job (e.g. StackOverflowError, AssertionError) doesn't silently kill
+            // this worker thread. We still re-throw VirtualMachineError (OOM etc.)
+            // because the JVM is in an unrecoverable state and trying to release
+            // the job would likely fail anyway.
+            if (t instanceof VirtualMachineError) {
+                logger.error("Fatal VM error in job {} — re-throwing", jobId, t);
+                throw (VirtualMachineError) t;
+            }
 
-            if (queuedJob.isExhausted()) {
-                logger.error("Job {} exhausted all attempts — moving to failed store", jobId);
-                driver.failed(job, queue, queuedJob.getAttempts(), e);
-                // No acknowledge needed: failed() owns the cleanup
-            } else {
-                driver.release(jobId, job.retryDelay(), e);
+            logger.warn("Job {} failed (attempt {}/{}): {}",
+                    jobId, queuedJob.getAttempts(), job.maxAttempts(), t.getMessage());
+
+            // The driver release() path expects a Throwable; we already have one.
+            try {
+                if (queuedJob.isExhausted()) {
+                    logger.error("Job {} exhausted all attempts — moving to failed store", jobId);
+                    // failed() takes Throwable in the contract, which Throwable satisfies.
+                    driver.failed(job, queue, queuedJob.getAttempts(), t);
+                    // No acknowledge needed: failed() owns the cleanup
+                } else {
+                    driver.release(jobId, job.retryDelay(), t);
+                }
+            } catch (Exception cleanupErr) {
+                // If the driver itself fails (e.g. DB blip), we don't want to lose
+                // the worker thread. Log and move on — the lease will eventually
+                // expire and be reaped.
+                logger.error("Driver cleanup after job {} failure also failed: {}",
+                        jobId, cleanupErr.getMessage(), cleanupErr);
             }
         }
     }
@@ -185,7 +275,11 @@ public final class QueueWorker {
         lastExpirySweep = now;
 
         if (driver instanceof InMemoryQueueDriver) {
-            ((InMemoryQueueDriver) driver).requeueExpiredReservations();
+            try {
+                ((InMemoryQueueDriver) driver).reapExpiredReservations();
+            } catch (Exception e) {
+                logger.warn("Reservation reaping failed: {}", e.getMessage(), e);
+            }
         }
     }
 
@@ -205,10 +299,12 @@ public final class QueueWorker {
 
     public static final class Builder {
         private final QueueDriver  driver;
-        private final List<String> queues             = new ArrayList<>();
-        private int                threads            = 1;
-        private Duration           reservationTimeout = Duration.ofMinutes(5);
-        private Duration           idleSleep          = Duration.ofMillis(500);
+        private final List<String> queues               = new ArrayList<>();
+        private int                threads              = 1;
+        private Duration           reservationTimeout   = Duration.ofMinutes(5);
+        private Duration           idleSleep            = Duration.ofMillis(500);
+        private boolean            registerShutdownHook = true;
+        private Duration           shutdownGracePeriod  = Duration.ofSeconds(30);
 
         private Builder(QueueDriver driver) {
             this.driver = driver;
@@ -241,6 +337,32 @@ public final class QueueWorker {
          */
         public Builder idleSleep(Duration idleSleep) {
             this.idleSleep = Objects.requireNonNull(idleSleep);
+            return this;
+        }
+
+        /**
+         * Whether to register a JVM shutdown hook that drains the worker
+         * gracefully on SIGTERM / Ctrl-C / container stop (default: true).
+         *
+         * <p>Disable only if you manage worker lifecycle from a parent container
+         * that already handles shutdown (e.g. an embedded servlet container with
+         * its own lifecycle, or unit tests).
+         */
+        public Builder registerShutdownHook(boolean register) {
+            this.registerShutdownHook = register;
+            return this;
+        }
+
+        /**
+         * How long the shutdown hook waits for in-flight jobs to complete before
+         * forcing termination (default: 30 seconds).
+         *
+         * <p>Should be slightly less than your container's grace period (e.g. 30s
+         * here for Kubernetes' default 30s {@code terminationGracePeriodSeconds}),
+         * leaving room for the JVM itself to shut down cleanly.
+         */
+        public Builder shutdownGracePeriod(Duration grace) {
+            this.shutdownGracePeriod = Objects.requireNonNull(grace);
             return this;
         }
 

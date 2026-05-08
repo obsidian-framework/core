@@ -1,6 +1,5 @@
 package com.obsidian.core.queue;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
@@ -36,7 +35,12 @@ public final class JobSerializer
     /** Serializes a job to JSON. */
     public String serializeJob(Job job) {
         try {
-            return mapper.writeValueAsString(job);
+            // writerFor(Job.class) forces Jackson to treat the value as type
+            // Job (an interface) at the root, which makes OBJECT_AND_NON_CONCRETE
+            // emit the "@class" tag. Without this, Jackson would use the
+            // runtime type (a concrete subclass) and skip the tag, breaking
+            // the deserialization roundtrip.
+            return mapper.writerFor(Job.class).writeValueAsString(job);
         } catch (Exception e) {
             throw new QueueException("Failed to serialize job: " + job.getClass().getName(), e);
         }
@@ -118,7 +122,9 @@ public final class JobSerializer
     /** Serializes a job using the shared instance. */
     public static String serialize(Job job) {
         try {
-            return getSharedMapper().writeValueAsString(job);
+            // See note in serializeJob() above — writerFor(Job.class) is what
+            // makes Jackson emit the @class tag at the root.
+            return getSharedMapper().writerFor(Job.class).writeValueAsString(job);
         } catch (Exception e) {
             throw new QueueException("Failed to serialize job: " + job.getClass().getName(), e);
         }
@@ -150,10 +156,15 @@ public final class JobSerializer
 
     private static ObjectMapper buildMapper(Set<String> packages, Set<String> classes) {
         BasicPolymorphicTypeValidator.Builder validatorBuilder =
-                BasicPolymorphicTypeValidator.builder();
+                BasicPolymorphicTypeValidator.builder()
+                        // The base type is always Job — anything else is rejected.
+                        .allowIfBaseType(Job.class);
 
+        // Allow concrete subtypes (the actual instantiated classes) under
+        // whitelisted packages. allowIfSubType validates the CONCRETE class
+        // being instantiated, which is what we actually need for safety.
         for (String pkg : packages) {
-            validatorBuilder.allowIfBaseType(pkg);
+            validatorBuilder.allowIfSubType(pkg);
         }
         for (String cls : classes) {
             try {
@@ -168,7 +179,24 @@ public final class JobSerializer
         ObjectMapper om = new ObjectMapper();
         om.registerModule(new JavaTimeModule());
         om.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        om.activateDefaultTypingAsProperty(validator, ObjectMapper.DefaultTyping.NON_FINAL, "@class");
+
+        // IMPORTANT: do NOT use activateDefaultTyping with NON_FINAL.
+        // That would apply polymorphic typing to every non-final property
+        // inside jobs (Object, List, Map fields), opening the door to
+        // Jackson gadget-chain attacks if payloads can be tampered with
+        // (e.g. compromised Redis/DB).
+        //
+        // We use OBJECT_AND_NON_CONCRETE because Job is an interface — the
+        // @class tag must be written for it (and for any abstract/interface
+        // field a job might contain). Concrete fields (String, int, dates,
+        // simple beans) do NOT get a @class tag and therefore can't be used
+        // as a polymorphic injection point. Anything that does get a @class
+        // tag still has to pass the validator above, which only accepts
+        // concrete subtypes whitelisted via allowIfSubType.
+        om.activateDefaultTypingAsProperty(
+                validator,
+                ObjectMapper.DefaultTyping.OBJECT_AND_NON_CONCRETE,
+                "@class");
 
         return om;
     }

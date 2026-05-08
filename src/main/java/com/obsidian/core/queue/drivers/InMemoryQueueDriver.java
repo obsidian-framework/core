@@ -8,10 +8,37 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * In-memory queue driver backed by a {@link DelayQueue}.
+ *
+ * <h2>⚠️ Persistence</h2>
+ * <p>This driver stores all state — pending jobs, reserved jobs, and failed jobs —
+ * <strong>in JVM memory only</strong>. Any of the following will lose every job
+ * the driver is currently holding:
+ * <ul>
+ *   <li>Process restart (deploy, rolling update, manual restart)</li>
+ *   <li>JVM crash (OOM, segfault in native code, host failure)</li>
+ *   <li>{@code kill -9}, container OOMKill, host shutdown</li>
+ *   <li>Any unhandled VM error</li>
+ *
+ * </ul>
+ *
+ * <p><strong>Use this driver only for work you can afford to lose.</strong>
+ * Good fits: best-effort notifications, cache rebuilds, background analytics,
+ * thumbnail generation, anything a user can manually retry.
+ *
+ * <p>For work that must survive restarts (payment confirmations, transactional
+ * emails, webhook processing, anything billable), use a persistent driver.
+ *
+ * <h2>Concurrency</h2>
+ * <p>All operations are thread-safe. Multiple workers may consume from the same
+ * queue concurrently — {@link DelayQueue#poll()} is atomic, and reservation
+ * tracking uses {@link ConcurrentHashMap}.
+ *
+ * <h2>Capacity</h2>
+ * <p>{@code maxCapacityPerQueue} is enforced best-effort. Under heavy concurrent
+ * pushes, the actual queue size may briefly exceed the limit by a small amount.
  */
 public final class InMemoryQueueDriver implements QueueDriver
 {
@@ -230,7 +257,7 @@ public final class InMemoryQueueDriver implements QueueDriver
      *
      * @return number of jobs requeued
      */
-    public int requeueExpiredReservations() {
+    public int reapExpiredReservations() {
         int count = 0;
         long now = System.currentTimeMillis();
 
@@ -239,13 +266,17 @@ public final class InMemoryQueueDriver implements QueueDriver
             long   expiry  = entry.getValue();
 
             if (now >= expiry) {
-                DelayedJob dj = reserved.remove(jobId);
-                reservationExpiry.remove(jobId);
+                // Compare-and-remove on the expiry map first: ensures that an
+                // ack/release that happened concurrently wins the race cleanly.
+                if (!reservationExpiry.remove(jobId, expiry)) continue;
 
+                DelayedJob dj = reserved.remove(jobId);
                 if (dj != null) {
-                    // Requeue immediately with the original attempt count preserved
+                    // Decrement attempts: the next pop() will re-increment it,
+                    // so a single timeout still consumes exactly one attempt.
+                    int restoredAttempts = Math.max(0, dj.attempts - 1);
                     getQueue(dj.queue).offer(
-                            new DelayedJob(dj.id, dj.queue, dj.job, dj.attempts, System.currentTimeMillis()));
+                            new DelayedJob(dj.id, dj.queue, dj.job, restoredAttempts, System.currentTimeMillis()));
                     logger.warn("Requeued expired reservation for job {} (queue='{}')", jobId, dj.queue);
                     count++;
                 }
@@ -256,6 +287,14 @@ public final class InMemoryQueueDriver implements QueueDriver
             logger.info("Requeued {} expired reservation(s)", count);
         }
         return count;
+    }
+
+    /**
+     * @deprecated since 0.x — use {@link #reapExpiredReservations()} instead.
+     */
+    @Deprecated
+    public int requeueExpiredReservations() {
+        return reapExpiredReservations();
     }
 
     // -------------------------------------------------------------------------

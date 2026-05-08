@@ -56,8 +56,7 @@ class JobSerializerTest {
     // -------------------------------------------------------------------------
     // serialize()
     // -------------------------------------------------------------------------
-
-    @Test
+     @Test
     void serialize_producesValidJson() {
         String json = JobSerializer.serialize(new HelloJob("world"));
         assertNotNull(json);
