@@ -7,7 +7,8 @@ import spark.Response;
  * Middleware interface for request/response processing.
  * Implement this interface to create custom middleware.
  */
-public interface Middleware {
+public interface
+Middleware {
     /**
      * Handles request/response processing.
      *

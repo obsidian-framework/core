@@ -9,6 +9,7 @@ import com.obsidian.core.database.MigrationManager;
 import com.obsidian.core.database.seeder.SeederLoader;
 import com.obsidian.core.di.ComponentScanner;
 import com.obsidian.core.di.ServiceProviderLoader;
+import com.obsidian.core.event.EventListenerLoader;
 import com.obsidian.core.livecomponents.core.ComponentManager;
 import com.obsidian.core.livecomponents.core.LiveComponentsLoader;
 import com.obsidian.core.storage.StorageLoader;
@@ -149,6 +150,12 @@ public class Obsidian
     public void loadCache() { CacheLoader.loadCache(); }
 
     /**
+     * Loads and registers all event listeners.
+     * Discovers @Listener annotated classes and registers their @On methods.
+     */
+    public void loadEvents() { EventListenerLoader.loadListeners(); }
+
+    /**
      * Displays startup message (MOTD) in console.
      */
     public void registerMotd()
@@ -210,6 +217,7 @@ public class Obsidian
         loadMigrations();
         loadSeeders();
         loadContainer();
+        loadEvents();
         loadStorage();
         loadServiceProvider();
         startWebServer();
