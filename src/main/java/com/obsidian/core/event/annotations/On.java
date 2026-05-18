@@ -7,5 +7,8 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD})
-public @interface On {
+public @interface On
+{
+    Class<?> value();
+    int priority() default 0;
 }
