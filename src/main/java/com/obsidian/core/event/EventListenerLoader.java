@@ -1,5 +1,6 @@
 package com.obsidian.core.event;
 
+import com.obsidian.core.di.Container;
 import com.obsidian.core.di.ReflectionsProvider;
 import com.obsidian.core.event.annotations.Listener;
 import com.obsidian.core.event.annotations.On;
@@ -13,7 +14,7 @@ import java.util.Set;
 /**
  * Event listener loader for application startup.
  * Discovers @Listener annotated classes and registers their @On methods
- * on the global {@link Event} bus.
+ * on the global {@link Events} bus.
  */
 public class EventListenerLoader
 {
@@ -32,7 +33,7 @@ public class EventListenerLoader
             int handlerCount = 0;
 
             for (Class<?> listenerClass : listenerClasses) {
-                handlerCount += registerListenerClass(Event.bus(), listenerClass);
+                handlerCount += registerListenerClass(Events.bus(), listenerClass);
             }
 
             logger.info("Loaded {} event handler(s) from {} listener(s)", handlerCount, listenerClasses.size());
@@ -79,7 +80,7 @@ public class EventListenerLoader
     private static int registerListenerClass(EventBus bus, Class<?> listenerClass)
     {
         try {
-            Object instance = listenerClass.getDeclaredConstructor().newInstance();
+            Object instance = Container.instantiate(listenerClass, Object.class);
             int count = registerListenerInstance(bus, instance);
 
             if (count > 0) {
@@ -110,7 +111,7 @@ public class EventListenerLoader
             On on = method.getAnnotation(On.class);
             if (on == null) continue;
 
-            bus.register(on.value(), instance, method);
+            bus.register(on.value(), instance, method, on.priority());
             count++;
         }
 
