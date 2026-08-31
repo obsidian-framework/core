@@ -7,6 +7,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 /**
  * Central event dispatcher.
@@ -19,6 +22,12 @@ public final class EventBus
 
     private final ConcurrentHashMap<Class<? extends Event>, List<RegisteredHandler>> listenersByType = new ConcurrentHashMap<>();
 
+    private final List<Consumer<Event>> globalListeners = new CopyOnWriteArrayList<>();
+
+    public void subscribe(Consumer<Event> listener) { globalListeners.add(listener); }
+
+    private static final AtomicLong HANDLER_ID_COUNTER = new AtomicLong();
+
     /**
      * Registers a handler method for a given event type.
      * Typically called by {@link EventListenerLoader} at boot.
@@ -26,15 +35,17 @@ public final class EventBus
      * @param eventType        Event class this handler listens to
      * @param listenerInstance Listener instance owning the handler method
      * @param method           Handler method to invoke
+     * @return
      */
-    public void register(Class<? extends Event> eventType, Object listenerInstance, Method method, int priority)
+    public long register(Class<? extends Event> eventType, Object listenerInstance, Method method, int priority)
     {
         Objects.requireNonNull(eventType,        "eventType must not be null");
         Objects.requireNonNull(listenerInstance, "listenerInstance must not be null");
         Objects.requireNonNull(method,           "method must not be null");
 
         method.setAccessible(true);
-        RegisteredHandler handler = new RegisteredHandler(listenerInstance, method, priority);
+        long handlerId = HANDLER_ID_COUNTER.incrementAndGet();
+        RegisteredHandler handler = new RegisteredHandler(handlerId, listenerInstance, method, priority);
 
         listenersByType.compute(eventType, (k, existing) ->
         {
@@ -42,6 +53,28 @@ public final class EventBus
             updated.add(handler);
             updated.sort(Comparator.comparingInt((RegisteredHandler h) -> h.priority).reversed());
             return Collections.unmodifiableList(updated);
+        });
+        return handlerId;
+    }
+
+    /**
+     * Unregisters a previously registered handler.
+     *
+     * @param eventType Event type the handler was registered for
+     * @param handlerId Handler ID returned by {@link #register}
+     */
+    public void unregister(Class<? extends Event> eventType, long handlerId)
+    {
+        Objects.requireNonNull(eventType, "eventType must not be null");
+
+        listenersByType.compute(eventType, (k, existing) ->
+        {
+            if (existing == null) return null;
+
+            List<RegisteredHandler> updated = new ArrayList<>(existing);
+            updated.removeIf(h -> h.handlerId == handlerId);
+
+            return updated.isEmpty() ? null : Collections.unmodifiableList(updated);
         });
     }
 
@@ -56,10 +89,27 @@ public final class EventBus
         Objects.requireNonNull(event, "event must not be null");
 
         List<RegisteredHandler> handlers = listenersByType.get(event.getClass());
-        if (handlers == null || handlers.isEmpty()) return;
+        if (handlers == null || handlers.isEmpty())
+        {
+            if (event instanceof Cancellable) return;
+            for (Consumer<Event> g : globalListeners) {
+                try { g.accept(event); }
+                catch (Throwable t) { logger.error("Global listener threw", t); }
+            }
+            return;
+        }
 
-        for (RegisteredHandler h : handlers) {
+        for (RegisteredHandler h : handlers)
+        {
             invokeSafely(h, event);
+            if (event instanceof Cancellable && ((Cancellable) event).isCancelled()) {
+                return;
+            }
+        }
+
+        for (Consumer<Event> g : globalListeners) {
+            try { g.accept(event); }
+            catch (Throwable t) { logger.error("Global listener threw", t); }
         }
     }
 
@@ -96,12 +146,14 @@ public final class EventBus
      */
     private static final class RegisteredHandler
     {
+        final long handlerId;
         final Object instance;
         final Method method;
         final int priority;
 
-        RegisteredHandler(Object instance, Method method, int priority)
+        RegisteredHandler(long handlerId, Object instance, Method method, int priority)
         {
+            this.handlerId = handlerId;
             this.instance = instance;
             this.method   = method;
             this.priority = priority;
