@@ -241,4 +241,118 @@ class ContainerTest
 
         assertNotNull(external.getRepo());
     }
+
+    // ──────────────────────────────────────────────
+    // instantiate() fixtures
+    // ──────────────────────────────────────────────
+
+    static class PlainNoArg {
+        public String hello() { return "plain"; }
+    }
+
+    static class PlainWithFieldInject {
+        @Inject
+        private SimpleRepository repo;
+        public SimpleRepository getRepo() { return repo; }
+    }
+
+    static class PlainWithConstructorDep {
+        private final SimpleRepository repo;
+        public PlainWithConstructorDep(SimpleRepository repo) { this.repo = repo; }
+        public SimpleRepository getRepo() { return repo; }
+    }
+
+    static class ThrowingNoArg {
+        public ThrowingNoArg() {
+            throw new IllegalStateException("boom in no-arg");
+        }
+    }
+
+    static class MultiCtorNoInjectNoNoArg {
+        public MultiCtorNoInjectNoNoArg(String s) {}
+        public MultiCtorNoInjectNoNoArg(int i) {}
+    }
+
+    static class MultiCtorWithInjectNoNoArg {
+        private final SimpleRepository repo;
+        public MultiCtorWithInjectNoNoArg(String s) { this.repo = null; }
+        @Inject
+        public MultiCtorWithInjectNoNoArg(SimpleRepository repo) { this.repo = repo; }
+        public SimpleRepository getRepo() { return repo; }
+    }
+
+    // ──────────────────────────────────────────────
+    // instantiate() tests
+    // ──────────────────────────────────────────────
+
+    @Test
+    void instantiate_noArgClass() {
+        PlainNoArg instance = Container.instantiate(PlainNoArg.class, PlainNoArg.class);
+
+        assertNotNull(instance);
+        assertEquals("plain", instance.hello());
+    }
+
+    @Test
+    void instantiate_noArgClass_runsFieldInjection() {
+        PlainWithFieldInject instance = Container.instantiate(PlainWithFieldInject.class, PlainWithFieldInject.class);
+
+        assertNotNull(instance);
+        assertNotNull(instance.getRepo());
+    }
+
+    @Test
+    void instantiate_noNoArg_resolvesSingleConstructor() {
+        PlainWithConstructorDep instance = Container.instantiate(PlainWithConstructorDep.class, PlainWithConstructorDep.class);
+
+        assertNotNull(instance);
+        assertNotNull(instance.getRepo());
+    }
+
+    @Test
+    void instantiate_noNoArg_resolvesInjectAnnotatedConstructor() {
+        MultiCtorWithInjectNoNoArg instance = Container.instantiate(MultiCtorWithInjectNoNoArg.class, MultiCtorWithInjectNoNoArg.class);
+
+        assertNotNull(instance);
+        assertNotNull(instance.getRepo());
+    }
+
+    @Test
+    void instantiate_noArgThatThrows_doesNotSilentlyFallback() {
+        // The no-arg constructor exists but throws. The previous (buggy) implementation
+        // caught the exception and silently tried a parameterised constructor instead.
+        // We now expect the failure to surface as a wrapped RuntimeException.
+        RuntimeException ex = assertThrows(
+                RuntimeException.class,
+                () -> Container.instantiate(ThrowingNoArg.class, ThrowingNoArg.class)
+        );
+        assertTrue(ex.getMessage().contains("ThrowingNoArg"));
+        assertTrue(ex.getMessage().contains("no-arg"));
+    }
+
+    @Test
+    void instantiate_multipleConstructorsNoInject_throws() {
+        // No no-arg available, multiple constructors, none annotated with @Inject.
+        // selectConstructor should refuse to pick one arbitrarily.
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> Container.instantiate(MultiCtorNoInjectNoNoArg.class, MultiCtorNoInjectNoNoArg.class)
+        );
+        assertTrue(ex.getMessage().contains("constructors"));
+    }
+
+    @Test
+    void instantiate_doesNotRegisterAsSingleton() {
+        PlainNoArg first  = Container.instantiate(PlainNoArg.class, PlainNoArg.class);
+        PlainNoArg second = Container.instantiate(PlainNoArg.class, PlainNoArg.class);
+
+        assertNotSame(first, second);
+    }
+
+    @Test
+    void instantiate_worksOnUnannotatedClass() {
+        // Unlike resolve(), instantiate() doesn't require @Service / @Repository.
+        // PlainNoArg has neither annotation; instantiate should still work.
+        assertDoesNotThrow(() -> Container.instantiate(PlainNoArg.class, PlainNoArg.class));
+    }
 }
