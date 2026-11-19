@@ -79,8 +79,14 @@ public final class EventBus
     }
 
     /**
-     * Dispatches an event to every handler registered for its exact type.
+     * Dispatches an event to every handler registered for its exact type,
+     * then to the global listeners.
      * A handler that throws is logged and skipped — other handlers still run.
+     * If the event is {@link Cancellable} and a handler cancels it, dispatch stops
+     * immediately: remaining handlers AND global listeners are skipped.
+     * Global listeners only ever see events that went through the full chain.
+     *
+     * If no handler is registered for the event, a {@link DeadEvent} wrapping it is dispatched first.
      *
      * @param event Event instance to dispatch
      */
@@ -89,22 +95,21 @@ public final class EventBus
         Objects.requireNonNull(event, "event must not be null");
 
         List<RegisteredHandler> handlers = listenersByType.get(event.getClass());
-        if (handlers == null || handlers.isEmpty())
+
+        if (handlers != null && !handlers.isEmpty())
         {
-            if (event instanceof Cancellable) return;
-            for (Consumer<Event> g : globalListeners) {
-                try { g.accept(event); }
-                catch (Throwable t) { logger.error("Global listener threw", t); }
+            for (RegisteredHandler h : handlers)
+            {
+                invokeSafely(h, event);
+                if (event instanceof Cancellable && ((Cancellable) event).isCancelled()) {
+                    return;
+                }
             }
-            return;
         }
 
-        for (RegisteredHandler h : handlers)
+        else if (!(event instanceof DeadEvent))
         {
-            invokeSafely(h, event);
-            if (event instanceof Cancellable && ((Cancellable) event).isCancelled()) {
-                return;
-            }
+            dispatch(new DeadEvent(event));
         }
 
         for (Consumer<Event> g : globalListeners) {
