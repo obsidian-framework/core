@@ -334,6 +334,100 @@ class EventBusTest
         assertTrue(globalEvents.isEmpty());
     }
 
+    // ===== DEAD EVENT TESTS =====
+
+    @Listener
+    static class DeadListener
+    {
+        final List<DeadEvent> received = new ArrayList<>();
+
+        @On(DeadEvent.class)
+        public void handle(DeadEvent event)
+        {
+            received.add(event);
+        }
+    }
+
+    @Test
+    void dispatch_withNoHandler_dispatchesDeadEvent()
+    {
+        DeadListener dead = new DeadListener();
+        EventListenerLoader.registerListeners(bus, List.of(dead));
+
+        OtherEvent orphan = new OtherEvent();
+        bus.dispatch(orphan);
+
+        assertEquals(1, dead.received.size());
+        assertSame(orphan, dead.received.get(0).getEvent());
+    }
+
+    @Test
+    void dispatch_withHandler_doesNotDispatchDeadEvent()
+    {
+        DeadListener dead = new DeadListener();
+        RecordingListener listener = new RecordingListener();
+        EventListenerLoader.registerListeners(bus, List.of(dead, listener));
+
+        bus.dispatch(new HelloEvent("handled"));
+
+        assertEquals(1, listener.received.size());
+        assertTrue(dead.received.isEmpty());
+    }
+
+    @Test
+    void dispatch_cancellableWithNoHandler_dispatchesDeadEvent()
+    {
+        DeadListener dead = new DeadListener();
+        EventListenerLoader.registerListeners(bus, List.of(dead));
+
+        CancellableHelloEvent orphan = new CancellableHelloEvent("orphan");
+        bus.dispatch(orphan);
+
+        assertEquals(1, dead.received.size());
+        assertSame(orphan, dead.received.get(0).getEvent());
+    }
+
+    @Test
+    void dispatch_deadEventWithNoHandler_isNotRedispatched()
+    {
+        List<Event> globalEvents = new ArrayList<>();
+        bus.subscribe(globalEvents::add);
+
+        DeadEvent dead = new DeadEvent(new OtherEvent());
+        assertDoesNotThrow(() -> bus.dispatch(dead));
+
+        // No loop: the global listener sees it exactly once
+        assertEquals(1, globalEvents.size());
+        assertSame(dead, globalEvents.get(0));
+    }
+
+    @Test
+    void dispatch_withNoHandler_globalListenersReceiveDeadEventThenOriginal()
+    {
+        List<Event> globalEvents = new ArrayList<>();
+        bus.subscribe(globalEvents::add);
+
+        OtherEvent orphan = new OtherEvent();
+        bus.dispatch(orphan);
+
+        assertEquals(2, globalEvents.size());
+        assertTrue(globalEvents.get(0) instanceof DeadEvent);
+        assertSame(orphan, ((DeadEvent) globalEvents.get(0)).getEvent());
+        assertSame(orphan, globalEvents.get(1));
+    }
+
+    static class ParentEvent implements Event {}
+    static class ChildEvent extends ParentEvent {}
+
+    @Listener
+    static class ParentListener
+    {
+        final List<ParentEvent> received = new ArrayList<>();
+
+        @On(ParentEvent.class)
+        public void handle(ParentEvent event) { received.add(event); }
+    }
+
     // ===== HELPER =====
 
     private static Method getMethod(Object obj, String methodName) {

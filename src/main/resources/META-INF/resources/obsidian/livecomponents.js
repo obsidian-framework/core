@@ -350,12 +350,19 @@ class ObsidianComponents {
                 [customParams.value] :
                 parsed.params;
 
+            const currentCsrfToken = this.getCsrfToken() || this.csrfToken;
+            this.csrfToken = currentCsrfToken;
+
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            if (currentCsrfToken) {
+                headers['X-CSRF-TOKEN'] = currentCsrfToken;
+            }
+
             const response = await fetch('/obsidian/components', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': this.csrfToken
-                },
+                headers: headers,
                 body: JSON.stringify({
                     componentId: componentId,
                     action: customParams.field ? `updateField_${customParams.field}` : parsed.name,
